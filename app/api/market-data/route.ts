@@ -2,7 +2,7 @@
 // Combines multiple data sources with fallback mechanism
 
 import { NextResponse } from "next/server";
-import { fetchAShareWithFallback, fetchAIndex } from "@/lib/api/eastmoney-api";
+import { fetchAShareWithFallback } from "@/lib/api/eastmoney-api";
 import { fetchFredWithFallback, FRED_SERIES, buildFredMacroSummary } from "@/lib/api/fred-api";
 
 // Global market snapshot

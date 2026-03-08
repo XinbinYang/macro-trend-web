@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -10,7 +10,7 @@ import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 interface DataSourceStatus {
   name: string;
   status: "loading" | "success" | "error" | "mock";
-  data?: any;
+  data?: unknown;
   error?: string;
 }
 
@@ -170,7 +170,7 @@ export default function DataTestPage() {
             <p><strong>✅ 真实数据</strong> - 成功从API获取实时数据</p>
             <p><strong>⚠️ 模拟数据</strong> - API调用失败，使用本地模拟数据兜底</p>
             <p><strong>❌ 错误</strong> - 发生异常，需要检查配置</p>
-            <p className="mt-4">如果所有数据源都显示"模拟数据"，请检查：</p>
+            <p className="mt-4">如果所有数据源都显示&quot;模拟数据&quot;，请检查：</p>
             <ul className="list-disc list-inside ml-4 space-y-1">
               <li>FRED_API_KEY 是否正确配置在 .env.local 中</li>
               <li>网络连接是否正常</li>

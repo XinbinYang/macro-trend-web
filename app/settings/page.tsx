@@ -42,7 +42,7 @@ export default function SettingsPage() {
               <Label>主题模式</Label>
               <p className="text-sm text-muted-foreground">选择您喜欢的界面主题</p>
             </div>
-            <Select value={theme} onValueChange={setTheme}>
+            <Select value={theme} onValueChange={(value) => value && setTheme(value)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="选择主题" />
               </SelectTrigger>
@@ -131,7 +131,7 @@ export default function SettingsPage() {
               <Label>风险偏好</Label>
               <p className="text-sm text-muted-foreground">影响组合配置建议</p>
             </div>
-            <Select value={riskProfile} onValueChange={setRiskProfile}>
+            <Select value={riskProfile} onValueChange={(value) => value && setRiskProfile(value)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="选择风险偏好" />
               </SelectTrigger>
@@ -148,7 +148,7 @@ export default function SettingsPage() {
               <Label>数据刷新频率</Label>
               <p className="text-sm text-muted-foreground">自动刷新市场数据的间隔</p>
             </div>
-            <Select value={refreshInterval} onValueChange={setRefreshInterval}>
+            <Select value={refreshInterval} onValueChange={(value) => value && setRefreshInterval(value)}>
               <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="选择刷新频率" />
               </SelectTrigger>

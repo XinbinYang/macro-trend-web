@@ -27,6 +27,7 @@ async function syncUser(userInfo: {
     email: (userInfo.email ?? null) as string,
     loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
     lastSignedIn,
+    role: "user",
   });
   const saved = await getUserByOpenId(userInfo.openId);
   return (
@@ -51,13 +52,14 @@ function buildUserResponse(
         lastSignedIn?: Date | null;
       },
 ) {
+  const u = user as Record<string, any>;
   return {
-    id: (user as any)?.id ?? null,
-    openId: user?.openId ?? null,
-    name: user?.name ?? null,
-    email: user?.email ?? null,
-    loginMethod: user?.loginMethod ?? null,
-    lastSignedIn: (user?.lastSignedIn ?? new Date()).toISOString(),
+    id: u?.id ?? null,
+    openId: u?.openId ?? null,
+    name: u?.name ?? null,
+    email: u?.email ?? null,
+    loginMethod: u?.loginMethod ?? null,
+    lastSignedIn: (u?.lastSignedIn ?? new Date()).toISOString(),
   };
 }
 

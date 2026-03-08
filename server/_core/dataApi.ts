@@ -17,11 +17,10 @@ export async function callDataApi(
   apiId: string,
   options: DataApiCallOptions = {},
 ): Promise<unknown> {
-  if (!ENV.forgeApiUrl) {
-    throw new Error("BUILT_IN_FORGE_API_URL is not configured");
-  }
-  if (!ENV.forgeApiKey) {
-    throw new Error("BUILT_IN_FORGE_API_KEY is not configured");
+  // Check if Forge API is configured
+  if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
+    console.warn(`[DataApi] Forge API not configured, returning mock data for ${apiId}`);
+    return getMockData(apiId);
   }
 
   // Build the full URL by appending the service path to the base URL
@@ -61,4 +60,37 @@ export async function callDataApi(
     }
   }
   return payload;
+}
+
+// Mock data for when Forge API is not configured
+function getMockData(apiId: string): unknown {
+  // Yahoo Finance mock data
+  if (apiId.includes("YahooFinance")) {
+    return {
+      chart: {
+        result: [{
+          meta: {
+            regularMarketPrice: 150.0,
+            previousClose: 148.5,
+            currency: "USD",
+            symbol: "MOCK",
+          },
+          timestamp: [Date.now() / 1000],
+          indicators: {
+            quote: [{
+              open: [148.5],
+              high: [151.0],
+              low: [147.0],
+              close: [150.0],
+              volume: [1000000],
+            }],
+          },
+        }],
+        error: null,
+      },
+    };
+  }
+  
+  // Default mock
+  return { mock: true, apiId };
 }

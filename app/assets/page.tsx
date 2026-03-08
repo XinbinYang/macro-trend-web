@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, TrendingDown, Minus, ArrowRight } from "lucide-react";
@@ -73,8 +72,8 @@ const strengthLabels = {
 };
 
 export default function AssetsPage() {
-  const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("cn_stocks");
+  const isLoading = false;
 
   return (
     <div className="space-y-6">

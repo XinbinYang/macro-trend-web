@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Compare } from "lucide-react";
+import { BarChart3 } from "lucide-react";
 
 // 模拟历史数据
 const generateMockData = () => {
@@ -48,7 +48,7 @@ const assetOptions = [
 ];
 
 export default function ComparePage() {
-  const [isLoading, setIsLoading] = useState(false);
+  const isLoading = false;
   const [selectedAssets, setSelectedAssets] = useState(["SPY", "QQQ", "ASHR", "Gold"]);
   const [timeRange, setTimeRange] = useState("90d");
 
@@ -72,7 +72,7 @@ export default function ComparePage() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Compare className="h-5 w-5" />
+            <BarChart3 className="h-5 w-5" />
             选择对比标的
           </CardTitle>
           <CardDescription>最多选择4个资产进行对比（已选择 {selectedAssets.length}/4）</CardDescription>
@@ -99,7 +99,7 @@ export default function ComparePage() {
           <div className="mt-4 flex gap-4">
             <div>
               <label className="text-sm font-medium mb-2 block">时间范围</label>
-              <Select value={timeRange} onValueChange={setTimeRange}>
+              <Select value={timeRange} onValueChange={(value) => value && setTimeRange(value)}>
                 <SelectTrigger className="w-[180px]">
                   <SelectValue placeholder="选择时间范围" />
                 </SelectTrigger>
@@ -139,7 +139,7 @@ export default function ComparePage() {
                     domain={['auto', 'auto']}
                   />
                   <Tooltip 
-                    formatter={(value: number) => [`${value}%`, '涨跌幅']}
+                    formatter={(value) => [`${value}%`, '涨跌幅']}
                     labelFormatter={(label) => label}
                   />
                   <Legend />
@@ -227,12 +227,12 @@ export default function ComparePage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {selectedAssets.map((rowAsset, rowIndex) => (
+                  {selectedAssets.map((rowAsset) => (
                     <tr key={rowAsset}>
                       <td className="p-2 font-medium">
                         {assetOptions.find(a => a.value === rowAsset)?.label}
                       </td>
-                      {selectedAssets.map((colAsset, colIndex) => {
+                      {selectedAssets.map((colAsset) => {
                         // 模拟相关性数据
                         let correlation = 1;
                         if (rowAsset !== colAsset) {
