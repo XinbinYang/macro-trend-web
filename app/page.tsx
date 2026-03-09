@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Globe, BarChart3, Zap, ArrowUpRight, ArrowDownRight, Sparkles, Scale } from "lucide-react";
+import { RefreshCw, Globe, BarChart3, Zap, ArrowUpRight, ArrowDownRight, Sparkles, Scale, CandlestickChart, LayoutGrid, Gauge } from "lucide-react";
 import { 
   XAxis, 
   YAxis, 
@@ -16,6 +16,9 @@ import {
   AreaChart,
   Area
 } from "recharts";
+import { TradingViewChart } from "@/components/trading-view-chart";
+import { SectorHeatmap } from "@/components/sector-heatmap";
+import { MacroDashboard } from "@/components/macro-gauge";
 
 interface MarketQuote {
   symbol: string;
@@ -38,7 +41,11 @@ interface MarketData {
 
 interface HistoricalPoint {
   date: string;
-  price: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
 }
 
 // 主要指数配置
@@ -121,6 +128,22 @@ export default function DashboardPage() {
     if (!marketData) return null;
     return [...marketData.indices, ...marketData.assets].find(q => q.symbol === symbol);
   };
+
+  // 板块热力图数据
+  const sectorData = marketData ? [
+    { name: "美股大盘", symbol: "SPY", change: getQuote("SPY")?.changePercent || 0 },
+    { name: "科技股", symbol: "QQQ", change: getQuote("QQQ")?.changePercent || 0 },
+    { name: "A股", symbol: "ASHR", change: getQuote("ASHR")?.changePercent || 0 },
+    { name: "港股", symbol: "EWH", change: getQuote("EWH")?.changePercent || 0 },
+    { name: "黄金", symbol: "GLD", change: getQuote("GLD")?.changePercent || 0 },
+    { name: "原油", symbol: "CL=F", change: getQuote("CL=F")?.changePercent || 0 },
+    { name: "美债", symbol: "TLT", change: getQuote("TLT")?.changePercent || 0 },
+    { name: "新兴市场", symbol: "EEM", change: getQuote("EEM")?.changePercent || 0 },
+    { name: "中概互联", symbol: "KWEB", change: getQuote("KWEB")?.changePercent || 0 },
+    { name: "罗素2000", symbol: "IWM", change: getQuote("IWM")?.changePercent || 0 },
+    { name: "美元", symbol: "UUP", change: 0.5 },
+    { name: "比特币", symbol: "BTC", change: 2.3 },
+  ] : [];
 
   return (
     <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
@@ -357,6 +380,89 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* 新增：宏观指标仪表盘 */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
+            <Gauge className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
+            宏观指标监控
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <MacroDashboard />
+        </CardContent>
+      </Card>
+
+      {/* 新增：板块热力图 */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
+            <LayoutGrid className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
+            全球市场热力图
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="h-40 flex items-center justify-center">
+              <Skeleton className="h-full w-full bg-slate-800" />
+            </div>
+          ) : (
+            <SectorHeatmap data={sectorData} />
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 新增：K线图表 */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader className="pb-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
+              <CandlestickChart className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
+              {getQuote(selectedSymbol)?.name || selectedSymbol} - K线走势
+            </CardTitle>
+            <div className="flex gap-1">
+              {["SPY", "QQQ", "ASHR", "GLD"].map(sym => (
+                <Button
+                  key={sym}
+                  variant={selectedSymbol === sym ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setSelectedSymbol(sym)}
+                  className={`text-xs h-7 px-2 ${
+                    selectedSymbol === sym 
+                      ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-500' 
+                      : 'border-slate-700 text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  {sym}
+                </Button>
+              ))}
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-[300px] md:h-[400px] w-full bg-slate-800" />
+          ) : chartData.length === 0 ? (
+            <div className="h-[300px] md:h-[400px] flex items-center justify-center text-slate-500">
+              暂无数据
+            </div>
+          ) : (
+            <TradingViewChart 
+              data={chartData.map(d => ({
+                time: d.date,
+                open: d.open || d.close,
+                high: d.high || d.close,
+                low: d.low || d.close,
+                close: d.close,
+                volume: d.volume,
+              }))} 
+              symbol={selectedSymbol}
+              height={400}
+            />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
