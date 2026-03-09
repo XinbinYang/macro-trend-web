@@ -276,6 +276,10 @@ class SDKServer {
 
     await db.upsertUser({
       openId: user.openId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      loginMethod: user.loginMethod,
       lastSignedIn: signedInAt,
     });
 
