@@ -77,12 +77,12 @@ export default function RootLayout({
             </header>
             
             {/* Main Content */}
-            <main className="flex-1 container py-4 md:py-6 lg:py-8 px-4 md:px-6">
+            <main className="flex-1 container py-4 md:py-6 lg:py-8 px-4 md:px-6 min-h-0">
               {children}
             </main>
             
             {/* Mobile Bottom Navigation */}
-            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur border-t border-slate-800 safe-area-pb">
+            <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-slate-950/95 backdrop-blur border-t border-slate-800" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
               <div className="flex items-center justify-around h-14">
                 {[
                   { href: "/", label: "首页", icon: "🏠" },
@@ -90,9 +90,9 @@ export default function RootLayout({
                   { href: "/reports", label: "报告", icon: "📑" },
                   { href: "/academy", label: "学院", icon: "🎓" },
                   { href: "/portfolio", label: "组合", icon: "💼" },
-                ].map((item) => (
+                ].map((item, index) => (
                   <a
-                    key={item.href}
+                    key={`nav-${index}-${item.href}`}
                     href={item.href}
                     className="flex flex-col items-center justify-center gap-0.5 py-2 px-3 text-xs text-slate-400 hover:text-amber-400 transition-colors"
                   >
@@ -104,30 +104,25 @@ export default function RootLayout({
             </nav>
             
             {/* Footer */}
-            <footer className="border-t border-slate-800 bg-slate-950 pb-16 md:pb-0">
-              <div className="container py-6 md:py-8 px-4 md:px-6">
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
-                      <span className="text-slate-950 font-bold text-xs">AI</span>
+            <footer className="border-t border-slate-800 bg-slate-950 pb-20 md:pb-6">
+              <div className="container py-4 md:py-6 px-4 md:px-6">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center">
+                      <span className="text-slate-950 font-bold text-[10px]">AI</span>
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-sm font-serif font-bold text-slate-50">宏观作手</span>
-                      <span className="text-[10px] text-slate-500">Global Macro Intelligence</span>
-                    </div>
+                    <span className="text-xs font-serif font-bold text-slate-50">宏观作手</span>
                   </div>
-                  <p className="text-center text-xs text-slate-500">
+                  <p className="text-center text-[10px] text-slate-500">
                     © 2026 AI宏观作手 · 仅供参考，不构成投资建议
                   </p>
-                  <div className="flex items-center gap-3 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-[10px] text-slate-500">
                     <span className="flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                      实时数据
+                      <span className="w-1 h-1 bg-green-500 rounded-full"></span>
+                      实时
                     </span>
                     <span>·</span>
                     <span>DeepSeek</span>
-                    <span>·</span>
-                    <span>GPT-5.4</span>
                   </div>
                 </div>
               </div>
