@@ -6,7 +6,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Download, Calendar, TrendingUp, AlertTriangle, Lightbulb, Sparkles } from "lucide-react";
+import { FileText, Download, Calendar, TrendingUp, AlertTriangle, Lightbulb, Sparkles, Trash2, Eye } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface Report {
   id: string;
@@ -88,9 +100,19 @@ export default function ReportsPage() {
     }
   };
 
+  const [reports, setReports] = useState<Report[]>(historicalReports);
+
   const displayReports = generatedReport 
-    ? [generatedReport, ...historicalReports.filter(r => r.type === activeTab)]
-    : historicalReports.filter(r => r.type === activeTab);
+    ? [generatedReport, ...reports.filter(r => r.type === activeTab)]
+    : reports.filter(r => r.type === activeTab);
+
+  const handleDeleteReport = (reportId: string) => {
+    setReports(prev => prev.filter(r => r.id !== reportId));
+    // 也从 localStorage 删除（如果是AI生成的）
+    if (typeof window !== "undefined") {
+      localStorage.removeItem(`report_${reportId}`);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -137,7 +159,7 @@ export default function ReportsPage() {
                 <Card key={report.id} className={`hover:shadow-md transition-shadow ${index === 0 && generatedReport ? 'border-primary' : ''}`}>
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                      <div className="flex-1 cursor-pointer" onClick={() => window.location.href = `/reports/${report.id}`}>
                         <div className="flex items-center gap-2 mb-2">
                           <Badge variant="outline" className="text-xs">
                             <Calendar className="mr-1 h-3 w-3" />
@@ -157,12 +179,37 @@ export default function ReportsPage() {
                             </Badge>
                           )}
                         </div>
-                        <CardTitle className="text-lg">{report.title}</CardTitle>
+                        <CardTitle className="text-lg hover:text-primary transition-colors">{report.title}</CardTitle>
                         <CardDescription className="mt-2">{report.coreThesis}</CardDescription>
                       </div>
-                      <Button variant="ghost" size="icon">
-                        <Download className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Link href={`/reports/${report.id}`}>
+                          <Button variant="ghost" size="icon">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>确认删除</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                确定要删除报告「{report.title}」吗？此操作无法撤销。
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>取消</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteReport(report.id)} className="bg-destructive">
+                                删除
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -173,11 +220,6 @@ export default function ReportsPage() {
                         </Badge>
                       ))}
                     </div>
-                    {report.content && (
-                      <div className="mt-4 p-4 bg-muted/50 rounded-lg text-sm whitespace-pre-line">
-                        {report.content}
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               ))
