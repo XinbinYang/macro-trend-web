@@ -90,6 +90,8 @@ export default function RootLayout({
                   { href: "/compare", label: "对比", icon: "⚖️" },
                   { href: "/reports", label: "报告", icon: "📑" },
                   { href: "/academy", label: "学院", icon: "🎓" },
+                  { href: "/news", label: "资讯", icon: "📰" },
+                  { href: "/portfolio", label: "组合", icon: "💼" },
                 ].map((item) => (
                   <a
                     key={item.href}

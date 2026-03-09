@@ -1,265 +1,315 @@
 "use client";
 
-import { useState } from "react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from "recharts";
-import { TrendingUp, TrendingDown, Minus, RefreshCw, Download } from "lucide-react";
-import { SignalBadge, MetricCard } from "@/components/terminal-cards";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { 
+  Plus,
+  Trash2,
+  User,
+  LogOut
+} from "lucide-react";
+import {
+  PieChart as RePieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Tooltip,
+  Legend
+} from "recharts";
 
-// 组合配置数据
-const portfolioAllocation = [
-  { name: "中国股票", value: 15, color: "#00BCD4", signal: "bearish" as const },
-  { name: "中国债券", value: 20, color: "#00C853", signal: "bullish" as const },
-  { name: "美国股票", value: 25, color: "#2196F3", signal: "bullish" as const },
-  { name: "美国债券", value: 15, color: "#9C27B0", signal: "neutral" as const },
-  { name: "黄金", value: 20, color: "#FFD700", signal: "bullish" as const },
-  { name: "大宗商品", value: 5, color: "#FF9800", signal: "bearish" as const },
-];
+interface PortfolioItem {
+  id: string;
+  symbol: string;
+  name: string;
+  shares: number;
+  costPrice: number;
+  currentPrice: number;
+}
 
-// 组合绩效指标
-const performanceMetrics = [
-  { label: "预期年化收益", value: "18.5", unit: "%", trend: "up" as const, delta: "+2.1%" },
-  { label: "年化波动率", value: "12.3", unit: "%", trend: "down" as const, delta: "-0.8%" },
-  { label: "夏普比率", value: "1.42", unit: "", trend: "up" as const, delta: "+0.15" },
-  { label: "最大回撤", value: "-15", unit: "%", trend: "up" as const, delta: "+3%" },
-];
+interface User {
+  name: string;
+  email: string;
+  isLoggedIn: boolean;
+}
 
-// 持仓明细
-const holdings = [
-  { symbol: "GC=F", name: "黄金期货", allocation: 20, price: 2865.40, changePercent: 1.25, pnl: 12.5 },
-  { symbol: "QQQ", name: "纳斯达克100", allocation: 15, price: 512.45, changePercent: 1.64, pnl: 8.3 },
-  { symbol: "SPY", name: "标普500", allocation: 10, price: 595.23, changePercent: 0.85, pnl: 5.2 },
-  { symbol: "CBON", name: "中国债券", allocation: 20, price: 22.35, changePercent: 0.36, pnl: 3.1 },
-  { symbol: "TLT", name: "美债20年", allocation: 15, price: 89.45, changePercent: 0.12, pnl: 1.8 },
-];
-
-// 回测数据
-const backtestData = {
-  ytd: "+8.45%",
-  oneYear: "+18.32%",
-  threeYear: "+42.15%",
-  sinceInception: "+125.6%",
-};
+const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
 export default function PortfolioPage() {
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
+  const [user, setUser] = useState<User | null>(null);
+  const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [newItem, setNewItem] = useState({ symbol: "", shares: "", costPrice: "" });
 
-  const handleRebalance = () => {
-    setIsLoading(true);
-    setTimeout(() => setIsLoading(false), 1500);
+  useEffect(() => {
+    const userData = localStorage.getItem("user");
+    if (!userData) {
+      router.push("/login");
+      return;
+    }
+    setUser(JSON.parse(userData));
+
+    // 加载投资组合
+    const savedPortfolio = localStorage.getItem("portfolio");
+    if (savedPortfolio) {
+      setPortfolio(JSON.parse(savedPortfolio));
+    } else {
+      // 默认示例数据
+      const defaultPortfolio = [
+        { id: "1", symbol: "SPY", name: "标普500 ETF", shares: 100, costPrice: 450, currentPrice: 580 },
+        { id: "2", symbol: "QQQ", name: "纳斯达克100 ETF", shares: 50, costPrice: 380, currentPrice: 490 },
+        { id: "3", symbol: "GLD", name: "黄金ETF", shares: 80, costPrice: 180, currentPrice: 220 },
+      ];
+      setPortfolio(defaultPortfolio);
+      localStorage.setItem("portfolio", JSON.stringify(defaultPortfolio));
+    }
+  }, [router]);
+
+  const handleLogout = () => {
+    localStorage.removeItem("user");
+    router.push("/");
   };
 
+  const addPosition = () => {
+    if (!newItem.symbol || !newItem.shares || !newItem.costPrice) return;
+    
+    const item: PortfolioItem = {
+      id: Date.now().toString(),
+      symbol: newItem.symbol.toUpperCase(),
+      name: newItem.symbol.toUpperCase(),
+      shares: parseFloat(newItem.shares),
+      costPrice: parseFloat(newItem.costPrice),
+      currentPrice: parseFloat(newItem.costPrice) * (1 + (Math.random() - 0.3) * 0.2),
+    };
+    
+    const updated = [...portfolio, item];
+    setPortfolio(updated);
+    localStorage.setItem("portfolio", JSON.stringify(updated));
+    setNewItem({ symbol: "", shares: "", costPrice: "" });
+  };
+
+  const removePosition = (id: string) => {
+    const updated = portfolio.filter(p => p.id !== id);
+    setPortfolio(updated);
+    localStorage.setItem("portfolio", JSON.stringify(updated));
+  };
+
+  // 计算统计数据
+  const totalCost = portfolio.reduce((sum, p) => sum + p.shares * p.costPrice, 0);
+  const totalValue = portfolio.reduce((sum, p) => sum + p.shares * p.currentPrice, 0);
+  const totalGain = totalValue - totalCost;
+  const totalGainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
+
+  // 资产配置数据
+  const allocationData = portfolio.map(p => ({
+    name: p.symbol,
+    value: p.shares * p.currentPrice,
+  }));
+
+  if (!user) return null;
+
   return (
-    <div className="space-y-4">
-      {/* 页面标题栏 */}
-      <div className="flex items-center justify-between pb-2 border-b border-terminal-border">
+    <div className="space-y-6 pb-20 md:pb-0">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-text-primary">组合分析</h1>
-          <p className="text-xs text-text-muted">风险平价组合实时监控与绩效分析</p>
+          <h1 className="text-xl md:text-2xl font-serif font-bold text-slate-50">
+            我的投资组合
+          </h1>
+          <p className="text-sm text-slate-500">跟踪您的资产配置与收益</p>
         </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-1.5 px-3 py-1.5 bg-terminal-bg-tertiary border border-terminal-border rounded text-xs text-text-secondary hover:text-text-primary hover:border-signal-cyan transition-colors">
-            <Download className="w-3.5 h-3.5" />
-            导出
-          </button>
-          <button 
-            onClick={handleRebalance}
-            disabled={isLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-signal-cyan/10 border border-signal-cyan/30 rounded text-xs text-signal-cyan hover:bg-signal-cyan/20 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-            {isLoading ? "计算中..." : "重新平衡"}
-          </button>
+        
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg">
+            <User className="w-4 h-4 text-slate-400" />
+            <span className="text-sm text-slate-300">{user.name}</span>
+          </div>
+          <Button variant="ghost" size="sm" onClick={handleLogout} className="text-slate-400">
+            <LogOut className="w-4 h-4" />
+          </Button>
         </div>
       </div>
 
-      {/* 绩效指标 */}
-      <div className="grid grid-cols-4 gap-3">
-        {performanceMetrics.map((metric) => (
-          <MetricCard key={metric.label} {...metric} />
-        ))}
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardContent className="p-4">
+            <div className="text-xs text-slate-500 mb-1">总资产</div>
+            <div className="text-xl font-bold text-slate-100">
+              ${totalValue.toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardContent className="p-4">
+            <div className="text-xs text-slate-500 mb-1">总收益</div>
+            <div className={`text-xl font-bold ${totalGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {totalGain >= 0 ? '+' : ''}{totalGain.toLocaleString()}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardContent className="p-4">
+            <div className="text-xs text-slate-500 mb-1">收益率</div>
+            <div className={`text-xl font-bold ${totalGainPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {totalGainPercent >= 0 ? '+' : ''}{totalGainPercent.toFixed(2)}%
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardContent className="p-4">
+            <div className="text-xs text-slate-500 mb-1">持仓数量</div>
+            <div className="text-xl font-bold text-slate-100">
+              {portfolio.length}
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* 组合配置 + 持仓明细 */}
-      <div className="grid-terminal">
-        {/* 配置饼图 */}
-        <div className="col-span-5 card-terminal">
-          <div className="card-header">资产配置</div>
-          <div className="p-4">
-            <div className="h-48">
+      <div className="grid gap-6 lg:grid-cols-3">
+        {/* 持仓列表 */}
+        <Card className="lg:col-span-2 bg-slate-900/50 border-slate-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-slate-100">持仓明细</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {portfolio.map((item) => {
+                const gain = (item.currentPrice - item.costPrice) * item.shares;
+                const gainPercent = ((item.currentPrice - item.costPrice) / item.costPrice) * 100;
+                
+                return (
+                  <div key={item.id} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-slate-800 flex items-center justify-center">
+                        <span className="text-xs font-bold text-slate-300">{item.symbol}</span>
+                      </div>
+                      <div>
+                        <div className="font-medium text-slate-200">{item.name}</div>
+                        <div className="text-xs text-slate-500">
+                          {item.shares}股 · 成本${item.costPrice}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="text-right">
+                      <div className="font-medium text-slate-200">
+                        ${(item.shares * item.currentPrice).toLocaleString()}
+                      </div>
+                      <div className={`text-xs ${gain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        {gain >= 0 ? '+' : ''}{gain.toFixed(0)} ({gainPercent >= 0 ? '+' : ''}{gainPercent.toFixed(1)}%)
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={() => removePosition(item.id)}
+                      className="p-2 text-slate-500 hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                );
+              })}
+              
+              {portfolio.length === 0 && (
+                <div className="text-center py-8 text-slate-500">
+                  暂无持仓，请添加您的第一笔投资
+                </div>
+              )}
+            </div>
+
+            {/* 添加新持仓 */}
+            <div className="mt-4 pt-4 border-t border-slate-800">
+              <div className="text-sm text-slate-400 mb-3">添加持仓</div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="代码"
+                  value={newItem.symbol}
+                  onChange={(e) => setNewItem({ ...newItem, symbol: e.target.value })}
+                  className="flex-1 px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-100"
+                />
+                <input
+                  type="number"
+                  placeholder="股数"
+                  value={newItem.shares}
+                  onChange={(e) => setNewItem({ ...newItem, shares: e.target.value })}
+                  className="w-20 px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-100"
+                />
+                <input
+                  type="number"
+                  placeholder="成本"
+                  value={newItem.costPrice}
+                  onChange={(e) => setNewItem({ ...newItem, costPrice: e.target.value })}
+                  className="w-24 px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm text-slate-100"
+                />
+                <Button onClick={addPosition} size="sm" className="bg-amber-500 text-slate-950">
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 资产配置饼图 */}
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base text-slate-100">资产配置</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="h-[250px]">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
+                <RePieChart>
                   <Pie
-                    data={portfolioAllocation}
+                    data={allocationData}
                     cx="50%"
                     cy="50%"
-                    innerRadius={40}
-                    outerRadius={70}
+                    innerRadius={60}
+                    outerRadius={80}
+                    paddingAngle={5}
                     dataKey="value"
                   >
-                    {portfolioAllocation.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />
+                    {allocationData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                     ))}
                   </Pie>
-                  <RechartsTooltip 
+                  <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: '#161B22', 
-                      border: '1px solid #30363D',
-                      borderRadius: '4px',
-                      fontSize: '12px'
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      color: '#f8fafc'
                     }}
-                    itemStyle={{ color: '#E6EDF3' }}
+                    formatter={(value) => [`$${Number(value).toLocaleString()}`, '']}
                   />
-                </PieChart>
+                  <Legend />
+                </RePieChart>
               </ResponsiveContainer>
             </div>
             
-            {/* 图例 */}
-            <div className="mt-3 space-y-1.5">
-              {portfolioAllocation.map((item) => (
-                <div key={item.name} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-sm" style={{ backgroundColor: item.color }} />
-                    <span className="text-text-secondary">{item.name}</span>
+            <div className="mt-4 space-y-2">
+              {allocationData.map((item, index) => {
+                const percent = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
+                return (
+                  <div key={item.name} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                      />
+                      <span className="text-slate-300">{item.name}</span>
+                    </div>
+                    <span className="text-slate-400">{percent.toFixed(1)}%</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-text-primary font-mono">{item.value}%</span>
-                    <SignalBadge signal={item.signal} strength="weak">
-                      {item.signal === 'bullish' ? '超配' : item.signal === 'bearish' ? '低配' : '标配'}
-                    </SignalBadge>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
-          </div>
-        </div>
-
-        {/* 持仓明细 */}
-        <div className="col-span-7 card-terminal">
-          <div className="card-header">持仓明细</div>
-          <div className="overflow-x-auto">
-            <table className="table-terminal">
-              <thead>
-                <tr>
-                  <th>代码</th>
-                  <th>名称</th>
-                  <th className="text-right">配置</th>
-                  <th className="text-right">价格</th>
-                  <th className="text-right">涨跌</th>
-                  <th className="text-right">盈亏</th>
-                </tr>
-              </thead>
-              <tbody>
-                {holdings.map((holding) => {
-                  const isUp = holding.changePercent >= 0;
-                  return (
-                    <tr key={holding.symbol}>
-                      <td>
-                        <span className="font-mono text-text-primary">{holding.symbol}</span>
-                      </td>
-                      <td className="text-text-secondary">{holding.name}</td>
-                      <td className="text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-1.5 bg-terminal-bg-tertiary rounded-full overflow-hidden">
-                            <div 
-                              className="h-full bg-signal-cyan"
-                              style={{ width: `${holding.allocation}%` }}
-                            />
-                          </div>
-                          <span className="text-text-primary font-mono">{holding.allocation}%</span>
-                        </div>
-                      </td>
-                      <td className="text-right font-mono text-text-primary">
-                        {holding.price.toFixed(2)}
-                      </td>
-                      <td className={`text-right font-mono ${isUp ? 'text-data-up' : 'text-data-down'}`}>
-                        {isUp ? '+' : ''}{holding.changePercent.toFixed(2)}%
-                      </td>
-                      <td className={`text-right font-mono ${holding.pnl >= 0 ? 'text-data-up' : 'text-data-down'}`}>
-                        {holding.pnl >= 0 ? '+' : ''}{holding.pnl.toFixed(1)}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* 回测表现 + 战术建议 */}
-      <div className="grid-terminal">
-        {/* 回测数据 */}
-        <div className="col-span-6 card-terminal">
-          <div className="card-header">回测表现</div>
-          <div className="p-3">
-            <div className="grid grid-cols-4 gap-3">
-              <div className="text-center p-3 bg-terminal-bg-tertiary rounded">
-                <div className="text-2xs text-text-muted uppercase mb-1">今年以来</div>
-                <div className="text-lg font-mono font-bold text-data-up">{backtestData.ytd}</div>
-              </div>
-              <div className="text-center p-3 bg-terminal-bg-tertiary rounded">
-                <div className="text-2xs text-text-muted uppercase mb-1">近1年</div>
-                <div className="text-lg font-mono font-bold text-data-up">{backtestData.oneYear}</div>
-              </div>
-              <div className="text-center p-3 bg-terminal-bg-tertiary rounded">
-                <div className="text-2xs text-text-muted uppercase mb-1">近3年</div>
-                <div className="text-lg font-mono font-bold text-data-up">{backtestData.threeYear}</div>
-              </div>
-              <div className="text-center p-3 bg-terminal-bg-tertiary rounded">
-                <div className="text-2xs text-text-muted uppercase mb-1">成立以来</div>
-                <div className="text-lg font-mono font-bold text-data-up">{backtestData.sinceInception}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 战术建议 */}
-        <div className="col-span-6 card-terminal">
-          <div className="card-header">战术建议</div>
-          <div className="p-3 space-y-3">
-            <div className="flex items-start gap-3 p-2 bg-terminal-bg-tertiary rounded">
-              <TrendingUp className="w-4 h-4 text-data-up mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="text-sm text-text-primary font-medium">增配黄金</div>
-                <div className="text-xs text-text-secondary">地缘风险上升，央行持续购金，目标配置 25%</div>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-2 bg-terminal-bg-tertiary rounded">
-              <TrendingDown className="w-4 h-4 text-data-down mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="text-sm text-text-primary font-medium">减配中国股票</div>
-                <div className="text-xs text-text-secondary">滞胀环境不利权益资产，目标配置降至 10%</div>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 p-2 bg-terminal-bg-tertiary rounded">
-              <Minus className="w-4 h-4 text-text-secondary mt-0.5 flex-shrink-0" />
-              <div>
-                <div className="text-sm text-text-primary font-medium">维持美债配置</div>
-                <div className="text-xs text-text-secondary">收益率处于高位，作为组合压舱石，保持 15%</div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 组合说明 */}
-      <div className="card-terminal">
-        <div className="card-header">策略说明</div>
-        <div className="p-3 text-xs text-text-secondary space-y-2">
-          <p>
-            <span className="text-text-primary font-medium">风险平价策略：</span>
-            基于Ledoit-Wolf协方差矩阵估算，使各资产类别对组合总风险的贡献相等，避免单一资产主导组合波动。
-          </p>
-          <p>
-            <span className="text-text-primary font-medium">宏观战术调整：</span>
-            根据当前宏观情景（滞胀/通胀/通缩/金发姑娘）动态调整配置权重，战术层占比30%，战略层占比70%。
-          </p>
-          <p>
-            <span className="text-text-primary font-medium">再平衡规则：</span>
-            
-            当任何资产类别权重偏离目标超过±5%时触发再平衡，或每月定期再平衡。
-          </p>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
