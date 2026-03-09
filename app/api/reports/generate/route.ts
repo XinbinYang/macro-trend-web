@@ -1,95 +1,121 @@
 import { NextResponse } from "next/server";
 
-interface MarketQuote {
-  symbol: string;
-  name: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  volume: number;
-  timestamp: string;
-  source: string;
+// 检测 IP 是否来自中国大陆
+function isChinaIP(ip: string): boolean {
+  // 简化的中国 IP 段检测（实际生产应使用 GeoIP 库）
+  // 常见中国 IP 段
+  const chinaRanges = [
+    /^1\./, /^14\./, /^27\./, /^36\./, /^39\./, /^42\./, /^43\./, /^49\./,
+    /^58\./, /^59\./, /^60\./, /^61\./, /^101\./, /^103\./, /^106\./, /^110\./,
+    /^111\./, /^112\./, /^113\./, /^114\./, /^115\./, /^116\./, /^117\./, /^118\./,
+    /^119\./, /^120\./, /^121\./, /^122\./, /^123\./, /^124\./, /^125\./, /^126\./,
+    /^139\./, /^140\./, /^144\./, /^150\./, /^153\./, /^157\./, /^159\./, /^162\./,
+    /^163\./, /^164\./, /^166\./, /^167\./, /^168\./, /^171\./, /^175\./, /^180\./,
+    /^182\./, /^183\./, /^202\./, /^203\./, /^210\./, /^211\./, /^218\./, /^219\./,
+    /^220\./, /^221\./, /^222\./, /^223\./,
+  ];
+  return chinaRanges.some(range => range.test(ip));
 }
 
-interface Report {
-  id: string;
-  title: string;
-  date: string;
-  type: string;
-  coreThesis: string;
-  scenario: string;
-  keyPoints: string[];
-  content?: string;
-}
-
-// GPT-5.4 报告生成 API
-export async function POST(request: Request) {
-  try {
-    const { type = "weekly" } = await request.json();
-
-    // 获取实时市场数据
-    const marketRes = await fetch(`${request.headers.get("origin") || "https://macro-trend-web.vercel.app"}/api/market-data-realtime`);
-    const market = await marketRes.json();
-
-    if (!market.success) {
-      return NextResponse.json({ error: "无法获取市场数据" }, { status: 500 });
-    }
-
-    // 构建提示词
-    const prompt = buildReportPrompt(type, market);
-
-    // 调用 GPT-5.4
-    const gptRes = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY || "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"}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-5.4",
-        messages: [
-          {
-            role: "system",
-            content: "你是AI宏观作手，全球宏观对冲基金首席分析师。基于实时市场数据生成专业投资报告。报告需包含：核心观点、宏观情景判断、关键驱动因素、资产配置建议。"
-          },
-          { role: "user", content: prompt }
-        ],
-        max_tokens: 4000,
-      }),
-    });
-
-    if (!gptRes.ok) {
-      throw new Error(`GPT API error: ${gptRes.status}`);
-    }
-
-    const gptData = await gptRes.json();
-    const reportContent = gptData.choices?.[0]?.message?.content;
-
-    if (!reportContent) {
-      throw new Error("Empty response from GPT");
-    }
-
-    // 解析报告内容
-    const report = parseReportContent(reportContent, type);
-
-    return NextResponse.json({
-      success: true,
-      report,
-      generatedAt: new Date().toISOString(),
-      model: "gpt-5.4",
-    });
-
-  } catch (error) {
-    console.error("[Generate Report] Error:", error);
-    return NextResponse.json(
-      { success: false, error: (error as Error).message },
-      { status: 500 }
-    );
+// 获取客户端 IP
+function getClientIP(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  const realIP = request.headers.get("x-real-ip");
+  
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
   }
+  if (realIP) {
+    return realIP;
+  }
+  
+  // 从 URL 参数获取（用于测试）
+  const url = new URL(request.url);
+  const testIP = url.searchParams.get("test_ip");
+  if (testIP) return testIP;
+  
+  return "unknown";
 }
 
-// 构建报告提示词
-function buildReportPrompt(type: string, market: { indices: MarketQuote[]; assets: MarketQuote[]; sources: Record<string, number> }): string {
+// DeepSeek 模型调用
+async function callDeepSeek(prompt: string): Promise<{ content: string; model: string }> {
+  const apiKey = process.env.DEEPSEEK_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("DeepSeek API Key not configured");
+  }
+
+  const res = await fetch("https://api.deepseek.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "deepseek-chat",
+      messages: [
+        {
+          role: "system",
+          content: "你是AI宏观作手，全球宏观对冲基金首席分析师。基于实时市场数据生成专业投资报告。"
+        },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 4000,
+      temperature: 0.7,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`DeepSeek API error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return {
+    content: data.choices?.[0]?.message?.content,
+    model: "deepseek-chat",
+  };
+}
+
+// GPT-5.4 模型调用
+async function callGPT54(prompt: string): Promise<{ content: string; model: string }> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  
+  if (!apiKey) {
+    throw new Error("OpenRouter API Key not configured");
+  }
+
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "openai/gpt-5.4",
+      messages: [
+        {
+          role: "system",
+          content: "你是AI宏观作手，全球宏观对冲基金首席分析师。基于实时市场数据生成专业投资报告。"
+        },
+        { role: "user", content: prompt }
+      ],
+      max_tokens: 4000,
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`GPT-5.4 API error: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return {
+    content: data.choices?.[0]?.message?.content,
+    model: "gpt-5.4",
+  };
+}
+
+// 构建提示词
+function buildPrompt(type: string, market: { indices: { symbol: string; price: number; changePercent: number; source: string }[]; assets: { symbol: string; price: number; changePercent: number; source: string }[]; sources: Record<string, number> }): string {
   const allAssets = [...market.indices, ...market.assets];
   
   const assetSummary = allAssets.map((a) => 
@@ -155,7 +181,17 @@ ${assetSummary}
 }
 
 // 解析报告内容
-function parseReportContent(content: string, type: string): Report {
+function parseReportContent(content: string, type: string, model: string): {
+  id: string;
+  title: string;
+  date: string;
+  type: string;
+  coreThesis: string;
+  scenario: string;
+  keyPoints: string[];
+  content: string;
+  model: string;
+} {
   const lines = content.split("\n").filter(l => l.trim());
   
   // 提取标题
@@ -189,5 +225,77 @@ function parseReportContent(content: string, type: string): Report {
     scenario,
     keyPoints: keyPoints.length > 0 ? keyPoints : ["市场数据更新", "宏观环境变化", "配置策略调整"],
     content,
+    model,
   };
+}
+
+export async function POST(request: Request) {
+  try {
+    const { type = "weekly" } = await request.json();
+    
+    // 获取客户端 IP
+    const clientIP = getClientIP(request);
+    const isChina = isChinaIP(clientIP);
+    
+    console.log(`[Report] Client IP: ${clientIP}, Is China: ${isChina}`);
+
+    // 获取实时市场数据
+    const origin = request.headers.get("origin") || "https://macro-trend-web.vercel.app";
+    const marketRes = await fetch(`${origin}/api/market-data-realtime`);
+    const market = await marketRes.json();
+
+    if (!market.success) {
+      return NextResponse.json({ error: "无法获取市场数据" }, { status: 500 });
+    }
+
+    // 构建提示词
+    const prompt = buildPrompt(type, market);
+
+    // 根据 IP 选择模型
+    let result;
+    let usedModel;
+    
+    if (isChina) {
+      // 国内 IP：优先使用 DeepSeek
+      try {
+        console.log("[Report] Using DeepSeek for China IP");
+        result = await callDeepSeek(prompt);
+        usedModel = "deepseek-chat";
+      } catch (error) {
+        console.error("[Report] DeepSeek failed, fallback to GPT-5.4:", error);
+        result = await callGPT54(prompt);
+        usedModel = "gpt-5.4 (fallback)";
+      }
+    } else {
+      // 海外 IP：优先使用 GPT-5.4
+      try {
+        console.log("[Report] Using GPT-5.4 for overseas IP");
+        result = await callGPT54(prompt);
+        usedModel = "gpt-5.4";
+      } catch (error) {
+        console.error("[Report] GPT-5.4 failed, fallback to DeepSeek:", error);
+        result = await callDeepSeek(prompt);
+        usedModel = "deepseek-chat (fallback)";
+      }
+    }
+
+    // 解析报告
+    const report = parseReportContent(result.content, type, usedModel);
+
+    return NextResponse.json({
+      success: true,
+      report,
+      generatedAt: new Date().toISOString(),
+      model: usedModel,
+      clientIP,
+      isChina,
+    });
+
+  } catch (error) {
+    console.error("[Generate Report] Error:", error);
+    return NextResponse.json(
+      { success: false, error: (error as Error).message },
+      { status: 500 }
+    );
+  }
 }
