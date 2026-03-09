@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Download, Calendar, TrendingUp, AlertTriangle, Lightbulb, Sparkles, Trash2, Eye } from "lucide-react";
+import { FileText, Download, Calendar, TrendingUp, AlertTriangle, Lightbulb, Sparkles, Trash2, Eye, Globe } from "lucide-react";
 import Link from "next/link";
 import {
   AlertDialog,
@@ -32,7 +32,7 @@ interface Report {
   model?: string;
 }
 
-// 历史报告（保留作为参考）
+// 历史报告
 const historicalReports: Report[] = [
   {
     id: "w1",
@@ -68,34 +68,50 @@ const scenarioColors: Record<string, string> = {
   stagflation: "bg-red-100 text-red-700",
 };
 
+// 检测是否国内用户（简化版）
+function detectChinaUser(): boolean {
+  // 检测浏览器语言
+  const lang = navigator.language || (navigator as { userLanguage?: string }).userLanguage;
+  if (lang === "zh-CN") return true;
+  
+  // 检测时区
+  const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  if (timezone === "Asia/Shanghai" || timezone === "Asia/Hong_Kong") return true;
+  
+  return false;
+}
+
 export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("weekly");
   const [generatedReport, setGeneratedReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isChina, setIsChina] = useState<boolean | null>(null);
+  const [reports, setReports] = useState<Report[]>(historicalReports);
 
-  // 页面加载时从 localStorage 读取最近生成的报告
+  // 页面加载时检测地理位置和读取历史报告
   useEffect(() => {
+    setIsChina(detectChinaUser());
+    
+    // 从 localStorage 读取历史报告
     if (typeof window !== "undefined") {
-      // 查找所有报告
-      const reports: Report[] = [];
+      const storedReports: Report[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
         if (key?.startsWith("report_")) {
           const report = localStorage.getItem(key);
           if (report) {
             try {
-              reports.push(JSON.parse(report));
+              storedReports.push(JSON.parse(report));
             } catch (e) {
               console.error("Failed to parse report:", e);
             }
           }
         }
       }
-      // 按日期排序，取最新的
-      reports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      if (reports.length > 0) {
-        setGeneratedReport(reports[0]);
+      storedReports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      if (storedReports.length > 0) {
+        setReports(prev => [...storedReports, ...prev]);
       }
     }
   }, []);
@@ -105,10 +121,14 @@ export default function ReportsPage() {
     setError(null);
     
     try {
+      // 显式传递用户位置信息
       const res = await fetch("/api/reports/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type: activeTab }),
+        body: JSON.stringify({ 
+          type: activeTab,
+          isChina: isChina, // 客户端检测的位置
+        }),
       });
 
       const data = await res.json();
@@ -130,15 +150,12 @@ export default function ReportsPage() {
     }
   };
 
-  const [reports, setReports] = useState<Report[]>(historicalReports);
-
   const displayReports = generatedReport 
     ? [generatedReport, ...reports.filter(r => r.type === activeTab)]
     : reports.filter(r => r.type === activeTab);
 
   const handleDeleteReport = (reportId: string) => {
     setReports(prev => prev.filter(r => r.id !== reportId));
-    // 也从 localStorage 删除（如果是AI生成的）
     if (typeof window !== "undefined") {
       localStorage.removeItem(`report_${reportId}`);
     }
@@ -151,6 +168,12 @@ export default function ReportsPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">投资报告</h1>
           <p className="text-muted-foreground">AI宏观作手深度研究报告</p>
+          {isChina !== null && (
+            <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+              <Globe className="w-3 h-3" />
+              {isChina ? "检测到国内网络，将使用 DeepSeek 模型" : "检测到海外网络，将使用 GPT-5.4 模型"}
+            </div>
+          )}
         </div>
         <Button onClick={handleGenerateReport} disabled={isLoading} className="gap-2">
           <Sparkles className="h-4 w-4" />
@@ -178,7 +201,9 @@ export default function ReportsPage() {
               <div className="space-y-4">
                 <div className="p-8 text-center border rounded-lg">
                   <Sparkles className="w-8 h-8 mx-auto mb-4 animate-pulse text-primary" />
-                  <p className="text-muted-foreground">GPT-5.4 正在分析市场数据并生成报告...</p>
+                  <p className="text-muted-foreground">
+                    {isChina ? "DeepSeek 正在分析市场数据..." : "GPT-5.4 正在分析市场数据..."}
+                  </p>
                 </div>
                 {[...Array(2)].map((_, i) => (
                   <Skeleton key={i} className="h-32 w-full" />
@@ -200,7 +225,7 @@ export default function ReportsPage() {
                           </Badge>
                           {report.model && (
                             <Badge variant="secondary" className="text-xs">
-                              {report.model}
+                              {report.model.includes("deepseek") ? "DeepSeek" : "GPT-5.4"}
                             </Badge>
                           )}
                           {index === 0 && generatedReport && (
@@ -262,7 +287,9 @@ export default function ReportsPage() {
             {isLoading ? (
               <div className="p-8 text-center border rounded-lg">
                 <Sparkles className="w-8 h-8 mx-auto mb-4 animate-pulse text-primary" />
-                <p className="text-muted-foreground">GPT-5.4 正在生成季度展望...</p>
+                <p className="text-muted-foreground">
+                  {isChina ? "DeepSeek 正在生成季度展望..." : "GPT-5.4 正在生成季度展望..."}
+                </p>
               </div>
             ) : displayReports.length > 0 ? (
               displayReports.map((report) => (
@@ -280,7 +307,7 @@ export default function ReportsPage() {
                           </Badge>
                           {report.model && (
                             <Badge variant="secondary" className="text-xs">
-                              {report.model}
+                              {report.model.includes("deepseek") ? "DeepSeek" : "GPT-5.4"}
                             </Badge>
                           )}
                         </div>
@@ -317,11 +344,6 @@ export default function ReportsPage() {
                         </ul>
                       </div>
                     </div>
-                    {report.content && (
-                      <div className="mt-4 p-4 bg-muted/50 rounded-lg text-sm whitespace-pre-line">
-                        {report.content}
-                      </div>
-                    )}
                   </CardContent>
                 </Card>
               ))
@@ -348,7 +370,7 @@ export default function ReportsPage() {
                 AI驱动
               </h4>
               <p className="text-sm text-muted-foreground">
-                报告由 GPT-5.4 基于实时市场数据生成，融合四大分析维度。
+                报告由 {isChina ? "DeepSeek" : "GPT-5.4"} 基于实时市场数据生成，融合四大分析维度。
               </p>
             </div>
             <div>

@@ -231,11 +231,13 @@ function parseReportContent(content: string, type: string, model: string): {
 
 export async function POST(request: Request) {
   try {
-    const { type = "weekly" } = await request.json();
+    const { type = "weekly", isChina: clientIsChina } = await request.json();
     
-    // 获取客户端 IP
+    // 获取客户端 IP（备用）
     const clientIP = getClientIP(request);
-    const isChina = isChinaIP(clientIP);
+    
+    // 优先使用客户端检测的位置，否则使用 IP 检测
+    const isChina = clientIsChina !== undefined ? clientIsChina : isChinaIP(clientIP);
     
     console.log(`[Report] Client IP: ${clientIP}, Is China: ${isChina}`);
 
