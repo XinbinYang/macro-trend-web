@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Minus, Droplets, Activity, Gauge } from "lucide-react";
+import { TrendingUp, TrendingDown, Minus, Droplets, Activity, Gauge, type LucideIcon } from "lucide-react";
 
 interface IndicatorProps {
   title: string;
@@ -10,7 +10,7 @@ interface IndicatorProps {
   trend: "up" | "down" | "neutral";
   level: "high" | "medium" | "low";
   description: string;
-  icon: typeof TrendingUp;
+  icon: LucideIcon;
 }
 
 const levelConfig = {
