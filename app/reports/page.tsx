@@ -6,14 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Download, Calendar, TrendingUp, AlertTriangle, Lightbulb, Sparkles, Trash2, Eye, Globe, FileDown } from "lucide-react";
+import { FileText, Calendar, TrendingUp, AlertTriangle, Lightbulb, Sparkles, Trash2, Eye, Globe, FileDown } from "lucide-react";
 import { generatePDF, downloadMarkdown } from "@/lib/pdf-generator";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import Link from "next/link";
 import {
   AlertDialog,
@@ -245,23 +239,26 @@ export default function ReportsPage() {
                         <CardDescription className="mt-2">{report.coreThesis}</CardDescription>
                       </div>
                       <div className="flex items-center gap-1">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" title="下载报告">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => generatePDF(report)}>
-                              <FileDown className="mr-2 h-4 w-4" />
-                              下载 PDF（可视化）
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => downloadMarkdown(report)}>
-                              <FileText className="mr-2 h-4 w-4" />
-                              下载 Markdown（文本）
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => generatePDF(report)} 
+                          title="下载PDF"
+                          className="gap-1"
+                        >
+                          <FileDown className="h-4 w-4" />
+                          PDF
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => downloadMarkdown(report)} 
+                          title="下载Markdown"
+                          className="gap-1"
+                        >
+                          <FileText className="h-4 w-4" />
+                          MD
+                        </Button>
                         <Link href={`/reports/${report.id}`}>
                           <Button variant="ghost" size="icon" title="查看详情">
                             <Eye className="h-4 w-4" />
@@ -339,23 +336,26 @@ export default function ReportsPage() {
                         <CardDescription className="mt-2 text-base">{report.coreThesis}</CardDescription>
                       </div>
                       <div className="flex items-center gap-1">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" title="下载报告">
-                              <Download className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => generatePDF(report)}>
-                              <FileDown className="mr-2 h-4 w-4" />
-                              下载 PDF（可视化）
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => downloadMarkdown(report)}>
-                              <FileText className="mr-2 h-4 w-4" />
-                              下载 Markdown（文本）
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => generatePDF(report)} 
+                          title="下载PDF"
+                          className="gap-1"
+                        >
+                          <FileDown className="h-4 w-4" />
+                          PDF
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          onClick={() => downloadMarkdown(report)} 
+                          title="下载Markdown"
+                          className="gap-1"
+                        >
+                          <FileText className="h-4 w-4" />
+                          MD
+                        </Button>
                         <Link href={`/reports/${report.id}`}>
                           <Button variant="ghost" size="icon" title="查看详情">
                             <Eye className="h-4 w-4" />
