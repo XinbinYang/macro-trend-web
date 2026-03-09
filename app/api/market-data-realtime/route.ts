@@ -1,49 +1,46 @@
 import { NextResponse } from "next/server";
+import { getMultipleQuotes } from "@/lib/api/market-data";
 
-// 简单的 Yahoo Finance API 路由
+const ASSET_SYMBOLS = [
+  "SPY", "QQQ", "IWM", "TLT", "GLD",
+  "ASHR", "KWEB", "FXI", "EEM", "EWH",
+  "GC=F", "CL=F"
+];
+
 export async function GET() {
   try {
-    const symbols = ["SPY", "QQQ", "GLD", "ASHR"];
-    const results = [];
+    const quotes = await getMultipleQuotes(ASSET_SYMBOLS);
     
-    for (const symbol of symbols) {
-      try {
-        const res = await fetch(
-          `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
-          { headers: { "User-Agent": "Mozilla/5.0" } }
-        );
-        
-        if (!res.ok) continue;
-        
-        const data = await res.json();
-        const meta = data.chart?.result?.[0]?.meta;
-        
-        if (meta) {
-          const price = meta.regularMarketPrice || meta.previousClose;
-          const prev = meta.previousClose || price;
-          results.push({
-            symbol,
-            name: meta.shortName || symbol,
-            price,
-            change: price - prev,
-            changePercent: prev > 0 ? ((price - prev) / prev) * 100 : 0,
-          });
-        }
-      } catch (e) {
-        console.error(`Failed to fetch ${symbol}:`, e);
-      }
+    if (quotes.length === 0) {
+      return NextResponse.json({
+        success: false,
+        error: "No data available from any source",
+        data: [],
+      }, { status: 503 });
     }
-    
+
+    // 分类数据
+    const indices = quotes.filter(q => ["SPY", "QQQ", "IWM", "ASHR", "EWH"].includes(q.symbol));
+    const assets = quotes.filter(q => !["SPY", "QQQ", "IWM", "ASHR", "EWH"].includes(q.symbol));
+
+    // 统计数据源
+    const sources = quotes.reduce((acc, q) => {
+      acc[q.source] = (acc[q.source] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
     return NextResponse.json({
       success: true,
-      source: "Yahoo Finance",
+      sources,
       timestamp: new Date().toISOString(),
-      data: results,
+      indices,
+      assets,
     });
   } catch (error) {
-    return NextResponse.json(
-      { success: false, error: String(error) },
-      { status: 500 }
-    );
+    console.error("[API] Market data error:", error);
+    return NextResponse.json({
+      success: false,
+      error: (error as Error).message,
+    }, { status: 500 });
   }
 }
