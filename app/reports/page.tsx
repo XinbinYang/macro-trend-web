@@ -320,7 +320,7 @@ export default function ReportsPage() {
                 <Card key={report.id} className="hover:shadow-md transition-shadow">
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between">
-                      <div className="flex-1">
+                      <div className="flex-1 cursor-pointer" onClick={() => window.location.href = `/reports/${report.id}`}>
                         <div className="flex items-center gap-2 mb-2">
                           <Badge variant="outline" className="text-xs">
                             <Calendar className="mr-1 h-3 w-3" />
@@ -335,10 +335,11 @@ export default function ReportsPage() {
                             </Badge>
                           )}
                         </div>
-                        <CardTitle className="text-xl">{report.title}</CardTitle>
+                        <CardTitle className="text-xl hover:text-primary transition-colors">{report.title}</CardTitle>
                         <CardDescription className="mt-2 text-base">{report.coreThesis}</CardDescription>
                       </div>
-                      <DropdownMenu>
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" title="下载报告">
                               <Download className="h-4 w-4" />
@@ -355,6 +356,33 @@ export default function ReportsPage() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
+                        <Link href={`/reports/${report.id}`}>
+                          <Button variant="ghost" size="icon" title="查看详情">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>确认删除</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                确定要删除报告「{report.title}」吗？此操作无法撤销。
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>取消</AlertDialogCancel>
+                              <AlertDialogAction onClick={() => handleDeleteReport(report.id)} className="bg-destructive">
+                                删除
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent>
