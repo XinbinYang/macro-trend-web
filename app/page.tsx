@@ -36,28 +36,19 @@ interface MarketData {
   assets: MarketQuote[];
 }
 
-// 模拟历史数据（实际应从API获取）
-const generateMockHistory = (basePrice: number, days: number = 30) => {
-  const data = [];
-  let price = basePrice;
-  for (let i = days; i >= 0; i--) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    price = price * (1 + (Math.random() - 0.5) * 0.02);
-    data.push({
-      date: date.toISOString().split('T')[0],
-      price: Number(price.toFixed(2))
-    });
-  }
-  return data;
-};
+// 历史数据接口
+interface HistoricalPoint {
+  date: string;
+  price: number;
+}
 
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [selectedSymbol, setSelectedSymbol] = useState<string>("SPY");
-  const [chartData, setChartData] = useState<{date: string; price: number}[]>([]);
+  const [chartData, setChartData] = useState<HistoricalPoint[]>([]);
 
+  // 获取实时数据
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -66,11 +57,6 @@ export default function DashboardPage() {
       
       if (data.success) {
         setMarketData(data);
-        // 生成选中资产的模拟历史数据
-        const quote = [...data.indices, ...data.assets].find(q => q.symbol === selectedSymbol);
-        if (quote) {
-          setChartData(generateMockHistory(quote.price));
-        }
       }
     } catch (error) {
       console.error("Failed to fetch market data:", error);
@@ -79,11 +65,37 @@ export default function DashboardPage() {
     }
   };
 
+  // 获取历史数据
+  const fetchHistoricalData = async (symbol: string) => {
+    try {
+      const res = await fetch(`/api/historical-data?symbol=${symbol}&days=30`);
+      const data = await res.json();
+      
+      if (data.success) {
+        setChartData(data.data);
+      } else {
+        // 如果获取失败，使用空数组
+        setChartData([]);
+      }
+    } catch (error) {
+      console.error(`[Dashboard] Failed to fetch historical data for ${symbol}:`, error);
+      setChartData([]);
+    }
+  };
+
+  // 初始加载
   useEffect(() => {
     fetchData();
     const interval = setInterval(() => fetchData(), 60000);
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 切换选中资产时获取历史数据
+  useEffect(() => {
+    if (selectedSymbol) {
+      fetchHistoricalData(selectedSymbol);
+    }
   }, [selectedSymbol]);
 
   const handleRefresh = () => fetchData();
