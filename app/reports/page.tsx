@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,32 @@ export default function ReportsPage() {
   const [generatedReport, setGeneratedReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // 页面加载时从 localStorage 读取最近生成的报告
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      // 查找所有报告
+      const reports: Report[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key?.startsWith("report_")) {
+          const report = localStorage.getItem(key);
+          if (report) {
+            try {
+              reports.push(JSON.parse(report));
+            } catch (e) {
+              console.error("Failed to parse report:", e);
+            }
+          }
+        }
+      }
+      // 按日期排序，取最新的
+      reports.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+      if (reports.length > 0) {
+        setGeneratedReport(reports[0]);
+      }
+    }
+  }, []);
+
   const handleGenerateReport = async () => {
     setIsLoading(true);
     setError(null);
@@ -89,6 +115,10 @@ export default function ReportsPage() {
 
       if (data.success) {
         setGeneratedReport(data.report);
+        // 保存到 localStorage
+        if (typeof window !== "undefined") {
+          localStorage.setItem(`report_${data.report.id}`, JSON.stringify(data.report));
+        }
       } else {
         setError(data.error || "生成失败");
       }
