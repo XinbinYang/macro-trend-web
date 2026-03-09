@@ -105,27 +105,33 @@ export default function AssetsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">资产列表</h1>
-          <p className="text-muted-foreground">
-            六大资产板块实时行情与分析
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight">资产列表</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            六大资产板块实时行情
             {marketData?.timestamp && (
-              <span className="ml-2 text-xs">
+              <span className="text-xs md:text-sm ml-1">
                 更新于 {new Date(marketData.timestamp).toLocaleTimeString()}
               </span>
             )}
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {marketData?.sources && Object.entries(marketData.sources).map(([source, count]) => (
+          {marketData?.sources && Object.entries(marketData.sources).slice(0, 2).map(([source, count]) => (
             <Badge key={source} variant="secondary" className="text-xs">
               {source}: {count}
             </Badge>
           ))}
-          <Button variant="outline" size="sm" onClick={fetchData} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            刷新
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={fetchData} 
+            disabled={isLoading}
+            className="gap-1"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">刷新</span>
           </Button>
         </div>
       </div>
@@ -137,28 +143,35 @@ export default function AssetsPage() {
         </div>
       )}
 
-      {/* 资产类别标签页 */}
+      {/* 资产类别标签页 - 移动端横向滚动 */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-3 md:grid-cols-6">
-          {assetClasses.map((cls) => (
-            <TabsTrigger key={cls.id} value={cls.id} className="text-sm">
-              <span className="mr-1">{cls.flag}</span>
-              {cls.label}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-6 h-auto p-1">
+            {assetClasses.map((cls) => (
+              <TabsTrigger 
+                key={cls.id} 
+                value={cls.id} 
+                className="text-xs md:text-sm px-3 py-2 md:px-4 whitespace-nowrap"
+              >
+                <span className="mr-1">{cls.flag}</span>
+                <span className="hidden sm:inline">{cls.label}</span>
+                <span className="sm:hidden">{cls.label.slice(0, 2)}</span>
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         {assetClasses.map((cls) => {
           const assets = getAssetsByClass(cls.id);
           return (
-            <TabsContent key={cls.id} value={cls.id} className="mt-6">
+            <TabsContent key={cls.id} value={cls.id} className="mt-4 md:mt-6">
               <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <span className="text-2xl">{cls.flag}</span>
+                <CardHeader className="pb-2 md:pb-4">
+                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
+                    <span className="text-xl md:text-2xl">{cls.flag}</span>
                     {cls.label}
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-xs md:text-sm">
                     {assets.length} 个相关标的
                   </CardDescription>
                 </CardHeader>
@@ -183,37 +196,37 @@ export default function AssetsPage() {
                             href={`/assets/${asset.symbol}`}
                             className="block"
                           >
-                            <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted transition-colors cursor-pointer">
-                              <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                                  <span className="text-xs font-bold text-primary">
+                            <div className="flex items-center justify-between p-3 md:p-4 border rounded-lg hover:bg-muted transition-colors cursor-pointer">
+                              <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
+                                <div className="w-9 h-9 md:w-12 md:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                                  <span className="text-[10px] md:text-xs font-bold text-primary">
                                     {asset.symbol.slice(0, 4)}
                                   </span>
                                 </div>
-                                <div>
-                                  <div className="font-medium">{asset.name}</div>
-                                  <div className="text-sm text-muted-foreground">
-                                    {asset.symbol} · 来源: {asset.source}
+                                <div className="min-w-0 flex-1">
+                                  <div className="font-medium text-sm md:text-base truncate">{asset.name}</div>
+                                  <div className="text-[10px] md:text-xs text-muted-foreground">
+                                    {asset.symbol} · {asset.source}
                                   </div>
                                 </div>
                               </div>
                               
-                              <div className="flex items-center gap-6">
+                              <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 ml-2">
                                 <div className="text-right">
-                                  <div className="font-mono font-medium">${asset.price.toFixed(2)}</div>
-                                  <div className={`text-sm ${asset.changePercent >= 0 ? "text-green-600" : "text-red-600"}`}>
+                                  <div className="font-mono font-medium text-sm md:text-base">${asset.price.toFixed(2)}</div>
+                                  <div className={`text-[10px] md:text-xs ${asset.changePercent >= 0 ? "text-green-600" : "text-red-600"}`}>
                                     {asset.changePercent >= 0 ? "+" : ""}{asset.changePercent.toFixed(2)}%
                                   </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-2">
+                                <div className="hidden sm:flex items-center gap-1.5">
                                   {directionIcons[signal.direction]}
-                                  <Badge variant="outline" className="text-xs">
+                                  <Badge variant="outline" className="text-[10px] md:text-xs">
                                     {strengthLabels[signal.strength]}
                                   </Badge>
                                 </div>
                                 
-                                <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                                <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
                               </div>
                             </div>
                           </Link>
@@ -230,39 +243,39 @@ export default function AssetsPage() {
 
       {/* 资产分析说明 */}
       <Card>
-        <CardHeader>
-          <CardTitle>资产分析说明</CardTitle>
+        <CardHeader className="pb-2 md:pb-4">
+          <CardTitle className="text-base md:text-lg">资产分析说明</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 text-xs md:text-sm">
             <div>
-              <div className="font-medium mb-2">信号方向</div>
-              <div className="space-y-1 text-muted-foreground">
+              <div className="font-medium mb-2 text-sm md:text-base">信号方向</div>
+              <div className="space-y-1.5 md:space-y-2 text-muted-foreground">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-green-600" />
+                  <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-600" />
                   <span>看涨 - 建议关注或配置</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Minus className="h-4 w-4 text-gray-600" />
+                  <Minus className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-600" />
                   <span>中性 - 观望或维持现状</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <TrendingDown className="h-4 w-4 text-red-600" />
+                  <TrendingDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-red-600" />
                   <span>看跌 - 建议减仓或对冲</span>
                 </div>
               </div>
             </div>
             <div>
-              <div className="font-medium mb-2">信号强度</div>
-              <div className="space-y-1 text-muted-foreground">
+              <div className="font-medium mb-2 text-sm md:text-base">信号强度</div>
+              <div className="space-y-1.5 md:space-y-2 text-muted-foreground">
                 <div><span className="font-medium">强</span> - 高置信度信号</div>
                 <div><span className="font-medium">中</span> - 中等置信度</div>
                 <div><span className="font-medium">弱</span> - 需进一步确认</div>
               </div>
             </div>
-            <div>
-              <div className="font-medium mb-2">分析维度</div>
-              <div className="space-y-1 text-muted-foreground">
+            <div className="sm:col-span-2 md:col-span-1">
+              <div className="font-medium mb-2 text-sm md:text-base">分析维度</div>
+              <div className="space-y-1.5 md:space-y-2 text-muted-foreground">
                 <div>• 周期分析 - 经济周期位置</div>
                 <div>• 反身性 - 市场预期差</div>
                 <div>• 流动性 - 央行政策影响</div>
