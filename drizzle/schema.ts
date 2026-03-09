@@ -11,7 +11,7 @@ export interface User {
   updatedAt: Date;
 }
 
-export type InsertUser = Omit<User, 'id' | 'createdAt' | 'updatedAt'>;
+export type InsertUser = Partial<Omit<User, 'id' | 'createdAt' | 'updatedAt'>> & { openId: string };
 
 export const users = {
   id: 'id',
