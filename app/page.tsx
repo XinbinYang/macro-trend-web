@@ -5,8 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, TrendingDown, Minus, RefreshCw, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 
 interface MarketQuote {
   symbol: string;
