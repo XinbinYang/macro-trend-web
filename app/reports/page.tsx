@@ -33,27 +33,8 @@ interface Report {
   model?: string;
 }
 
-// 历史报告
-const historicalReports: Report[] = [
-  {
-    id: "w1",
-    title: "全球宏观周报：滞胀担忧升温",
-    date: "2026-03-07",
-    type: "weekly",
-    coreThesis: "美国数据分化，中国政策托底，黄金避险需求上升",
-    scenario: "stagflation",
-    keyPoints: ["美联储降息预期推迟", "中国两会政策落地", "黄金突破历史高位"],
-  },
-  {
-    id: "w2",
-    title: "全球宏观周报：科技股引领反弹",
-    date: "2026-02-28",
-    type: "weekly",
-    coreThesis: "AI投资热潮延续，美股科技板块领涨全球",
-    scenario: "goldilocks",
-    keyPoints: ["英伟达财报超预期", "中国科技股估值修复", "美债收益率回落"],
-  },
-];
+// 历史报告（新用户初始为空，仅从 localStorage 读取用户自己生成的报告）
+const historicalReports: Report[] = [];
 
 const scenarioLabels: Record<string, string> = {
   inflation: "通胀",
@@ -209,6 +190,16 @@ export default function ReportsPage() {
                 {[...Array(2)].map((_, i) => (
                   <Skeleton key={i} className="h-32 w-full" />
                 ))}
+              </div>
+            ) : displayReports.length === 0 ? (
+              <div className="text-center py-12 md:py-16 text-muted-foreground">
+                <FileText className="w-12 h-12 md:w-16 md:h-16 mx-auto mb-4 opacity-50" />
+                <h3 className="text-lg md:text-xl font-medium mb-2">暂无报告</h3>
+                <p className="text-sm md:text-base mb-4">点击上方按钮生成您的第一份AI投资报告</p>
+                <Button onClick={handleGenerateReport} disabled={isLoading} className="gap-2">
+                  <Sparkles className="h-4 w-4" />
+                  生成报告
+                </Button>
               </div>
             ) : (
               displayReports.map((report, index) => (
