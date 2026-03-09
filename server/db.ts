@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, User, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
@@ -30,45 +30,35 @@ export async function upsertUser(user: InsertUser): Promise<void> {
   }
 
   try {
-    const values: InsertUser = {
+    const now = new Date();
+    const id = user.id || crypto.randomUUID();
+
+    // Build insert values with defaults
+    const insertValues: Record<string, unknown> = {
+      id,
       openId: user.openId,
-    };
-    const updateSet: Record<string, unknown> = {};
-
-    const textFields = ["name", "email", "loginMethod"] as const;
-    type TextField = (typeof textFields)[number];
-
-    const assignNullable = (field: TextField) => {
-      const value = user[field];
-      if (value === undefined) return;
-      const normalized = value ?? null;
-      values[field] = normalized;
-      updateSet[field] = normalized;
+      email: user.email || "",
+      role: user.role || "user",
+      createdAt: now,
+      updatedAt: now,
     };
 
-    textFields.forEach(assignNullable);
+    // Add optional fields
+    if (user.name !== undefined) insertValues.name = user.name;
+    if (user.loginMethod !== undefined) insertValues.loginMethod = user.loginMethod;
+    if (user.lastSignedIn !== undefined) insertValues.lastSignedIn = user.lastSignedIn;
 
-    if (user.lastSignedIn !== undefined) {
-      values.lastSignedIn = user.lastSignedIn;
-      updateSet.lastSignedIn = user.lastSignedIn;
-    }
-    if (user.role !== undefined) {
-      values.role = user.role;
-      updateSet.role = user.role;
-    } else if (user.openId === ENV.ownerOpenId) {
-      values.role = "admin";
-      updateSet.role = "admin";
-    }
+    // Build update set (exclude createdAt)
+    const updateSet: Record<string, unknown> = {
+      updatedAt: now,
+    };
+    if (user.name !== undefined) updateSet.name = user.name;
+    if (user.email !== undefined) updateSet.email = user.email;
+    if (user.role !== undefined) updateSet.role = user.role;
+    if (user.loginMethod !== undefined) updateSet.loginMethod = user.loginMethod;
+    if (user.lastSignedIn !== undefined) updateSet.lastSignedIn = user.lastSignedIn;
 
-    if (!values.lastSignedIn) {
-      values.lastSignedIn = new Date();
-    }
-
-    if (Object.keys(updateSet).length === 0) {
-      updateSet.lastSignedIn = new Date();
-    }
-
-    await db.insert(users).values(values).onDuplicateKeyUpdate({
+    await db.insert(users).values(insertValues as typeof users.$inferInsert).onDuplicateKeyUpdate({
       set: updateSet,
     });
   } catch (error) {
@@ -85,8 +75,7 @@ export async function getUserByOpenId(openId: string): Promise<User | undefined>
   }
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
-  return result.length > 0 ? (result[0] as User) : undefined;
+  return result.length > 0 ? result[0] : undefined;
 }
 
 // TODO: add feature queries here as your schema grows.
