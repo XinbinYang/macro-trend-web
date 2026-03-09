@@ -1,21 +1,49 @@
 import { NextResponse } from "next/server";
-import { getMultipleYahooQuotes, testYahooConnection } from "@/lib/api/yahoo-api";
 
-const ASSET_SYMBOLS = ["SPY", "QQQ", "IWM", "TLT", "GLD", "ASHR", "KWEB", "FXI", "GC=F", "CL=F", "EEM", "EWH"];
-
+// 简单的 Yahoo Finance API 路由
 export async function GET() {
   try {
-    const connected = await testYahooConnection();
-    if (!connected) {
-      return NextResponse.json({ success: false, error: "Yahoo API not available" }, { status: 503 });
+    const symbols = ["SPY", "QQQ", "GLD", "ASHR"];
+    const results = [];
+    
+    for (const symbol of symbols) {
+      try {
+        const res = await fetch(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=1d`,
+          { headers: { "User-Agent": "Mozilla/5.0" } }
+        );
+        
+        if (!res.ok) continue;
+        
+        const data = await res.json();
+        const meta = data.chart?.result?.[0]?.meta;
+        
+        if (meta) {
+          const price = meta.regularMarketPrice || meta.previousClose;
+          const prev = meta.previousClose || price;
+          results.push({
+            symbol,
+            name: meta.shortName || symbol,
+            price,
+            change: price - prev,
+            changePercent: prev > 0 ? ((price - prev) / prev) * 100 : 0,
+          });
+        }
+      } catch (e) {
+        console.error(`Failed to fetch ${symbol}:`, e);
+      }
     }
-    const quotes = await getMultipleYahooQuotes(ASSET_SYMBOLS);
-    const indices = quotes.filter(q => ["SPY", "QQQ", "IWM", "ASHR", "EWH"].includes(q.symbol));
-    const assets = quotes.filter(q => !["SPY", "QQQ", "IWM", "ASHR", "EWH"].includes(q.symbol));
+    
     return NextResponse.json({
-      success: true, source: "Yahoo Finance", timestamp: new Date().toISOString(), indices, assets,
+      success: true,
+      source: "Yahoo Finance",
+      timestamp: new Date().toISOString(),
+      data: results,
     });
   } catch (error) {
-    return NextResponse.json({ success: false, error: (error as Error).message }, { status: 500 });
+    return NextResponse.json(
+      { success: false, error: String(error) },
+      { status: 500 }
+    );
   }
 }
