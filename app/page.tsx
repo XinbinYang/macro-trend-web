@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Globe, BarChart3, Zap, ArrowUpRight, ArrowDownRight, Sparkles, Scale, CandlestickChart, LayoutGrid, Gauge } from "lucide-react";
+import { RefreshCw, Globe, BarChart3, Zap, ArrowUpRight, ArrowDownRight, Sparkles, Scale, CandlestickChart, LayoutGrid, Gauge, Clock, TrendingUp, BookOpen } from "lucide-react";
 import { 
   XAxis, 
   YAxis, 
@@ -27,14 +27,23 @@ interface MarketQuote {
   volume: number;
   timestamp: string;
   source: string;
+  region: "US" | "CN" | "HK" | "GLOBAL";
+  category: "EQUITY" | "BOND" | "COMMODITY" | "FX";
+  dataType: "REALTIME" | "DELAYED" | "EOD";
+  dataSource: string;
 }
 
 interface MarketData {
   success: boolean;
   sources: Record<string, number>;
+  dataTypes: Record<string, number>;
   timestamp: string;
-  indices: MarketQuote[];
-  assets: MarketQuote[];
+  data: {
+    us: MarketQuote[];
+    china: MarketQuote[];
+    hongkong: MarketQuote[];
+    global: MarketQuote[];
+  };
 }
 
 interface HistoricalPoint {
@@ -56,6 +65,23 @@ interface NewsItem {
   url?: string;
 }
 
+// 数据类型标签
+function DataTypeBadge({ type }: { type: string }) {
+  const configs = {
+    REALTIME: { color: "bg-green-500/20 text-green-400 border-green-500/30", label: "实时" },
+    DELAYED: { color: "bg-amber-500/20 text-amber-400 border-amber-500/30", label: "延迟" },
+    EOD: { color: "bg-blue-500/20 text-blue-400 border-blue-500/30", label: "收盘" },
+  };
+  const config = configs[type as keyof typeof configs] || configs.EOD;
+  
+  return (
+    <Badge variant="outline" className={`text-[9px] ${config.color}`}>
+      <Clock className="w-2.5 h-2.5 mr-0.5" />
+      {config.label}
+    </Badge>
+  );
+}
+
 // 资讯组件
 function NewsSection() {
   const [news, setNews] = useState<NewsItem[]>([]);
@@ -63,7 +89,7 @@ function NewsSection() {
 
   useEffect(() => {
     fetchNews();
-    const interval = setInterval(fetchNews, 300000); // 5分钟刷新
+    const interval = setInterval(fetchNews, 300000);
     return () => clearInterval(interval);
   }, []);
 
@@ -72,7 +98,7 @@ function NewsSection() {
       const res = await fetch('/api/news');
       const data = await res.json();
       if (data.success && data.data.length > 0) {
-        setNews(data.data.slice(0, 5)); // 只显示前5条
+        setNews(data.data.slice(0, 5));
       }
     } catch (error) {
       console.error('Failed to fetch news:', error);
@@ -125,13 +151,47 @@ function NewsSection() {
   );
 }
 
-// 主要指数配置
-const mainIndices = [
-  { symbol: "SPY", name: "标普500", region: "美股", emoji: "🇺🇸" },
-  { symbol: "QQQ", name: "纳斯达克", region: "美股", emoji: "🇺🇸" },
-  { symbol: "ASHR", name: "沪深300", region: "A股", emoji: "🇨🇳" },
-  { symbol: "GLD", name: "黄金", region: "商品", emoji: "🥇" },
-];
+// 资产卡片组件
+function AssetCard({ quote, isSelected, onClick }: { quote: MarketQuote; isSelected: boolean; onClick: () => void }) {
+  const isPositive = quote.change >= 0;
+  const regionEmoji = {
+    US: "🇺🇸",
+    CN: "🇨🇳",
+    HK: "🇭🇰",
+    GLOBAL: "🌍",
+  }[quote.region];
+
+  return (
+    <Card 
+      className={`bg-slate-900/50 border-slate-800 cursor-pointer transition-all hover:border-slate-700 hover:bg-slate-800/50 ${
+        isSelected ? 'ring-1 ring-amber-500/50 border-amber-500/30' : ''
+      }`}
+      onClick={onClick}
+    >
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm">{regionEmoji}</span>
+            <span className="text-xs text-slate-400 truncate max-w-[60px]">{quote.name}</span>
+          </div>
+          <DataTypeBadge type={quote.dataType} />
+        </div>
+        <div className="text-lg font-bold text-slate-50">
+          {quote.price.toFixed(quote.price < 10 ? 3 : 2)}
+        </div>
+        <div className={`flex items-center mt-1 text-xs font-medium ${
+          isPositive ? "text-green-400" : "text-red-400"
+        }`}>
+          {isPositive ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}
+          {isPositive ? "+" : ""}{quote.changePercent.toFixed(2)}%
+        </div>
+        <div className="text-[9px] text-slate-600 mt-1 truncate">
+          {quote.dataSource}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 // 四大宏观维度配置
 const macroDimensions = [
@@ -199,10 +259,21 @@ export default function DashboardPage() {
 
   const getQuote = (symbol: string) => {
     if (!marketData) return null;
-    return [...marketData.indices, ...marketData.assets].find(q => q.symbol === symbol);
+    return [
+      ...marketData.data.us,
+      ...marketData.data.china,
+      ...marketData.data.hongkong,
+      ...marketData.data.global,
+    ].find(q => q.symbol === symbol);
   };
 
-
+  // 获取所有资产列表
+  const allAssets = marketData ? [
+    ...marketData.data.us,
+    ...marketData.data.china,
+    ...marketData.data.hongkong,
+    ...marketData.data.global,
+  ] : [];
 
   return (
     <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
@@ -287,55 +358,133 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* 核心指数 */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-        {isLoading ? (
-          [1, 2, 3, 4].map(i => (
-            <Card key={i} className="bg-slate-900/50 border-slate-800">
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-16 mb-2 bg-slate-800" />
-                <Skeleton className="h-8 w-24 mb-2 bg-slate-800" />
-                <Skeleton className="h-3 w-12 bg-slate-800" />
-              </CardContent>
-            </Card>
-          ))
-        ) : (
-          mainIndices.map(({ symbol, name, region, emoji }) => {
-            const quote = getQuote(symbol);
-            if (!quote) return null;
-            const isPositive = quote.change >= 0;
-            return (
-              <Card 
-                key={symbol} 
-                className={`bg-slate-900/50 border-slate-800 cursor-pointer transition-all hover:border-slate-700 hover:bg-slate-800/50 ${
-                  selectedSymbol === symbol ? 'ring-1 ring-amber-500/50 border-amber-500/30' : ''
-                }`}
-                onClick={() => setSelectedSymbol(symbol)}
-              >
-                <CardContent className="p-3 md:p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-sm">{emoji}</span>
-                      <span className="text-xs text-slate-400">{name}</span>
-                    </div>
-                    <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-500">
-                      {region}
-                    </Badge>
-                  </div>
-                  <div className="text-xl md:text-2xl font-bold text-slate-50">
-                    {quote.price.toFixed(2)}
-                  </div>
-                  <div className={`flex items-center mt-1 text-xs font-medium ${
-                    isPositive ? "text-green-400" : "text-red-400"
-                  }`}>
-                    {isPositive ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}
-                    {isPositive ? "+" : ""}{quote.changePercent.toFixed(2)}%
-                  </div>
+      {/* 核心资产 - 按地区分组 */}
+      <div className="space-y-4">
+        {/* 美国资产 */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">🇺🇸 美国市场</Badge>
+            <span className="text-xs text-slate-500">
+              实时数据 · Yahoo/Polygon
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {isLoading ? (
+              [1, 2, 3, 4].map(i => (
+                <Card key={i} className="bg-slate-900/50 border-slate-800">
+                  <CardContent className="p-3">
+                    <Skeleton className="h-4 w-16 mb-2 bg-slate-800" />
+                    <Skeleton className="h-6 w-20 mb-1 bg-slate-800" />
+                    <Skeleton className="h-3 w-10 bg-slate-800" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              marketData?.data.us.map((quote) => (
+                <AssetCard
+                  key={quote.symbol}
+                  quote={quote}
+                  isSelected={selectedSymbol === quote.symbol}
+                  onClick={() => setSelectedSymbol(quote.symbol)}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* 中国资产 */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Badge className="bg-red-500/20 text-red-400 border-red-500/30">🇨🇳 中国市场</Badge>
+            <span className="text-xs text-slate-500">
+              收盘数据 · AkShare (日度更新)
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {isLoading ? (
+              [1, 2, 3, 4].map(i => (
+                <Card key={i} className="bg-slate-900/50 border-slate-800">
+                  <CardContent className="p-3">
+                    <Skeleton className="h-4 w-16 mb-2 bg-slate-800" />
+                    <Skeleton className="h-6 w-20 mb-1 bg-slate-800" />
+                    <Skeleton className="h-3 w-10 bg-slate-800" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              marketData?.data.china.map((quote) => (
+                <AssetCard
+                  key={quote.symbol}
+                  quote={quote}
+                  isSelected={selectedSymbol === quote.symbol}
+                  onClick={() => setSelectedSymbol(quote.symbol)}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* 港股 */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">🇭🇰 香港市场</Badge>
+            <span className="text-xs text-slate-500">
+              收盘数据 · AkShare (日度更新)
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {isLoading ? (
+              <Card className="bg-slate-900/50 border-slate-800">
+                <CardContent className="p-3">
+                  <Skeleton className="h-4 w-16 mb-2 bg-slate-800" />
+                  <Skeleton className="h-6 w-20 mb-1 bg-slate-800" />
+                  <Skeleton className="h-3 w-10 bg-slate-800" />
                 </CardContent>
               </Card>
-            );
-          })
-        )}
+            ) : (
+              marketData?.data.hongkong.map((quote) => (
+                <AssetCard
+                  key={quote.symbol}
+                  quote={quote}
+                  isSelected={selectedSymbol === quote.symbol}
+                  onClick={() => setSelectedSymbol(quote.symbol)}
+                />
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* 全球商品 */}
+        <div>
+          <div className="flex items-center gap-2 mb-3">
+            <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">🌍 全球商品</Badge>
+            <span className="text-xs text-slate-500">
+              实时数据 · Yahoo/Polygon
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {isLoading ? (
+              [1, 2, 3].map(i => (
+                <Card key={i} className="bg-slate-900/50 border-slate-800">
+                  <CardContent className="p-3">
+                    <Skeleton className="h-4 w-16 mb-2 bg-slate-800" />
+                    <Skeleton className="h-6 w-20 mb-1 bg-slate-800" />
+                    <Skeleton className="h-3 w-10 bg-slate-800" />
+                  </CardContent>
+                </Card>
+              ))
+            ) : (
+              marketData?.data.global.map((quote) => (
+                <AssetCard
+                  key={quote.symbol}
+                  quote={quote}
+                  isSelected={selectedSymbol === quote.symbol}
+                  onClick={() => setSelectedSymbol(quote.symbol)}
+                />
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* 主内容区 */}
@@ -350,20 +499,20 @@ export default function DashboardPage() {
                   {getQuote(selectedSymbol)?.name || selectedSymbol} 走势
                 </CardTitle>
               </div>
-              <div className="flex gap-1">
-                {["SPY", "QQQ", "ASHR", "GLD"].map(sym => (
+              <div className="flex gap-1 flex-wrap">
+                {allAssets.slice(0, 8).map((asset) => (
                   <Button
-                    key={sym}
-                    variant={selectedSymbol === sym ? "default" : "outline"}
+                    key={asset.symbol}
+                    variant={selectedSymbol === asset.symbol ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setSelectedSymbol(sym)}
+                    onClick={() => setSelectedSymbol(asset.symbol)}
                     className={`text-xs h-7 px-2 ${
-                      selectedSymbol === sym 
+                      selectedSymbol === asset.symbol 
                         ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-500' 
                         : 'border-slate-700 text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    {sym}
+                    {asset.symbol}
                   </Button>
                 ))}
               </div>
@@ -401,7 +550,7 @@ export default function DashboardPage() {
                   />
                   <Area 
                     type="monotone" 
-                    dataKey="price" 
+                    dataKey="close" 
                     stroke="#f59e0b" 
                     strokeWidth={2}
                     fill="url(#chartGradient)" 
@@ -418,53 +567,59 @@ export default function DashboardPage() {
             <CardTitle className="text-base md:text-lg text-slate-100">快速操作</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Link href="/reports">
+            <Link href="/strategies">
               <Button className="w-full justify-start gap-3 h-auto py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-medium">
-                <Sparkles className="w-5 h-5" />
+                <TrendingUp className="w-5 h-5" />
+                <div className="text-left">
+                  <div className="text-sm">策略净值</div>
+                  <div className="text-[10px] opacity-80">Beta 7.0 / Alpha 2.0 / Mix组合</div>
+                </div>
+              </Button>
+            </Link>
+            
+            <Link href="/reports">
+              <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3 border-slate-700 bg-slate-800/50 hover:bg-slate-700 text-slate-200">
+                <Sparkles className="w-5 h-5 text-amber-400" />
                 <div className="text-left">
                   <div className="text-sm">生成AI报告</div>
-                  <div className="text-[10px] opacity-80">基于实时数据生成投资分析</div>
+                  <div className="text-[10px] text-slate-500">基于实时数据生成投资分析</div>
                 </div>
               </Button>
             </Link>
             
-            <Link href="/assets">
+            <Link href="/academy">
               <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3 border-slate-700 bg-slate-800/50 hover:bg-slate-700 text-slate-200">
-                <Globe className="w-5 h-5 text-blue-400" />
+                <BookOpen className="w-5 h-5 text-blue-400" />
                 <div className="text-left">
-                  <div className="text-sm">浏览资产</div>
-                  <div className="text-[10px] text-slate-500">查看六大类资产详情</div>
-                </div>
-              </Button>
-            </Link>
-            
-            <Link href="/compare">
-              <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3 border-slate-700 bg-slate-800/50 hover:bg-slate-700 text-slate-200">
-                <Scale className="w-5 h-5 text-purple-400" />
-                <div className="text-left">
-                  <div className="text-sm">对比分析</div>
-                  <div className="text-[10px] text-slate-500">多资产走势与相关性</div>
+                  <div className="text-sm">投资学院</div>
+                  <div className="text-[10px] text-slate-500">术语词典与策略案例</div>
                 </div>
               </Button>
             </Link>
 
-            {/* 市场概览 */}
+            {/* 数据说明 */}
             <div className="pt-3 border-t border-slate-800">
-              <div className="text-xs text-slate-500 mb-2">数据源</div>
-              <div className="flex flex-wrap gap-2">
-                {marketData?.sources && Object.entries(marketData.sources).map(([source, count]) => (
-                  <Badge key={source} variant="secondary" className="bg-slate-800 text-slate-400 border-slate-700 text-xs">
-                    <Zap className="w-3 h-3 mr-1 text-amber-500" />
-                    {source}: {count}
-                  </Badge>
-                ))}
+              <div className="text-xs text-slate-500 mb-2">数据说明</div>
+              <div className="space-y-1 text-[10px] text-slate-400">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  <span>实时: Yahoo/Polygon (美股/商品)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <span>收盘: AkShare (A股/港股/债券)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <span>延迟: 美股ETF追踪A股 (15-20min)</span>
+                </div>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 新增：宏观指标仪表盘 */}
+      {/* 宏观指标 */}
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader className="pb-3">
           <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
@@ -477,29 +632,7 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* 板块热力图 - 简化版 */}
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
-            <LayoutGrid className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-            市场概览
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-3 gap-2">
-            {marketData?.indices.slice(0, 6).map((item) => (
-              <div key={item.symbol} className="p-2 bg-slate-800/50 rounded text-center">
-                <div className="text-xs text-slate-400">{item.symbol}</div>
-                <div className={`text-sm font-medium ${item.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                  {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* 最新资讯 - 真实数据 */}
+      {/* 最新资讯 */}
       <NewsSection />
     </div>
   );
