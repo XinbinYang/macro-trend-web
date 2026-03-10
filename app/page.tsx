@@ -53,6 +53,7 @@ interface NewsItem {
   titleEn?: string;
   content?: string;
   source: string;
+  url?: string;
 }
 
 // 资讯组件
@@ -93,16 +94,25 @@ function NewsSection() {
         <div className="space-y-3">
           {news.length > 0 ? (
             news.map((item) => (
-              <div key={item.id} className="flex gap-3 p-3 bg-slate-800/30 rounded-lg">
+              <a 
+                key={item.id} 
+                href={item.url || '#'} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex gap-3 p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
+              >
                 <div className="text-xs text-slate-500 min-w-[40px]">{item.time}</div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-slate-200">{item.title}</div>
                   {item.titleEn && (
                     <div className="text-xs text-slate-500 mt-0.5 truncate">{item.titleEn}</div>
                   )}
-                  <div className="text-[10px] text-slate-600 mt-1">来源: {item.source}</div>
+                  <div className="text-[10px] text-slate-600 mt-1 flex items-center gap-1">
+                    来源: {item.source}
+                    {item.url && <span className="text-amber-500">↗</span>}
+                  </div>
                 </div>
-              </div>
+              </a>
             ))
           ) : (
             <div className="text-center py-4 text-slate-500 text-sm">
