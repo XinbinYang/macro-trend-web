@@ -10,9 +10,13 @@ import pandas as pd
 import numpy as np
 from datetime import datetime
 from supabase import create_client
+
 SUPABASE_URL = os.environ.get('SUPABASE_URL')
 SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
-DB_PATH = 'data/macro_quant.db'
+
+# 修复：使用绝对路径
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_PATH = os.path.join(SCRIPT_DIR, '..', 'data', 'macro_quant.db')
 
 def get_supabase_client():
     if not SUPABASE_URL or not SUPABASE_KEY:
@@ -21,6 +25,7 @@ def get_supabase_client():
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
 def run_beta_75_backtest():
+    print(f"Opening database: {DB_PATH}")
     conn = sqlite3.connect(DB_PATH)
     
     asset_map = {
@@ -92,7 +97,6 @@ def run_beta_75_backtest():
         'annual_return': float(annual_return),
         'strategy': 'Beta 7.5'
     }
-
 def update_supabase(supabase, result):
     try:
         supabase.table('strategy_nav').upsert({
@@ -113,6 +117,7 @@ def update_supabase(supabase, result):
 
 def main():
     print(f"Starting Beta 7.5 NAV Update at {datetime.now()}")
+    print(f"Database path: {DB_PATH}")
     
     supabase = get_supabase_client()
     print("Connected to Supabase")
