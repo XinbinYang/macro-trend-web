@@ -82,8 +82,13 @@ export default function AssetDetailPage() {
       const historicalData = await historicalRes.json();
 
       // 从实时数据中找到当前资产
-      if (realtimeData.success) {
-        const allQuotes = [...realtimeData.indices, ...realtimeData.assets];
+      if (realtimeData.success && realtimeData.data) {
+        const allQuotes = [
+          ...realtimeData.data.us,
+          ...realtimeData.data.china,
+          ...realtimeData.data.hongkong,
+          ...realtimeData.data.global,
+        ];
         const currentQuote = allQuotes.find((q: MarketQuote) => q.symbol === symbol);
         if (currentQuote) {
           setQuote(currentQuote);
