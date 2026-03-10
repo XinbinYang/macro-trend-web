@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown } from "lucide-react";
+import { ArrowLeft, RefreshCw, TrendingUp, TrendingDown, Sparkles } from "lucide-react";
 import { XAxis, YAxis, CartesianGrid, ResponsiveContainer, AreaChart, Area, Tooltip } from "recharts";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -65,6 +65,8 @@ export default function AssetDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [quote, setQuote] = useState<MarketQuote | null>(null);
   const [historyData, setHistoryData] = useState<HistoricalPoint[]>([]);
+  const [aiInsight, setAiInsight] = useState<string>("");
+  const [aiLoading, setAiLoading] = useState(false);
 
   // 获取实时数据和历史数据
   const fetchData = async () => {
@@ -99,12 +101,77 @@ export default function AssetDetailPage() {
     }
   };
 
+  // 获取AI解读
+  const fetchAIInsight = async () => {
+    if (!quote) return;
+    setAiLoading(true);
+    try {
+      const response = await fetch('/api/ai-insight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: `${assetName} (${symbol})`,
+          titleEn: `${assetName} (${symbol}) - Price: $${quote.price.toFixed(2)}, Change: ${quote.changePercent.toFixed(2)}%`,
+          source: quote.source
+        }),
+      });
+      const data = await response.json();
+      if (data.success && data.data) {
+        setAiInsight(`${data.data.summary} 影响: ${data.data.impact}。建议: ${data.data.suggestion}`);
+      } else {
+        // 生成本地解读
+        setAiInsight(generateLocalInsight(symbol, quote));
+      }
+    } catch {
+      setAiInsight(generateLocalInsight(symbol, quote));
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  // 生成本地AI解读
+  const generateLocalInsight = (sym: string, q: MarketQuote): string => {
+    const change = q.changePercent;
+    let insight = "";
+    
+    if (change > 2) {
+      insight = `${sym}今日强势上涨${change.toFixed(2)}%，市场情绪积极。`;
+    } else if (change > 0) {
+      insight = `${sym}小幅上涨${change.toFixed(2)}%，走势稳健。`;
+    } else if (change < -2) {
+      insight = `${sym}今日下跌${Math.abs(change).toFixed(2)}%，需关注支撑。`;
+    } else {
+      insight = `${sym}波动较小，处于盘整阶段。`;
+    }
+    
+    // 根据资产类型添加特定分析
+    if (sym === "SPY" || sym === "QQQ") {
+      insight += " 美股大盘受美联储政策预期影响较大。";
+    } else if (sym === "ASHR" || sym === "KWEB" || sym === "FXI") {
+      insight += " 中国资产受国内经济数据和政策影响。";
+    } else if (sym === "GLD" || sym === "GC=F") {
+      insight += " 黄金受实际利率和地缘风险影响。";
+    } else if (sym === "TLT") {
+      insight += " 美债受利率预期和通胀数据影响。";
+    }
+    
+    insight += " 建议关注宏观数据变化。";
+    return insight;
+  };
+
   useEffect(() => {
     if (symbol) {
       fetchData();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol, timeRange]);
+
+  useEffect(() => {
+    if (quote && !aiInsight) {
+      fetchAIInsight();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote]);
 
   const assetName = ASSET_NAMES[symbol] || symbol;
   const description = ASSET_DESCRIPTIONS[symbol] || `${symbol} 是全球重要金融资产之一。`;
@@ -181,6 +248,18 @@ export default function AssetDetailPage() {
               </Badge>
             </div>
             <p className="text-sm text-muted-foreground max-w-2xl">{description}</p>
+            
+            {/* AI解读 */}
+            <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+              <div className="flex items-center gap-2 mb-2">
+                <Sparkles className="w-4 h-4 text-amber-500" />
+                <span className="text-sm font-medium text-amber-400">AI 解读</span>
+                {aiLoading && <span className="text-xs text-slate-500">分析中...</span>}
+              </div>
+              <p className="text-sm text-slate-300">
+                {aiLoading ? "正在生成AI分析..." : aiInsight || "加载中..."}
+              </p>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-4xl font-bold font-mono">
