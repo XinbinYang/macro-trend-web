@@ -133,39 +133,43 @@ const mainIndices = [
   { symbol: "GLD", name: "黄金", region: "商品", emoji: "🥇" },
 ];
 
-// 市场状态配置
-const marketStatus = [
+// 中国市场状态
+const chinaMarketStatus = [
   { 
-    id: "cycle", 
+    id: "cn-cycle", 
+    name: "经济周期", 
+    status: "复苏期", 
+    trend: "up",
+    emoji: "📈",
+    desc: "制造业PMI重回扩张区间" 
+  },
+  { 
+    id: "cn-liquidity", 
+    name: "流动性", 
+    status: "宽松", 
+    trend: "up",
+    emoji: "💧",
+    desc: "降准降息政策持续发力" 
+  },
+];
+
+// 美国市场状态
+const usMarketStatus = [
+  { 
+    id: "us-cycle", 
     name: "经济周期", 
     status: "扩张期", 
     trend: "up",
     emoji: "📈",
-    desc: "全球制造业PMI回升" 
+    desc: "ISM制造业突破荣枯线" 
   },
   { 
-    id: "liquidity", 
+    id: "us-liquidity", 
     name: "流动性", 
-    status: "宽松", 
+    status: "紧缩", 
     trend: "neutral",
     emoji: "💧",
-    desc: "主要央行维持低利率" 
-  },
-  { 
-    id: "sentiment", 
-    name: "风险偏好", 
-    status: "中性", 
-    trend: "neutral",
-    emoji: "⚖️",
-    desc: "VIX指数处于均值" 
-  },
-  { 
-    id: "trend", 
-    name: "技术趋势", 
-    status: "上行", 
-    trend: "up",
-    emoji: "📊",
-    desc: "主要指数突破均线" 
+    desc: "高利率环境维持" 
   },
 ];
 
@@ -243,26 +247,61 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 市场状态卡片 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4 md:mt-6">
-            {marketStatus.map((item) => (
-              <div 
-                key={item.id}
-                className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 md:p-4 hover:border-slate-600 transition-colors"
-              >
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-lg">{item.emoji}</span>
-                  <span className="text-xs text-slate-400">{item.name}</span>
-                </div>
-                <div className={`text-base md:text-lg font-bold ${
-                  item.trend === 'up' ? 'text-green-400' : 
-                  item.trend === 'down' ? 'text-red-400' : 'text-amber-400'
-                }`}>
-                  {item.status}
-                </div>
-                <div className="text-[10px] md:text-xs text-slate-500 mt-1">{item.desc}</div>
+          {/* 市场状态卡片 - 中美分组 */}
+          <div className="mt-4 md:mt-6 space-y-4">
+            {/* 中国 */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">🇨🇳 中国</Badge>
               </div>
-            ))}
+              <div className="grid grid-cols-2 gap-3">
+                {chinaMarketStatus.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 md:p-4 hover:border-slate-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">{item.emoji}</span>
+                      <span className="text-xs text-slate-400">{item.name}</span>
+                    </div>
+                    <div className={`text-base md:text-lg font-bold ${
+                      item.trend === 'up' ? 'text-green-400' : 
+                      item.trend === 'down' ? 'text-red-400' : 'text-amber-400'
+                    }`}>
+                      {item.status}
+                    </div>
+                    <div className="text-[10px] md:text-xs text-slate-500 mt-1">{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            
+            {/* 美国 */}
+            <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">🇺🇸 美国</Badge>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {usMarketStatus.map((item) => (
+                  <div 
+                    key={item.id}
+                    className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 md:p-4 hover:border-slate-600 transition-colors"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg">{item.emoji}</span>
+                      <span className="text-xs text-slate-400">{item.name}</span>
+                    </div>
+                    <div className={`text-base md:text-lg font-bold ${
+                      item.trend === 'up' ? 'text-green-400' : 
+                      item.trend === 'down' ? 'text-red-400' : 'text-amber-400'
+                    }`}>
+                      {item.status}
+                    </div>
+                    <div className="text-[10px] md:text-xs text-slate-500 mt-1">{item.desc}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
