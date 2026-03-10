@@ -400,17 +400,29 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* K线图表 - 简化版 */}
+      {/* 最新资讯 */}
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader className="pb-3">
           <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
             <CandlestickChart className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-            {getQuote(selectedSymbol)?.name || selectedSymbol} - 价格走势
+            最新资讯
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[200px] flex items-center justify-center text-slate-500 text-sm">
-            专业图表功能开发中
+          <div className="space-y-3">
+            {[
+              { time: "10:30", title: "美国2月CPI数据公布", content: "同比3.2%，略高于预期", type: "data" },
+              { time: "09:15", title: "欧洲央行维持利率不变", content: "符合市场预期", type: "policy" },
+              { time: "08:45", title: "原油价格突破85美元", content: "因地缘政治紧张", type: "market" },
+            ].map((news, i) => (
+              <div key={i} className="flex gap-3 p-3 bg-slate-800/30 rounded-lg">
+                <div className="text-xs text-slate-500 min-w-[40px]">{news.time}</div>
+                <div>
+                  <div className="text-sm font-medium text-slate-200">{news.title}</div>
+                  <div className="text-xs text-slate-400">{news.content}</div>
+                </div>
+              </div>
+            ))}
           </div>
         </CardContent>
       </Card>
