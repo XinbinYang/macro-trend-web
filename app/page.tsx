@@ -46,6 +46,72 @@ interface HistoricalPoint {
   volume?: number;
 }
 
+interface NewsItem {
+  id: string;
+  time: string;
+  title: string;
+  content?: string;
+  source: string;
+}
+
+// 资讯组件
+function NewsSection() {
+  const [news, setNews] = useState<NewsItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchNews();
+    const interval = setInterval(fetchNews, 300000); // 5分钟刷新
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchNews = async () => {
+    try {
+      const res = await fetch('/api/news');
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        setNews(data.data.slice(0, 5)); // 只显示前5条
+      }
+    } catch (error) {
+      console.error('Failed to fetch news:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Card className="bg-slate-900/50 border-slate-800">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
+          <CandlestickChart className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
+          最新资讯
+          {loading && <span className="text-xs text-slate-500">加载中...</span>}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {news.length > 0 ? (
+            news.map((item) => (
+              <div key={item.id} className="flex gap-3 p-3 bg-slate-800/30 rounded-lg">
+                <div className="text-xs text-slate-500 min-w-[40px]">{item.time}</div>
+                <div>
+                  <div className="text-sm font-medium text-slate-200">{item.title}</div>
+                  {item.content && <div className="text-xs text-slate-400">{item.content}</div>}
+                  <div className="text-[10px] text-slate-600 mt-1">来源: {item.source}</div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center py-4 text-slate-500 text-sm">
+              暂无最新资讯
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 // 主要指数配置
 const mainIndices = [
   { symbol: "SPY", name: "标普500", region: "美股", emoji: "🇺🇸" },
@@ -400,32 +466,8 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* 最新资讯 */}
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
-            <CandlestickChart className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-            最新资讯
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-3">
-            {[
-              { time: "10:30", title: "美国2月CPI数据公布", content: "同比3.2%，略高于预期", type: "data" },
-              { time: "09:15", title: "欧洲央行维持利率不变", content: "符合市场预期", type: "policy" },
-              { time: "08:45", title: "原油价格突破85美元", content: "因地缘政治紧张", type: "market" },
-            ].map((news, i) => (
-              <div key={i} className="flex gap-3 p-3 bg-slate-800/30 rounded-lg">
-                <div className="text-xs text-slate-500 min-w-[40px]">{news.time}</div>
-                <div>
-                  <div className="text-sm font-medium text-slate-200">{news.title}</div>
-                  <div className="text-xs text-slate-400">{news.content}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {/* 最新资讯 - 真实数据 */}
+      <NewsSection />
     </div>
   );
 }
