@@ -6,15 +6,16 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, BarChart3, ArrowUpRight, ArrowDownRight, Sparkles, CandlestickChart, Gauge, Clock, TrendingUp, BookOpen } from "lucide-react";
+import { RefreshCw, ArrowUpRight, ArrowDownRight, Sparkles, CandlestickChart, Gauge, Clock, TrendingUp, BookOpen } from "lucide-react";
 import { 
   XAxis, 
   YAxis, 
   CartesianGrid, 
   Tooltip, 
   ResponsiveContainer,
-  AreaChart,
-  Area
+  LineChart,
+  Line,
+  Legend
 } from "recharts";
 import { MacroDashboard } from "@/components/macro-gauge";
 
@@ -46,13 +47,12 @@ interface MarketData {
   };
 }
 
-interface HistoricalPoint {
+interface StrategyNavPoint {
   date: string;
-  open: number;
-  high: number;
-  low: number;
-  close: number;
-  volume?: number;
+  "Beta 7.0": number;
+  "Alpha 2.0": number;
+  "5:5 Mix": number;
+  "7:3 Mix": number;
 }
 
 interface NewsItem {
@@ -152,7 +152,7 @@ function NewsSection() {
 }
 
 // 资产卡片组件
-function AssetCard({ quote, isSelected, onClick }: { quote: MarketQuote; isSelected: boolean; onClick: () => void }) {
+function AssetCard({ quote }: { quote: MarketQuote }) {
   const isPositive = quote.change >= 0;
   const regionEmoji = {
     US: "🇺🇸",
@@ -163,10 +163,7 @@ function AssetCard({ quote, isSelected, onClick }: { quote: MarketQuote; isSelec
 
   return (
     <Card 
-      className={`bg-slate-900/50 border-slate-800 cursor-pointer transition-all hover:border-slate-700 hover:bg-slate-800/50 ${
-        isSelected ? 'ring-1 ring-amber-500/50 border-amber-500/30' : ''
-      }`}
-      onClick={onClick}
+      className="bg-slate-900/50 border-slate-800 transition-all hover:border-slate-700 hover:bg-slate-800/50"
     >
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-2">
@@ -228,8 +225,8 @@ const macroDimensions = [
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
-  const [selectedSymbol, setSelectedSymbol] = useState<string>("SPY");
-  const [chartData, setChartData] = useState<HistoricalPoint[]>([]);
+  const [selectedStrategy, setSelectedStrategy] = useState<string>("all");
+  const [strategyNavData, setStrategyNavData] = useState<StrategyNavPoint[]>([]);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -244,36 +241,41 @@ export default function DashboardPage() {
     }
   };
 
-  const fetchHistoricalData = async (symbol: string) => {
-    try {
-      const res = await fetch(`/api/historical-data?symbol=${symbol}&days=30`);
-      const data = await res.json();
-      setChartData(data.success ? data.data : []);
-    } catch {
-      setChartData([]);
-    }
-  };
-
   useEffect(() => { fetchData(); }, []);
-  useEffect(() => { if (selectedSymbol) fetchHistoricalData(selectedSymbol); }, [selectedSymbol]);
 
-  const getQuote = (symbol: string) => {
-    if (!marketData) return null;
-    return [
-      ...marketData.data.us,
-      ...marketData.data.china,
-      ...marketData.data.hongkong,
-      ...marketData.data.global,
-    ].find(q => q.symbol === symbol);
+  // 生成策略净值数据 (模拟数据，后续从GitHub读取)
+  const generateStrategyNavData = (): StrategyNavPoint[] => {
+    const data: StrategyNavPoint[] = [];
+    const startDate = new Date("2020-01-01");
+    const endDate = new Date();
+    
+    let beta7 = 1.0;
+    let alpha2 = 1.0;
+    
+    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
+      if (d.getDay() === 0 || d.getDay() === 6) continue;
+      
+      const betaReturn = (Math.random() - 0.45) * 0.008;
+      const alphaReturn = (Math.random() - 0.42) * 0.012;
+      
+      beta7 *= (1 + betaReturn);
+      alpha2 *= (1 + alphaReturn);
+      
+      data.push({
+        date: d.toISOString().split('T')[0],
+        "Beta 7.0": Number(beta7.toFixed(4)),
+        "Alpha 2.0": Number(alpha2.toFixed(4)),
+        "5:5 Mix": Number((beta7 * 0.5 + alpha2 * 0.5).toFixed(4)),
+        "7:3 Mix": Number((beta7 * 0.7 + alpha2 * 0.3).toFixed(4)),
+      });
+    }
+    
+    return data;
   };
 
-  // 获取所有资产列表
-  const allAssets = marketData ? [
-    ...marketData.data.us,
-    ...marketData.data.china,
-    ...marketData.data.hongkong,
-    ...marketData.data.global,
-  ] : [];
+  useEffect(() => {
+    setStrategyNavData(generateStrategyNavData());
+  }, []);
 
   return (
     <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
@@ -384,8 +386,6 @@ export default function DashboardPage() {
                 <AssetCard
                   key={quote.symbol}
                   quote={quote}
-                  isSelected={selectedSymbol === quote.symbol}
-                  onClick={() => setSelectedSymbol(quote.symbol)}
                 />
               ))
             )}
@@ -416,8 +416,6 @@ export default function DashboardPage() {
                 <AssetCard
                   key={quote.symbol}
                   quote={quote}
-                  isSelected={selectedSymbol === quote.symbol}
-                  onClick={() => setSelectedSymbol(quote.symbol)}
                 />
               ))
             )}
@@ -446,8 +444,6 @@ export default function DashboardPage() {
                 <AssetCard
                   key={quote.symbol}
                   quote={quote}
-                  isSelected={selectedSymbol === quote.symbol}
-                  onClick={() => setSelectedSymbol(quote.symbol)}
                 />
               ))
             )}
@@ -478,8 +474,6 @@ export default function DashboardPage() {
                 <AssetCard
                   key={quote.symbol}
                   quote={quote}
-                  isSelected={selectedSymbol === quote.symbol}
-                  onClick={() => setSelectedSymbol(quote.symbol)}
                 />
               ))
             )}
@@ -489,30 +483,36 @@ export default function DashboardPage() {
 
       {/* 主内容区 */}
       <div className="grid gap-4 lg:grid-cols-3">
-        {/* 图表 */}
+        {/* 策略净值追踪 */}
         <Card className="lg:col-span-2 bg-slate-900/50 border-slate-800">
           <CardHeader className="pb-3">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div>
                 <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
-                  <BarChart3 className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-                  {getQuote(selectedSymbol)?.name || selectedSymbol} 走势
+                  <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
+                  策略净值追踪
                 </CardTitle>
               </div>
-              <div className="flex gap-1 flex-wrap">
-                {allAssets.slice(0, 8).map((asset) => (
+              <div className="flex gap-1">
+                {[
+                  { id: 'all', label: '全部' },
+                  { id: 'beta-7-0', label: 'Beta 7.0' },
+                  { id: 'alpha-2-0', label: 'Alpha 2.0' },
+                  { id: 'mix-55', label: '5:5 Mix' },
+                  { id: 'mix-73', label: '7:3 Mix' },
+                ].map((strategy) => (
                   <Button
-                    key={asset.symbol}
-                    variant={selectedSymbol === asset.symbol ? "default" : "outline"}
+                    key={strategy.id}
+                    variant={selectedStrategy === strategy.id ? "default" : "outline"}
                     size="sm"
-                    onClick={() => setSelectedSymbol(asset.symbol)}
+                    onClick={() => setSelectedStrategy(strategy.id)}
                     className={`text-xs h-7 px-2 ${
-                      selectedSymbol === asset.symbol 
+                      selectedStrategy === strategy.id 
                         ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-500' 
                         : 'border-slate-700 text-slate-400 hover:text-slate-200'
                     }`}
                   >
-                    {asset.symbol}
+                    {strategy.label}
                   </Button>
                 ))}
               </div>
@@ -521,17 +521,11 @@ export default function DashboardPage() {
           <CardContent>
             <div className="h-[250px] md:h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData}>
-                  <defs>
-                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
+                <LineChart data={strategyNavData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis 
                     dataKey="date" 
-                    tickFormatter={(value) => value.slice(5)}
+                    tickFormatter={(value) => value.slice(0, 7)}
                     tick={{ fill: '#64748b', fontSize: 11 }}
                     axisLine={{ stroke: '#334155' }}
                   />
@@ -539,6 +533,7 @@ export default function DashboardPage() {
                     tick={{ fill: '#64748b', fontSize: 11 }}
                     axisLine={{ stroke: '#334155' }}
                     domain={['auto', 'auto']}
+                    tickFormatter={(value) => value.toFixed(2)}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -547,15 +542,47 @@ export default function DashboardPage() {
                       borderRadius: '8px',
                       color: '#f8fafc'
                     }}
+                    formatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
                   />
-                  <Area 
-                    type="monotone" 
-                    dataKey="close" 
-                    stroke="#f59e0b" 
-                    strokeWidth={2}
-                    fill="url(#chartGradient)" 
-                  />
-                </AreaChart>
+                  <Legend />
+                  
+                  {(selectedStrategy === 'all' || selectedStrategy === 'beta-7-0') && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="Beta 7.0" 
+                      stroke="#3b82f6" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                  {(selectedStrategy === 'all' || selectedStrategy === 'alpha-2-0') && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="Alpha 2.0" 
+                      stroke="#f59e0b" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                  {(selectedStrategy === 'all' || selectedStrategy === 'mix-55') && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="5:5 Mix" 
+                      stroke="#10b981" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                  {(selectedStrategy === 'all' || selectedStrategy === 'mix-73') && (
+                    <Line 
+                      type="monotone" 
+                      dataKey="7:3 Mix" 
+                      stroke="#8b5cf6" 
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
