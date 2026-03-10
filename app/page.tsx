@@ -152,35 +152,22 @@ function NewsSection() {
 }
 
 // 资产卡片组件
-// 地区图标组件
+// 地区图标组件 - 使用简单的div+文字，避免SVG兼容性问题
 function RegionIcon({ region }: { region: string }) {
-  const icons: Record<string, JSX.Element> = {
-    US: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-        <rect width="24" height="24" rx="4" fill="#3b82f6"/>
-        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">US</text>
-      </svg>
-    ),
-    CN: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-        <rect width="24" height="24" rx="4" fill="#ef4444"/>
-        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">CN</text>
-      </svg>
-    ),
-    HK: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-        <rect width="24" height="24" rx="4" fill="#8b5cf6"/>
-        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">HK</text>
-      </svg>
-    ),
-    GLOBAL: (
-      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
-        <rect width="24" height="24" rx="4" fill="#10b981"/>
-        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">GL</text>
-      </svg>
-    ),
+  const config: Record<string, { bg: string; label: string }> = {
+    US: { bg: "bg-blue-500", label: "US" },
+    CN: { bg: "bg-red-500", label: "CN" },
+    HK: { bg: "bg-purple-500", label: "HK" },
+    GLOBAL: { bg: "bg-green-500", label: "GL" },
   };
-  return icons[region] || <span className="text-xs">📊</span>;
+  
+  const { bg, label } = config[region] || { bg: "bg-slate-500", label: "??" };
+  
+  return (
+    <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-bold text-white ${bg}`}>
+      {label}
+    </span>
+  );
 }
 
 function AssetCard({ quote }: { quote: MarketQuote }) {
