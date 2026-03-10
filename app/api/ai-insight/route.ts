@@ -9,7 +9,7 @@ interface AIInsight {
 // AI 解读单条新闻 - 服务端API
 export async function POST(request: Request) {
   try {
-    const { title, titleEn, source } = await request.json();
+    const { titleEn, source } = await request.json();
     
     if (!titleEn) {
       return NextResponse.json({
