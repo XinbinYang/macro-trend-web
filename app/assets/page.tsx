@@ -56,10 +56,14 @@ const ASSET_CONFIG: Record<string, { name: string; category: string; region: str
   "SPY": { name: "标普500", category: "stocks", region: "US", dataType: "REALTIME" },
   "QQQ": { name: "纳斯达克100", category: "stocks", region: "US", dataType: "REALTIME" },
   "IWM": { name: "罗素2000", category: "stocks", region: "US", dataType: "REALTIME" },
-  // 债券
+  // 美债
   "TLT": { name: "美债20Y", category: "bonds", region: "US", dataType: "REALTIME" },
   "IEF": { name: "美债7-10Y", category: "bonds", region: "US", dataType: "REALTIME" },
-  "CN10Y": { name: "中债10Y", category: "bonds", region: "CN", dataType: "EOD" },
+  // 中国国债期货 (AkShare)
+  "T2506": { name: "国债期货10Y", category: "bonds", region: "CN", dataType: "EOD" },
+  "TF2506": { name: "国债期货5Y", category: "bonds", region: "CN", dataType: "EOD" },
+  "TS2506": { name: "国债期货2Y", category: "bonds", region: "CN", dataType: "EOD" },
+  "TL2506": { name: "国债期货30Y", category: "bonds", region: "CN", dataType: "EOD" },
   // 商品
   "GLD": { name: "黄金ETF", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },
   "GC=F": { name: "黄金期货", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },

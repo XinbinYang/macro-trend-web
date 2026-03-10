@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMultipleQuotes } from "@/lib/api/market-data";
+import { getChinaBondFutures } from "@/lib/api/akshare-bonds";
 
 // 资产分类配置
 interface AssetConfig {
@@ -35,12 +36,11 @@ const ASSET_CONFIG: AssetConfig[] = [
   { symbol: "EEM", name: "新兴市场", region: "GLOBAL", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
 ];
 
-// AkShare收盘数据 (模拟，后续接入真实数据)
+// AkShare收盘数据 - A股指数
 const AKSHARE_EOD_DATA = [
   { symbol: "000300.SH", name: "沪深300", price: 4602.63, change: 12.5, changePercent: 0.27, region: "CN", source: "AkShare" },
   { symbol: "000905.SH", name: "中证500", price: 5847.21, change: -23.4, changePercent: -0.40, region: "CN", source: "AkShare" },
   { symbol: "HSI", name: "恒生指数", price: 25249.48, change: 156.3, changePercent: 0.62, region: "HK", source: "AkShare" },
-  { symbol: "CN10Y", name: "中国10Y国债", price: 2.345, change: -0.02, changePercent: -0.85, region: "CN", source: "AkShare" },
 ];
 
 export interface MarketQuote {
@@ -77,7 +77,7 @@ export async function GET() {
       };
     });
 
-    // 添加AkShare收盘数据
+    // 添加AkShare收盘数据 - A股指数
     const akshareQuotes: MarketQuote[] = AKSHARE_EOD_DATA.map(d => ({
       symbol: d.symbol,
       name: d.name,
@@ -88,12 +88,29 @@ export async function GET() {
       timestamp: new Date().toISOString(),
       source: d.source,
       region: d.region as "CN" | "HK",
-      category: d.symbol === "CN10Y" ? "BOND" : "EQUITY",
+      category: "EQUITY",
       dataType: "EOD",
       dataSource: "AkShare",
     }));
 
-    const allQuotes = [...enrichedQuotes, ...akshareQuotes];
+    // 获取中国国债期货数据
+    const bondFutures = await getChinaBondFutures();
+    const bondFutureQuotes: MarketQuote[] = bondFutures.map(bf => ({
+      symbol: bf.symbol,
+      name: bf.name,
+      price: bf.price,
+      change: bf.change,
+      changePercent: bf.changePercent,
+      volume: bf.volume,
+      timestamp: bf.timestamp,
+      source: bf.source,
+      region: "CN",
+      category: "BOND",
+      dataType: "EOD",
+      dataSource: "AkShare",
+    }));
+
+    const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes];
 
     // 按地区分类
     const usAssets = allQuotes.filter(q => q.region === "US");
