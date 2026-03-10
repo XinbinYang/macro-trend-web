@@ -152,15 +152,39 @@ function NewsSection() {
 }
 
 // 资产卡片组件
+// 地区图标组件
+function RegionIcon({ region }: { region: string }) {
+  const icons: Record<string, JSX.Element> = {
+    US: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+        <rect width="24" height="24" rx="4" fill="#3b82f6"/>
+        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">US</text>
+      </svg>
+    ),
+    CN: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+        <rect width="24" height="24" rx="4" fill="#ef4444"/>
+        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">CN</text>
+      </svg>
+    ),
+    HK: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+        <rect width="24" height="24" rx="4" fill="#8b5cf6"/>
+        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">HK</text>
+      </svg>
+    ),
+    GLOBAL: (
+      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none">
+        <rect width="24" height="24" rx="4" fill="#10b981"/>
+        <text x="12" y="16" textAnchor="middle" fill="white" fontSize="10" fontWeight="bold">GL</text>
+      </svg>
+    ),
+  };
+  return icons[region] || <span className="text-xs">📊</span>;
+}
+
 function AssetCard({ quote }: { quote: MarketQuote }) {
   const isPositive = quote.change >= 0;
-  const regionEmojiMap: Record<string, string> = {
-    US: "🇺🇸",
-    CN: "🇨🇳",
-    HK: "🇭🇰",
-    GLOBAL: "🌍",
-  };
-  const regionEmoji = regionEmojiMap[quote.region] || "📊";
 
   return (
     <Card 
@@ -169,7 +193,7 @@ function AssetCard({ quote }: { quote: MarketQuote }) {
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-base">{regionEmoji}</span>
+            <RegionIcon region={quote.region} />
             <span className="text-xs text-slate-400 truncate max-w-[60px]">{quote.name}</span>
           </div>
           <DataTypeBadge type={quote.dataType} />
