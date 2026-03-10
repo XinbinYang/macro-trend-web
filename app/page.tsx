@@ -154,12 +154,13 @@ function NewsSection() {
 // 资产卡片组件
 function AssetCard({ quote }: { quote: MarketQuote }) {
   const isPositive = quote.change >= 0;
-  const regionEmoji = {
+  const regionEmojiMap: Record<string, string> = {
     US: "🇺🇸",
     CN: "🇨🇳",
     HK: "🇭🇰",
     GLOBAL: "🌍",
-  }[quote.region];
+  };
+  const regionEmoji = regionEmojiMap[quote.region] || "📊";
 
   return (
     <Card 
@@ -168,7 +169,7 @@ function AssetCard({ quote }: { quote: MarketQuote }) {
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
-            <span className="text-sm">{regionEmoji}</span>
+            <span className="text-base">{regionEmoji}</span>
             <span className="text-xs text-slate-400 truncate max-w-[60px]">{quote.name}</span>
           </div>
           <DataTypeBadge type={quote.dataType} />
