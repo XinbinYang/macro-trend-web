@@ -27,6 +27,9 @@ export const metadata: Metadata = {
     description: "AI驱动的全球宏观投资分析平台",
     type: "website",
   },
+  other: {
+    "build-time": new Date().toISOString(),
+  },
 };
 
 export const viewport: Viewport = {
