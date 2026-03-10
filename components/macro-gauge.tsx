@@ -1,7 +1,8 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { TrendingUp, TrendingDown, Minus, Droplets, Activity, Gauge, type LucideIcon } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { TrendingUp, TrendingDown, Minus, Droplets, Activity, Gauge, DollarSign, type LucideIcon } from "lucide-react";
 
 interface IndicatorProps {
   title: string;
@@ -55,48 +56,117 @@ function IndicatorCard({ title, value, unit, trend, level, description, icon: Ic
   );
 }
 
-export function MacroDashboard() {
-  const indicators: IndicatorProps[] = [
-    {
-      title: "经济周期",
-      value: "扩张期",
-      trend: "up",
-      level: "medium",
-      description: "全球制造业PMI回升，处于扩张周期",
-      icon: TrendingUp,
-    },
-    {
-      title: "通胀预期",
-      value: "3.2",
-      unit: "%",
-      trend: "neutral",
-      level: "medium",
-      description: "略高于目标水平，粘性较强",
-      icon: Activity,
-    },
-    {
-      title: "流动性",
-      value: "宽松",
-      trend: "up",
-      level: "high",
-      description: "主要央行维持低利率政策",
-      icon: Droplets,
-    },
-    {
-      title: "风险偏好",
-      value: "中性",
-      trend: "neutral",
-      level: "medium",
-      description: "VIX指数处于历史均值附近",
-      icon: Gauge,
-    },
-  ];
+// 中国宏观指标
+const chinaIndicators: IndicatorProps[] = [
+  {
+    title: "制造业PMI",
+    value: "50.8",
+    unit: "",
+    trend: "up",
+    level: "medium",
+    description: "重回扩张区间，制造业复苏迹象明显",
+    icon: TrendingUp,
+  },
+  {
+    title: "CPI同比",
+    value: "0.7",
+    unit: "%",
+    trend: "up",
+    level: "low",
+    description: "通胀温和回升，通缩压力缓解",
+    icon: Activity,
+  },
+  {
+    title: "社融规模",
+    value: "4.56",
+    unit: "万亿",
+    trend: "up",
+    level: "medium",
+    description: "信贷投放稳健，流动性合理充裕",
+    icon: Droplets,
+  },
+  {
+    title: "LPR利率",
+    value: "3.45",
+    unit: "%",
+    trend: "down",
+    level: "low",
+    description: "维持低位，支持实体经济",
+    icon: DollarSign,
+  },
+];
 
+// 美国宏观指标
+const usIndicators: IndicatorProps[] = [
+  {
+    title: "ISM制造业",
+    value: "50.3",
+    unit: "",
+    trend: "up",
+    level: "medium",
+    description: "突破荣枯线，制造业景气改善",
+    icon: TrendingUp,
+  },
+  {
+    title: "CPI同比",
+    value: "3.2",
+    unit: "%",
+    trend: "neutral",
+    level: "medium",
+    description: "略高于目标，粘性仍存",
+    icon: Activity,
+  },
+  {
+    title: "联邦利率",
+    value: "5.50",
+    unit: "%",
+    trend: "neutral",
+    level: "high",
+    description: "维持高位，关注降息时点",
+    icon: DollarSign,
+  },
+  {
+    title: "失业率",
+    value: "4.0",
+    unit: "%",
+    trend: "neutral",
+    level: "medium",
+    description: "处于历史低位，就业市场稳健",
+    icon: Gauge,
+  },
+];
+
+export function MacroDashboard() {
   return (
-    <div className="grid grid-cols-2 gap-2 md:gap-4">
-      {indicators.map((ind) => (
-        <IndicatorCard key={ind.title} {...ind} />
-      ))}
+    <div className="space-y-4">
+      {/* 中国宏观指标 */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Badge className="bg-red-500/20 text-red-400 border-red-500/30">🇨🇳 中国</Badge>
+          <span className="text-sm text-slate-400">宏观指标</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 md:gap-4">
+          {chinaIndicators.map((ind) => (
+            <IndicatorCard key={`cn-${ind.title}`} {...ind} />
+          ))}
+        </div>
+      </div>
+
+      {/* 分隔线 */}
+      <div className="border-t border-slate-800"></div>
+
+      {/* 美国宏观指标 */}
+      <div>
+        <div className="flex items-center gap-2 mb-3">
+          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">🇺🇸 美国</Badge>
+          <span className="text-sm text-slate-400">宏观指标</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2 md:gap-4">
+          {usIndicators.map((ind) => (
+            <IndicatorCard key={`us-${ind.title}`} {...ind} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
