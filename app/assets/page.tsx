@@ -6,18 +6,67 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, Minus, ArrowRight, RefreshCw } from "lucide-react";
+import { TrendingUp, TrendingDown, RefreshCw, Clock } from "lucide-react";
 import Link from "next/link";
 
-// 资产类别配置
-const assetClasses = [
-  { id: "cn_stocks", label: "中国股票", flag: "🇨🇳", symbols: ["ASHR", "KWEB", "MCHI", "FXI"] },
-  { id: "cn_bonds", label: "中国债券", flag: "🇨🇳", symbols: ["CBON"] },
-  { id: "us_stocks", label: "美国股票", flag: "🇺🇸", symbols: ["SPY", "QQQ", "IWM"] },
-  { id: "us_bonds", label: "美国债券", flag: "🇺🇸", symbols: ["TLT", "IEF", "HYG"] },
-  { id: "gold", label: "黄金", flag: "🌐", symbols: ["GC=F", "GLD"] },
-  { id: "other", label: "其他市场", flag: "🌐", symbols: ["EEM", "CL=F", "EWH"] },
+// 资产大类配置
+const assetCategories = [
+  {
+    id: "stocks",
+    label: "股票",
+    emoji: "📈",
+    description: "全球主要股指ETF",
+    color: "bg-blue-500/20 text-blue-400 border-blue-500/30",
+  },
+  {
+    id: "bonds",
+    label: "债券",
+    emoji: "📊",
+    description: "国债及信用债",
+    color: "bg-green-500/20 text-green-400 border-green-500/30",
+  },
+  {
+    id: "commodities",
+    label: "商品",
+    emoji: "🛢️",
+    description: "贵金属及能源",
+    color: "bg-amber-500/20 text-amber-400 border-amber-500/30",
+  },
+  {
+    id: "fx",
+    label: "外汇",
+    emoji: "💱",
+    description: "主要货币对",
+    color: "bg-purple-500/20 text-purple-400 border-purple-500/30",
+  },
 ];
+
+// 资产详细配置
+const ASSET_CONFIG: Record<string, { name: string; category: string; region: string; dataType: string }> = {
+  // 中国股票
+  "ASHR": { name: "沪深300", category: "stocks", region: "CN", dataType: "DELAYED" },
+  "KWEB": { name: "中概互联", category: "stocks", region: "CN", dataType: "REALTIME" },
+  "FXI": { name: "富时中国50", category: "stocks", region: "CN", dataType: "REALTIME" },
+  "000300.SH": { name: "沪深300", category: "stocks", region: "CN", dataType: "EOD" },
+  "000905.SH": { name: "中证500", category: "stocks", region: "CN", dataType: "EOD" },
+  // 港股
+  "EWH": { name: "恒生指数", category: "stocks", region: "HK", dataType: "DELAYED" },
+  "HSI": { name: "恒生指数", category: "stocks", region: "HK", dataType: "EOD" },
+  // 美股
+  "SPY": { name: "标普500", category: "stocks", region: "US", dataType: "REALTIME" },
+  "QQQ": { name: "纳斯达克100", category: "stocks", region: "US", dataType: "REALTIME" },
+  "IWM": { name: "罗素2000", category: "stocks", region: "US", dataType: "REALTIME" },
+  // 债券
+  "TLT": { name: "美债20Y", category: "bonds", region: "US", dataType: "REALTIME" },
+  "IEF": { name: "美债7-10Y", category: "bonds", region: "US", dataType: "REALTIME" },
+  "CN10Y": { name: "中债10Y", category: "bonds", region: "CN", dataType: "EOD" },
+  // 商品
+  "GLD": { name: "黄金ETF", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },
+  "GC=F": { name: "黄金期货", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },
+  "CL=F": { name: "原油期货", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },
+  // 外汇 (模拟)
+  "UUP": { name: "美元指数", category: "fx", region: "US", dataType: "REALTIME" },
+};
 
 interface MarketQuote {
   symbol: string;
@@ -28,6 +77,10 @@ interface MarketQuote {
   volume: number;
   timestamp: string;
   source: string;
+  region: string;
+  category: string;
+  dataType: string;
+  dataSource: string;
 }
 
 interface MarketData {
@@ -43,7 +96,38 @@ interface MarketData {
   };
 }
 
-// 信号分析（基于价格变动）
+// 地区图标
+function RegionBadge({ region }: { region: string }) {
+  const colors: Record<string, string> = {
+    US: "bg-blue-500 text-white",
+    CN: "bg-red-500 text-white",
+    HK: "bg-purple-500 text-white",
+    GLOBAL: "bg-green-500 text-white",
+  };
+  return (
+    <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-bold ${colors[region] || "bg-slate-500 text-white"}`}>
+      {region === "GLOBAL" ? "GL" : region}
+    </span>
+  );
+}
+
+// 数据类型标签
+function DataTypeBadge({ type }: { type: string }) {
+  const configs: Record<string, { color: string; label: string }> = {
+    REALTIME: { color: "bg-green-500/20 text-green-400 border-green-500/30", label: "实时" },
+    DELAYED: { color: "bg-amber-500/20 text-amber-400 border-amber-500/30", label: "延迟" },
+    EOD: { color: "bg-blue-500/20 text-blue-400 border-blue-500/30", label: "收盘" },
+  };
+  const config = configs[type] || configs.EOD;
+  return (
+    <Badge variant="outline" className={`text-[9px] ${config.color}`}>
+      <Clock className="w-2.5 h-2.5 mr-0.5" />
+      {config.label}
+    </Badge>
+  );
+}
+
+// 信号分析
 function analyzeSignal(changePercent: number): { direction: "bullish" | "bearish" | "neutral"; strength: "strong" | "moderate" | "weak" } {
   if (changePercent > 1.5) return { direction: "bullish", strength: "strong" };
   if (changePercent > 0.5) return { direction: "bullish", strength: "moderate" };
@@ -52,20 +136,58 @@ function analyzeSignal(changePercent: number): { direction: "bullish" | "bearish
   return { direction: "neutral", strength: "weak" };
 }
 
-const directionIcons = {
-  bullish: <TrendingUp className="h-4 w-4 text-green-600" />,
-  bearish: <TrendingDown className="h-4 w-4 text-red-600" />,
-  neutral: <Minus className="h-4 w-4 text-gray-600" />,
-};
+// 资产卡片
+function AssetCard({ quote }: { quote: MarketQuote }) {
+  const isPositive = quote.change >= 0;
+  const signal = analyzeSignal(quote.changePercent);
+  
+  const signalColors = {
+    bullish: "text-green-400",
+    bearish: "text-red-400",
+    neutral: "text-amber-400",
+  };
+  
+  const strengthLabels = {
+    strong: "强",
+    moderate: "中",
+    weak: "弱",
+  };
 
-const strengthLabels = {
-  strong: "强",
-  moderate: "中",
-  weak: "弱",
-};
+  return (
+    <Link href={`/assets/${quote.symbol}`}>
+      <Card className="bg-slate-900/50 border-slate-800 hover:border-slate-700 transition-all cursor-pointer h-full">
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-1.5">
+              <RegionBadge region={quote.region} />
+              <span className="text-xs text-slate-400 truncate max-w-[70px]">{quote.name}</span>
+            </div>
+            <DataTypeBadge type={quote.dataType} />
+          </div>
+          
+          <div className="text-xl font-bold text-slate-50">
+            {quote.price < 10 ? quote.price.toFixed(3) : quote.price.toFixed(2)}
+          </div>
+          
+          <div className={`flex items-center mt-1 text-xs font-medium ${isPositive ? "text-green-400" : "text-red-400"}`}>
+            {isPositive ? <TrendingUp className="w-3.5 h-3.5 mr-0.5" /> : <TrendingDown className="w-3.5 h-3.5 mr-0.5" />}
+            {isPositive ? "+" : ""}{quote.changePercent.toFixed(2)}%
+          </div>
+          
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-800">
+            <span className="text-[9px] text-slate-600">{quote.symbol}</span>
+            <span className={`text-[9px] ${signalColors[signal.direction]}`}>
+              {signal.direction === "bullish" ? "看涨" : signal.direction === "bearish" ? "看跌" : "中性"}·{strengthLabels[signal.strength]}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
+    </Link>
+  );
+}
 
 export default function AssetsPage() {
-  const [activeTab, setActiveTab] = useState("cn_stocks");
+  const [activeTab, setActiveTab] = useState("stocks");
   const [isLoading, setIsLoading] = useState(true);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +202,7 @@ export default function AssetsPage() {
       if (data.success) {
         setMarketData(data);
       } else {
-        setError(data.sources ? "数据获取失败" : "无可用数据");
+        setError("数据获取失败");
       }
     } catch (err) {
       setError("网络请求失败");
@@ -92,58 +214,46 @@ export default function AssetsPage() {
 
   useEffect(() => {
     fetchData();
-    // 每60秒自动刷新
-    const interval = setInterval(() => fetchData(), 60000);
+    const interval = setInterval(fetchData, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // 获取所有报价
+  // 获取所有资产
   const allQuotes = marketData ? [
     ...marketData.data.us,
     ...marketData.data.china,
     ...marketData.data.hongkong,
     ...marketData.data.global,
   ] : [];
-  
-  // 按类别获取资产
-  const getAssetsByClass = (classId: string) => {
-    const cls = assetClasses.find(c => c.id === classId);
-    if (!cls) return [];
-    return allQuotes.filter(q => cls.symbols.includes(q.symbol));
+
+  // 按类别筛选资产
+  const getAssetsByCategory = (categoryId: string) => {
+    return allQuotes.filter(q => {
+      const config = ASSET_CONFIG[q.symbol];
+      return config?.category === categoryId;
+    });
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-20 md:pb-0">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-bold tracking-tight">资产列表</h1>
-          <p className="text-sm md:text-base text-muted-foreground">
-            六大资产板块实时行情
-            {marketData?.timestamp && (
-              <span className="text-xs md:text-sm ml-1">
-                更新于 {new Date(marketData.timestamp).toLocaleTimeString()}
-              </span>
-            )}
+          <h1 className="text-xl md:text-2xl font-serif font-bold text-slate-50">资产列表</h1>
+          <p className="text-sm text-slate-400">
+            全球大类资产配置 · {marketData?.timestamp ? new Date(marketData.timestamp).toLocaleString() : '加载中...'}
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          {marketData?.sources && Object.entries(marketData.sources).slice(0, 2).map(([source, count]) => (
-            <Badge key={source} variant="secondary" className="text-xs">
-              {source}: {count}
-            </Badge>
-          ))}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={fetchData} 
-            disabled={isLoading}
-            className="gap-1"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">刷新</span>
-          </Button>
-        </div>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={fetchData} 
+          disabled={isLoading}
+          className="border-slate-700 bg-slate-800/50 hover:bg-slate-700 text-slate-300"
+        >
+          <RefreshCw className={`w-4 h-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
+          刷新
+        </Button>
       </div>
 
       {/* 错误提示 */}
@@ -153,95 +263,51 @@ export default function AssetsPage() {
         </div>
       )}
 
-      {/* 资产类别标签页 - 移动端横向滚动 */}
+      {/* 资产大类标签页 */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
-          <TabsList className="inline-flex w-auto min-w-full md:grid md:grid-cols-6 h-auto p-1">
-            {assetClasses.map((cls) => (
-              <TabsTrigger 
-                key={cls.id} 
-                value={cls.id} 
-                className="text-xs md:text-sm px-3 py-2 md:px-4 whitespace-nowrap"
-              >
-                <span className="mr-1">{cls.flag}</span>
-                <span className="hidden sm:inline">{cls.label}</span>
-                <span className="sm:hidden">{cls.label.slice(0, 2)}</span>
-              </TabsTrigger>
-            ))}
-          </TabsList>
-        </div>
+        <TabsList className="grid grid-cols-4 h-auto p-1 bg-slate-900/50">
+          {assetCategories.map((cat) => (
+            <TabsTrigger 
+              key={cat.id} 
+              value={cat.id} 
+              className="flex flex-col items-center gap-1 py-2 text-xs data-[state=active]:bg-slate-800"
+            >
+              <span className="text-lg">{cat.emoji}</span>
+              <span>{cat.label}</span>
+            </TabsTrigger>
+          ))}
+        </TabsList>
 
-        {assetClasses.map((cls) => {
-          const assets = getAssetsByClass(cls.id);
+        {assetCategories.map((category) => {
+          const assets = getAssetsByCategory(category.id);
           return (
-            <TabsContent key={cls.id} value={cls.id} className="mt-4 md:mt-6">
-              <Card>
-                <CardHeader className="pb-2 md:pb-4">
-                  <CardTitle className="flex items-center gap-2 text-base md:text-lg">
-                    <span className="text-xl md:text-2xl">{cls.flag}</span>
-                    {cls.label}
-                  </CardTitle>
-                  <CardDescription className="text-xs md:text-sm">
-                    {assets.length} 个相关标的
-                  </CardDescription>
+            <TabsContent key={category.id} value={category.id} className="mt-4">
+              <Card className="bg-slate-900/50 border-slate-800">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-2xl">{category.emoji}</span>
+                    <div>
+                      <CardTitle className="text-slate-100">{category.label}</CardTitle>
+                      <CardDescription className="text-slate-500">{category.description}</CardDescription>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   {isLoading ? (
-                    <div className="space-y-2">
-                      {[...Array(4)].map((_, i) => (
-                        <Skeleton key={i} className="h-16 w-full" />
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {[...Array(6)].map((_, i) => (
+                        <Skeleton key={i} className="h-28 w-full bg-slate-800" />
                       ))}
                     </div>
                   ) : assets.length === 0 ? (
-                    <div className="text-center py-8 text-muted-foreground">
-                      暂无数据
+                    <div className="text-center py-12 text-slate-500">
+                      暂无该类别资产数据
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      {assets.map((asset) => {
-                        const signal = analyzeSignal(asset.changePercent);
-                        return (
-                          <Link 
-                            key={asset.symbol}
-                            href={`/assets/${asset.symbol}`}
-                            className="block"
-                          >
-                            <div className="flex items-center justify-between p-3 md:p-4 border rounded-lg hover:bg-muted transition-colors cursor-pointer">
-                              <div className="flex items-center gap-2 md:gap-3 min-w-0 flex-1">
-                                <div className="w-9 h-9 md:w-12 md:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
-                                  <span className="text-[10px] md:text-xs font-bold text-primary">
-                                    {asset.symbol.slice(0, 4)}
-                                  </span>
-                                </div>
-                                <div className="min-w-0 flex-1">
-                                  <div className="font-medium text-sm md:text-base truncate">{asset.name}</div>
-                                  <div className="text-[10px] md:text-xs text-muted-foreground">
-                                    {asset.symbol} · {asset.source}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              <div className="flex items-center gap-2 md:gap-4 flex-shrink-0 ml-2">
-                                <div className="text-right">
-                                  <div className="font-mono font-medium text-sm md:text-base">${asset.price.toFixed(2)}</div>
-                                  <div className={`text-[10px] md:text-xs ${asset.changePercent >= 0 ? "text-green-600" : "text-red-600"}`}>
-                                    {asset.changePercent >= 0 ? "+" : ""}{asset.changePercent.toFixed(2)}%
-                                  </div>
-                                </div>
-                                
-                                <div className="hidden sm:flex items-center gap-1.5">
-                                  {directionIcons[signal.direction]}
-                                  <Badge variant="outline" className="text-[10px] md:text-xs">
-                                    {strengthLabels[signal.strength]}
-                                  </Badge>
-                                </div>
-                                
-                                <ArrowRight className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                              </div>
-                            </div>
-                          </Link>
-                        );
-                      })}
+                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {assets.map((asset) => (
+                        <AssetCard key={asset.symbol} quote={asset} />
+                      ))}
                     </div>
                   )}
                 </CardContent>
@@ -251,45 +317,26 @@ export default function AssetsPage() {
         })}
       </Tabs>
 
-      {/* 资产分析说明 */}
-      <Card>
-        <CardHeader className="pb-2 md:pb-4">
-          <CardTitle className="text-base md:text-lg">资产分析说明</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 text-xs md:text-sm">
-            <div>
-              <div className="font-medium mb-2 text-sm md:text-base">信号方向</div>
-              <div className="space-y-1.5 md:space-y-2 text-muted-foreground">
+      {/* 数据说明 */}
+      <Card className="bg-gradient-to-r from-slate-800/50 to-slate-900/50 border-slate-800">
+        <CardContent className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-amber-400 mt-0.5">💡</div>
+            <div className="text-sm text-slate-300">
+              <p className="font-medium text-slate-100 mb-1">数据说明</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs text-slate-400">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-3.5 w-3.5 md:h-4 md:w-4 text-green-600" />
-                  <span>看涨 - 建议关注或配置</span>
+                  <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                  <span>实时: Yahoo/Polygon (美股/商品)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Minus className="h-3.5 w-3.5 md:h-4 md:w-4 text-gray-600" />
-                  <span>中性 - 观望或维持现状</span>
+                  <span className="w-2 h-2 rounded-full bg-blue-500"></span>
+                  <span>收盘: AkShare (A股/港股/债券)</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <TrendingDown className="h-3.5 w-3.5 md:h-4 md:w-4 text-red-600" />
-                  <span>看跌 - 建议减仓或对冲</span>
+                  <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                  <span>延迟: 美股ETF追踪A股 (15-20min)</span>
                 </div>
-              </div>
-            </div>
-            <div>
-              <div className="font-medium mb-2 text-sm md:text-base">信号强度</div>
-              <div className="space-y-1.5 md:space-y-2 text-muted-foreground">
-                <div><span className="font-medium">强</span> - 高置信度信号</div>
-                <div><span className="font-medium">中</span> - 中等置信度</div>
-                <div><span className="font-medium">弱</span> - 需进一步确认</div>
-              </div>
-            </div>
-            <div className="sm:col-span-2 md:col-span-1">
-              <div className="font-medium mb-2 text-sm md:text-base">分析维度</div>
-              <div className="space-y-1.5 md:space-y-2 text-muted-foreground">
-                <div>• 周期分析 - 经济周期位置</div>
-                <div>• 反身性 - 市场预期差</div>
-                <div>• 流动性 - 央行政策影响</div>
-                <div>• 技术趋势 - 价格行为</div>
               </div>
             </div>
           </div>
