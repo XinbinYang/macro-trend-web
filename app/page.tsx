@@ -326,8 +326,8 @@ export default function DashboardPage() {
                   
                   {/* 中国 */}
                   <div className="mb-3">
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="text-[10px]">🇨🇳</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base">🇨🇳</span>
                       <span className={`text-sm font-bold ${
                         dim.china.trend === 'up' ? 'text-green-400' : 
                         dim.china.trend === 'down' ? 'text-red-400' : 'text-amber-400'
@@ -335,13 +335,13 @@ export default function DashboardPage() {
                         {dim.china.status}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-500 leading-tight">{dim.china.desc}</div>
+                    <div className="text-[10px] text-slate-500 leading-tight pl-6">{dim.china.desc}</div>
                   </div>
                   
                   {/* 美国 */}
                   <div>
-                    <div className="flex items-center gap-1 mb-1">
-                      <span className="text-[10px]">🇺🇸</span>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-base">🇺🇸</span>
                       <span className={`text-sm font-bold ${
                         dim.us.trend === 'up' ? 'text-green-400' : 
                         dim.us.trend === 'down' ? 'text-red-400' : 'text-amber-400'
@@ -349,7 +349,7 @@ export default function DashboardPage() {
                         {dim.us.status}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-500 leading-tight">{dim.us.desc}</div>
+                    <div className="text-[10px] text-slate-500 leading-tight pl-6">{dim.us.desc}</div>
                   </div>
                 </div>
               ))}

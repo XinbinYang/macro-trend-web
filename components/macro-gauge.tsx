@@ -1,7 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+
 import { TrendingUp, TrendingDown, Minus, Droplets, Activity, Gauge, DollarSign, type LucideIcon } from "lucide-react";
 
 interface IndicatorProps {
@@ -142,8 +142,8 @@ export function MacroDashboard() {
       {/* 中国宏观指标 */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Badge className="bg-red-500/20 text-red-400 border-red-500/30">🇨🇳 中国</Badge>
-          <span className="text-sm text-slate-400">宏观指标</span>
+          <span className="text-xl">🇨🇳</span>
+          <span className="text-sm font-medium text-slate-300">中国宏观指标</span>
         </div>
         <div className="grid grid-cols-2 gap-2 md:gap-4">
           {chinaIndicators.map((ind) => (
@@ -158,8 +158,8 @@ export function MacroDashboard() {
       {/* 美国宏观指标 */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">🇺🇸 美国</Badge>
-          <span className="text-sm text-slate-400">宏观指标</span>
+          <span className="text-xl">🇺🇸</span>
+          <span className="text-sm font-medium text-slate-300">美国宏观指标</span>
         </div>
         <div className="grid grid-cols-2 gap-2 md:gap-4">
           {usIndicators.map((ind) => (
