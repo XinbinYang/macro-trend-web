@@ -133,43 +133,35 @@ const mainIndices = [
   { symbol: "GLD", name: "黄金", region: "商品", emoji: "🥇" },
 ];
 
-// 中国市场状态
-const chinaMarketStatus = [
-  { 
-    id: "cn-cycle", 
-    name: "经济周期", 
-    status: "复苏期", 
-    trend: "up",
+// 四大宏观维度配置
+const macroDimensions = [
+  {
+    id: "growth",
+    name: "增长预期",
     emoji: "📈",
-    desc: "制造业PMI重回扩张区间" 
+    china: { status: "复苏", trend: "up", desc: "制造业PMI 50.8，重回扩张" },
+    us: { status: "稳健", trend: "up", desc: "ISM 50.3，突破荣枯线" },
   },
-  { 
-    id: "cn-liquidity", 
-    name: "流动性", 
-    status: "宽松", 
-    trend: "up",
+  {
+    id: "inflation",
+    name: "通胀预期",
+    emoji: "🔥",
+    china: { status: "温和", trend: "up", desc: "CPI 0.7%，通缩压力缓解" },
+    us: { status: "粘性", trend: "neutral", desc: "CPI 3.2%，高于目标" },
+  },
+  {
+    id: "policy",
+    name: "政策预期",
+    emoji: "🏛️",
+    china: { status: "宽松", trend: "up", desc: "降准降息，财政发力" },
+    us: { status: "观望", trend: "neutral", desc: "3月FOMC，关注降息指引" },
+  },
+  {
+    id: "liquidity",
+    name: "流动性",
     emoji: "💧",
-    desc: "降准降息政策持续发力" 
-  },
-];
-
-// 美国市场状态
-const usMarketStatus = [
-  { 
-    id: "us-cycle", 
-    name: "经济周期", 
-    status: "扩张期", 
-    trend: "up",
-    emoji: "📈",
-    desc: "ISM制造业突破荣枯线" 
-  },
-  { 
-    id: "us-liquidity", 
-    name: "流动性", 
-    status: "紧缩", 
-    trend: "neutral",
-    emoji: "💧",
-    desc: "高利率环境维持" 
+    china: { status: "充裕", trend: "up", desc: "社融4.56万亿，合理充裕" },
+    us: { status: "紧缩", trend: "neutral", desc: "利率5.5%，维持高位" },
   },
 ];
 
@@ -247,60 +239,49 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 市场状态卡片 - 中美分组 */}
-          <div className="mt-4 md:mt-6 space-y-4">
-            {/* 中国 */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge className="bg-red-500/20 text-red-400 border-red-500/30 text-xs">🇨🇳 中国</Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {chinaMarketStatus.map((item) => (
-                  <div 
-                    key={item.id}
-                    className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 md:p-4 hover:border-slate-600 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-lg">{item.emoji}</span>
-                      <span className="text-xs text-slate-400">{item.name}</span>
-                    </div>
-                    <div className={`text-base md:text-lg font-bold ${
-                      item.trend === 'up' ? 'text-green-400' : 
-                      item.trend === 'down' ? 'text-red-400' : 'text-amber-400'
-                    }`}>
-                      {item.status}
-                    </div>
-                    <div className="text-[10px] md:text-xs text-slate-500 mt-1">{item.desc}</div>
+          {/* 四大宏观维度 - 中美对比 */}
+          <div className="mt-4 md:mt-6">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {macroDimensions.map((dim) => (
+                <div 
+                  key={dim.id}
+                  className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 md:p-4 hover:border-slate-600 transition-colors"
+                >
+                  {/* 维度标题 */}
+                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700/50">
+                    <span className="text-lg">{dim.emoji}</span>
+                    <span className="text-xs font-medium text-slate-300">{dim.name}</span>
                   </div>
-                ))}
-              </div>
-            </div>
-            
-            {/* 美国 */}
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30 text-xs">🇺🇸 美国</Badge>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                {usMarketStatus.map((item) => (
-                  <div 
-                    key={item.id}
-                    className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 md:p-4 hover:border-slate-600 transition-colors"
-                  >
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-lg">{item.emoji}</span>
-                      <span className="text-xs text-slate-400">{item.name}</span>
+                  
+                  {/* 中国 */}
+                  <div className="mb-3">
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-[10px]">🇨🇳</span>
+                      <span className={`text-sm font-bold ${
+                        dim.china.trend === 'up' ? 'text-green-400' : 
+                        dim.china.trend === 'down' ? 'text-red-400' : 'text-amber-400'
+                      }`}>
+                        {dim.china.status}
+                      </span>
                     </div>
-                    <div className={`text-base md:text-lg font-bold ${
-                      item.trend === 'up' ? 'text-green-400' : 
-                      item.trend === 'down' ? 'text-red-400' : 'text-amber-400'
-                    }`}>
-                      {item.status}
-                    </div>
-                    <div className="text-[10px] md:text-xs text-slate-500 mt-1">{item.desc}</div>
+                    <div className="text-[10px] text-slate-500 leading-tight">{dim.china.desc}</div>
                   </div>
-                ))}
-              </div>
+                  
+                  {/* 美国 */}
+                  <div>
+                    <div className="flex items-center gap-1 mb-1">
+                      <span className="text-[10px]">🇺🇸</span>
+                      <span className={`text-sm font-bold ${
+                        dim.us.trend === 'up' ? 'text-green-400' : 
+                        dim.us.trend === 'down' ? 'text-red-400' : 'text-amber-400'
+                      }`}>
+                        {dim.us.status}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 leading-tight">{dim.us.desc}</div>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
