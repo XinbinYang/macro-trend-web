@@ -22,7 +22,7 @@ export function MobileNav() {
     <>
       {/* Mobile Menu Button */}
       <button 
-        className="md:hidden p-2 rounded-lg hover:bg-slate-800 transition-colors"
+        className="md:hidden p-2 rounded-lg hover:bg-slate-800 transition-colors relative z-[101]"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Toggle menu"
       >
@@ -37,7 +37,7 @@ export function MobileNav() {
 
       {/* Mobile Navigation Dropdown */}
       {isOpen && (
-        <div className="md:hidden absolute top-full left-0 right-0 bg-slate-950/98 backdrop-blur border-b border-slate-800 shadow-2xl">
+        <div className="md:hidden fixed top-14 left-0 right-0 z-[100] bg-slate-950/98 backdrop-blur border-b border-slate-800 shadow-2xl max-h-[70vh] overflow-y-auto">
           <nav className="container py-2">
             {navItems.map((item) => {
               const isActive = pathname === item.href;
