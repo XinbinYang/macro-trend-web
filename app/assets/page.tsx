@@ -33,9 +33,14 @@ interface MarketQuote {
 interface MarketData {
   success: boolean;
   sources: Record<string, number>;
+  dataTypes: Record<string, number>;
   timestamp: string;
-  indices: MarketQuote[];
-  assets: MarketQuote[];
+  data: {
+    us: MarketQuote[];
+    china: MarketQuote[];
+    hongkong: MarketQuote[];
+    global: MarketQuote[];
+  };
 }
 
 // 信号分析（基于价格变动）
@@ -93,7 +98,12 @@ export default function AssetsPage() {
   }, []);
 
   // 获取所有报价
-  const allQuotes = marketData ? [...marketData.indices, ...marketData.assets] : [];
+  const allQuotes = marketData ? [
+    ...marketData.data.us,
+    ...marketData.data.china,
+    ...marketData.data.hongkong,
+    ...marketData.data.global,
+  ] : [];
   
   // 按类别获取资产
   const getAssetsByClass = (classId: string) => {
@@ -138,7 +148,7 @@ export default function AssetsPage() {
 
       {/* 错误提示 */}
       {error && (
-        <div className="p-4 border border-red-200 bg-red-50 rounded-lg text-red-700">
+        <div className="p-4 border border-red-200 bg-red-50 dark:bg-red-950/20 dark:border-red-900 rounded-lg text-red-700 dark:text-red-400">
           {error}，请稍后重试
         </div>
       )}
