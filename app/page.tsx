@@ -16,8 +16,6 @@ import {
   AreaChart,
   Area
 } from "recharts";
-import { TradingViewChart } from "@/components/trading-view-chart";
-import { SectorHeatmap } from "@/components/sector-heatmap";
 import { MacroDashboard } from "@/components/macro-gauge";
 
 interface MarketQuote {
@@ -129,21 +127,7 @@ export default function DashboardPage() {
     return [...marketData.indices, ...marketData.assets].find(q => q.symbol === symbol);
   };
 
-  // 板块热力图数据
-  const sectorData = marketData ? [
-    { name: "美股大盘", symbol: "SPY", change: getQuote("SPY")?.changePercent || 0 },
-    { name: "科技股", symbol: "QQQ", change: getQuote("QQQ")?.changePercent || 0 },
-    { name: "A股", symbol: "ASHR", change: getQuote("ASHR")?.changePercent || 0 },
-    { name: "港股", symbol: "EWH", change: getQuote("EWH")?.changePercent || 0 },
-    { name: "黄金", symbol: "GLD", change: getQuote("GLD")?.changePercent || 0 },
-    { name: "原油", symbol: "CL=F", change: getQuote("CL=F")?.changePercent || 0 },
-    { name: "美债", symbol: "TLT", change: getQuote("TLT")?.changePercent || 0 },
-    { name: "新兴市场", symbol: "EEM", change: getQuote("EEM")?.changePercent || 0 },
-    { name: "中概互联", symbol: "KWEB", change: getQuote("KWEB")?.changePercent || 0 },
-    { name: "罗素2000", symbol: "IWM", change: getQuote("IWM")?.changePercent || 0 },
-    { name: "美元", symbol: "UUP", change: 0.5 },
-    { name: "比特币", symbol: "BTC", change: 2.3 },
-  ] : [];
+
 
   return (
     <div className="space-y-4 md:space-y-6 pb-20 md:pb-0">
@@ -394,73 +378,40 @@ export default function DashboardPage() {
         </CardContent>
       </Card>
 
-      {/* 新增：板块热力图 */}
+      {/* 板块热力图 - 简化版 */}
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader className="pb-3">
           <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
             <LayoutGrid className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-            全球市场热力图
+            市场概览
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <div className="h-40 flex items-center justify-center">
-              <Skeleton className="h-full w-full bg-slate-800" />
-            </div>
-          ) : (
-            <SectorHeatmap data={sectorData} />
-          )}
+          <div className="grid grid-cols-3 gap-2">
+            {marketData?.indices.slice(0, 6).map((item) => (
+              <div key={item.symbol} className="p-2 bg-slate-800/50 rounded text-center">
+                <div className="text-xs text-slate-400">{item.symbol}</div>
+                <div className={`text-sm font-medium ${item.change >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {item.change >= 0 ? '+' : ''}{item.changePercent.toFixed(2)}%
+                </div>
+              </div>
+            ))}
+          </div>
         </CardContent>
       </Card>
 
-      {/* 新增：K线图表 */}
+      {/* K线图表 - 简化版 */}
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader className="pb-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
-              <CandlestickChart className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-              {getQuote(selectedSymbol)?.name || selectedSymbol} - K线走势
-            </CardTitle>
-            <div className="flex gap-1">
-              {["SPY", "QQQ", "ASHR", "GLD"].map(sym => (
-                <Button
-                  key={sym}
-                  variant={selectedSymbol === sym ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedSymbol(sym)}
-                  className={`text-xs h-7 px-2 ${
-                    selectedSymbol === sym 
-                      ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-500' 
-                      : 'border-slate-700 text-slate-400 hover:text-slate-200'
-                  }`}
-                >
-                  {sym}
-                </Button>
-              ))}
-            </div>
-          </div>
+          <CardTitle className="text-base md:text-lg flex items-center gap-2 text-slate-100">
+            <CandlestickChart className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
+            {getQuote(selectedSymbol)?.name || selectedSymbol} - 价格走势
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
-            <Skeleton className="h-[300px] md:h-[400px] w-full bg-slate-800" />
-          ) : chartData.length === 0 ? (
-            <div className="h-[300px] md:h-[400px] flex items-center justify-center text-slate-500">
-              暂无数据
-            </div>
-          ) : (
-            <TradingViewChart 
-              data={chartData.map(d => ({
-                time: d.date,
-                open: d.open || d.close,
-                high: d.high || d.close,
-                low: d.low || d.close,
-                close: d.close,
-                volume: d.volume,
-              }))} 
-              symbol={selectedSymbol}
-              height={400}
-            />
-          )}
+          <div className="h-[200px] flex items-center justify-center text-slate-500 text-sm">
+            专业图表功能开发中
+          </div>
         </CardContent>
       </Card>
     </div>
