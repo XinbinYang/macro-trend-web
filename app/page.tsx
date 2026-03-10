@@ -50,6 +50,7 @@ interface NewsItem {
   id: string;
   time: string;
   title: string;
+  titleEn?: string;
   content?: string;
   source: string;
 }
@@ -94,9 +95,11 @@ function NewsSection() {
             news.map((item) => (
               <div key={item.id} className="flex gap-3 p-3 bg-slate-800/30 rounded-lg">
                 <div className="text-xs text-slate-500 min-w-[40px]">{item.time}</div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-slate-200">{item.title}</div>
-                  {item.content && <div className="text-xs text-slate-400">{item.content}</div>}
+                  {item.titleEn && (
+                    <div className="text-xs text-slate-500 mt-0.5 truncate">{item.titleEn}</div>
+                  )}
                   <div className="text-[10px] text-slate-600 mt-1">来源: {item.source}</div>
                 </div>
               </div>
