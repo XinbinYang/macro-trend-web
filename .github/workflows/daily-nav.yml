@@ -1,0 +1,23 @@
+name: Daily Strategy NAV Update
+GitHub
+GitHub - XinbinYang/macro-trend-web: AI宏观作手 - 网页版 (Ne...
+AI宏观作手 - 网页版 (Next.js 14 + shadcn/ui). Contribute to XinbinYang/macro-trend-web development by creating an account on GitHub.
+AI宏观作手 - 网页版 (Next.js 14 + shadcn/ui). Contribute to XinbinYang/macro-trend-web development by creating an account on GitHub.
+on:
+  schedule:
+    - cron: '30 8 * * *'
+  workflow_dispatch:
+
+jobs:
+  update-nav:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+    - run: pip install supabase pandas numpy
+    - env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+        SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+      run: python scripts/update_strategy_nav.py
