@@ -5,14 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   TrendingUp, 
-  Activity, 
-  PieChart, 
-  Target,
-  ArrowUpRight,
-  ArrowDownRight,
+  Activity,
   RefreshCw,
   Calendar,
   Info
@@ -92,8 +87,16 @@ const STRATEGIES = [
   },
 ];
 
+interface NavDataPoint {
+  date: string;
+  "Beta 7.0": number;
+  "Alpha 2.0": number;
+  "5:5 Mix": number;
+  "7:3 Mix": number;
+}
+
 // 模拟净值数据 (后续从GitHub读取)
-function generateMockNavData() {
+function generateMockNavData(): NavDataPoint[] {
   const data = [];
   const startDate = new Date("2020-01-01");
   const endDate = new Date();
@@ -146,7 +149,7 @@ function MetricCard({ label, value, subtext, trend }: { label: string; value: st
 
 export default function StrategiesPage() {
   const [isLoading, setIsLoading] = useState(true);
-  const [navData, setNavData] = useState<any[]>([]);
+  const [navData, setNavData] = useState<NavDataPoint[]>([]);
   const [selectedStrategy, setSelectedStrategy] = useState("all");
 
   useEffect(() => {
@@ -165,9 +168,9 @@ export default function StrategiesPage() {
     }, 500);
   };
 
-  // 获取最新净值
-  const latestNav = navData[navData.length - 1] || {};
-  const firstNav = navData[0] || {};
+  // 获取最新净值 (预留用于后续计算收益率)
+  // const latestNav = navData[navData.length - 1];
+  // const firstNav = navData[0];
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
@@ -307,7 +310,7 @@ export default function StrategiesPage() {
                       borderRadius: '8px',
                       color: '#f8fafc'
                     }}
-                    formatter={(value: number) => value.toFixed(4)}
+                    formatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
                   />
                   <Legend />
                   

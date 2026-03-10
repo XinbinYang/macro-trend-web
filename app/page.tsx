@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, Globe, BarChart3, Zap, ArrowUpRight, ArrowDownRight, Sparkles, Scale, CandlestickChart, LayoutGrid, Gauge, Clock, TrendingUp, BookOpen } from "lucide-react";
+import { RefreshCw, BarChart3, ArrowUpRight, ArrowDownRight, Sparkles, CandlestickChart, Gauge, Clock, TrendingUp, BookOpen } from "lucide-react";
 import { 
   XAxis, 
   YAxis, 
