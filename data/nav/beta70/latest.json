@@ -1,0 +1,28 @@
+{
+  "strategy": "beta70",
+  "name": "All-Weather Beta 7.0",
+  "status": "SAMPLE",
+  "asOf": "2026-03-11",
+  "currency": "USD",
+  "base": 100.0,
+  "nav": [
+    { "date": "2026-02-11", "value": 100.00 },
+    { "date": "2026-02-18", "value": 100.62 },
+    { "date": "2026-02-25", "value": 101.10 },
+    { "date": "2026-03-04", "value": 100.40 },
+    { "date": "2026-03-11", "value": 101.32 }
+  ],
+  "metrics": {
+    "cagr": null,
+    "vol": null,
+    "maxDrawdown": null,
+    "sharpe": null
+  },
+  "dataLineage": {
+    "truthLayer": "Backtest/Signal",
+    "sources": ["SAMPLE (placeholder)"],
+    "pricing": "Spot/Settle mixed (TBD)",
+    "notes": "This is a placeholder NAV series for UI wiring. Replace with audited NAV output from the truth layer pipeline."
+  },
+  "disclaimer": "SAMPLE data for UI wiring only. Not indicative of performance."
+}
