@@ -34,7 +34,8 @@ export async function POST(request: Request) {
         'Authorization': `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': process.env.VERCEL_URL || 'https://macro-trend-web.vercel.app',
-        'X-Title': 'AI宏观作手'
+        // NOTE: Headers must be ByteString (0-255). Avoid non-ASCII here.
+        'X-Title': 'AI Macro Trader'
       },
       body: JSON.stringify({
         model: 'openai/gpt-4o-mini',
