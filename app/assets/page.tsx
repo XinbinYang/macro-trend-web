@@ -15,28 +15,28 @@ const assetCategories = [
     id: "stocks",
     label: "股票",
     emoji: "📈",
-    description: "全球主要股指ETF",
+    description: "全球主要股指",
     color: "bg-blue-500/20 text-blue-400 border-blue-500/30",
   },
   {
     id: "bonds",
     label: "债券",
     emoji: "📊",
-    description: "国债及信用债",
+    description: "国债/利率",
     color: "bg-green-500/20 text-green-400 border-green-500/30",
   },
   {
     id: "commodities",
     label: "商品",
     emoji: "🛢️",
-    description: "贵金属及能源",
+    description: "能源/金属",
     color: "bg-amber-500/20 text-amber-400 border-amber-500/30",
   },
   {
     id: "fx",
     label: "外汇",
     emoji: "💱",
-    description: "主要货币对",
+    description: "汇率",
     color: "bg-purple-500/20 text-purple-400 border-purple-500/30",
   },
 ];
@@ -304,14 +304,38 @@ export default function AssetsPage() {
                       ))}
                     </div>
                   ) : assets.length === 0 ? (
-                    <div className="text-center py-12 text-slate-500">
-                      暂无该类别资产数据
-                    </div>
+                    <div className="text-center py-12 text-slate-500">暂无该类别资产数据</div>
                   ) : (
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
-                      {assets.map((asset) => (
-                        <AssetCard key={asset.symbol} quote={asset} />
-                      ))}
+                    <div className="space-y-4">
+                      {(["US", "CN", "HK", "GLOBAL"] as const)
+                        .map((region) => {
+                          const regionAssets = assets.filter((a) => a.region === region);
+                          if (regionAssets.length === 0) return null;
+
+                          const regionLabel: Record<string, string> = {
+                            US: "美国",
+                            CN: "中国",
+                            HK: "香港",
+                            GLOBAL: "全球",
+                          };
+
+                          return (
+                            <div key={region}>
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="text-xs font-medium text-slate-300">
+                                  {regionLabel[region]}
+                                  <span className="ml-2 text-[10px] text-slate-500">({regionAssets.length})</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                                {regionAssets.map((asset) => (
+                                  <AssetCard key={asset.symbol} quote={asset} />
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })
+                        .filter(Boolean)}
                     </div>
                   )}
                 </CardContent>
