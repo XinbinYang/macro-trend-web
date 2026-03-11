@@ -5,16 +5,16 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { NewsSection, SourceBadge } from "@/components/news-card";
 import { 
   AlertTriangle,
-  Sparkles,
   RefreshCw,
-  ExternalLink,
   Calendar,
   Clock,
   TrendingUp,
   Flame
 } from "lucide-react";
+
 
 interface NewsItem {
   id: string;
@@ -24,6 +24,9 @@ interface NewsItem {
   content?: string;
   source: string;
   url?: string;
+  score?: number;
+  isImportant?: boolean;
+  queryBucket?: string;
 }
 
 interface AIInsight {
@@ -70,7 +73,6 @@ async function analyzeNewsWithAI(news: NewsItem): Promise<AIInsight> {
     throw new Error('Invalid response');
   } catch (error) {
     console.error('AI analysis error:', error);
-    // 返回本地生成的解读作为fallback
     return generateLocalInsight(news.titleEn);
   }
 }
@@ -110,13 +112,16 @@ function generateLocalInsight(titleEn: string): AIInsight {
 }
 
 export default function NewsPage() {
-  const [news, setNews] = useState<NewsItem[]>([]);
+  const [topImportant, setTopImportant] = useState<NewsItem[]>([]);
+  const [moreNews, setMoreNews] = useState<NewsItem[]>([]);
   const [insights, setInsights] = useState<Record<string, AIInsight>>({});
   const [events, setEvents] = useState<EconomicEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [analyzing, setAnalyzing] = useState<Record<string, boolean>>({});
   const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [source, setSource] = useState<string>('brave');
+  const [fetchedAt, setFetchedAt] = useState<string>('');
 
   const fetchNews = async () => {
     setLoading(true);
@@ -124,12 +129,16 @@ export default function NewsPage() {
       const res = await fetch('/api/news');
       const data = await res.json();
       
-      if (data.success && data.data.length > 0) {
-        setNews(data.data);
+      if (data.success) {
+        setTopImportant(data.data.topImportant || []);
+        setMoreNews(data.data.more || []);
+        setSource(data.source || 'brave');
+        setFetchedAt(data.fetchedAt || '');
         setLastUpdate(new Date());
         
-        // 为每条新闻生成 AI 解读
-        data.data.forEach((item: NewsItem) => {
+        // 为所有新闻生成 AI 解读
+        const allNews = [...(data.data.topImportant || []), ...(data.data.more || [])];
+        allNews.forEach((item: NewsItem) => {
           if (!insights[item.id]) {
             setAnalyzing(prev => ({ ...prev, [item.id]: true }));
             analyzeNewsWithAI(item).then(insight => {
@@ -174,12 +183,6 @@ export default function NewsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const getImpactColor = (impact: string) => {
-    if (impact.includes('正面') || impact.includes('positive')) return 'text-green-400 bg-green-500/10';
-    if (impact.includes('负面') || impact.includes('negative')) return 'text-red-400 bg-red-500/10';
-    return 'text-amber-400 bg-amber-500/10';
-  };
-
   const getImportanceColor = (importance: string) => {
     switch (importance) {
       case 'high': return 'bg-red-500/20 text-red-400 border-red-500/30';
@@ -193,6 +196,16 @@ export default function NewsPage() {
       case 'high': return '高';
       case 'medium': return '中';
       default: return '低';
+    }
+  };
+
+  const handleAnalyze = (item: NewsItem) => {
+    if (!insights[item.id]) {
+      setAnalyzing(prev => ({ ...prev, [item.id]: true }));
+      analyzeNewsWithAI(item).then(insight => {
+        setInsights(prev => ({ ...prev, [item.id]: insight }));
+        setAnalyzing(prev => ({ ...prev, [item.id]: false }));
+      });
     }
   };
 
@@ -213,10 +226,7 @@ export default function NewsPage() {
           </p>
         </div>
         
-        <Badge className="bg-green-500/20 text-green-400 border-green-500/30">
-          <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse mr-1.5"></span>
-          实时更新
-        </Badge>
+        <SourceBadge source={source} fetchedAt={fetchedAt} />
       </div>
 
       <Tabs defaultValue="news" className="w-full">
@@ -232,76 +242,30 @@ export default function NewsPage() {
         </TabsList>
 
         {/* 市场动态 Tab */}
-        <TabsContent value="news" className="space-y-4 mt-4">
-          <div className="space-y-4">
-            {news.length > 0 ? (
-              news.map((item) => {
-                const insight = insights[item.id];
-                const isAnalyzing = analyzing[item.id];
-                
-                return (
-                  <Card key={item.id} className="bg-slate-900/50 border-slate-800 hover:border-slate-700 transition-colors">
-                    <CardContent className="p-4">
-                      {/* 新闻标题 */}
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs text-slate-500">{item.time}</span>
-                            <Badge variant="outline" className="text-[10px] text-slate-400">
-                              {item.source}
-                            </Badge>
-                          </div>
-                          <h3 className="text-base font-medium text-slate-100">{item.title}</h3>
-                          <p className="text-sm text-slate-500 mt-1">{item.titleEn}</p>
-                        </div>
-                        {item.url && (
-                          <a 
-                            href={item.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-slate-400 hover:text-amber-400 transition-colors"
-                          >
-                            <ExternalLink className="w-4 h-4" />
-                          </a>
-                        )}
-                      </div>
+        <TabsContent value="news" className="space-y-6 mt-4">
+          {/* 重要新闻 Section */}
+          <NewsSection
+            title="重要新闻"
+            items={topImportant}
+            insights={insights}
+            analyzing={analyzing}
+            onAnalyze={handleAnalyze}
+            defaultExpanded={true}
+            showBucket={true}
+            emptyMessage="暂无重要新闻"
+          />
 
-                      {/* AI 解读 */}
-                      <div className="mt-4 pt-4 border-t border-slate-800">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Sparkles className="w-4 h-4 text-amber-500" />
-                          <span className="text-sm font-medium text-amber-400">AI 解读</span>
-                          {isAnalyzing && (
-                            <span className="text-xs text-slate-500">分析中...</span>
-                          )}
-                        </div>
-                        
-                        {insight ? (
-                          <div className="space-y-2">
-                            <p className="text-sm text-slate-300">{insight.summary}</p>
-                            <div className="flex items-center gap-3">
-                              <Badge className={`text-xs ${getImpactColor(insight.impact)}`}>
-                                影响: {insight.impact}
-                              </Badge>
-                              <span className="text-xs text-slate-400">
-                                💡 {insight.suggestion}
-                              </span>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="text-sm text-slate-500">AI分析生成中...</div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            ) : (
-              <div className="text-center py-12 text-slate-500">
-                {loading ? '加载中...' : '暂无资讯'}
-              </div>
-            )}
-          </div>
+          {/* 更多新闻 Section (默认折叠) */}
+          <NewsSection
+            title="更多新闻"
+            items={moreNews}
+            insights={insights}
+            analyzing={analyzing}
+            onAnalyze={handleAnalyze}
+            defaultExpanded={false}
+            showBucket={true}
+            emptyMessage="暂无更多新闻"
+          />
         </TabsContent>
 
         {/* 财经日历 Tab */}

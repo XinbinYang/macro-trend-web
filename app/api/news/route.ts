@@ -3,13 +3,17 @@ import { getBraveFinanceNews } from "@/lib/api/news";
 
 export async function GET() {
   try {
-    // 使用 Brave Search API 获取新闻
-    const news = await getBraveFinanceNews();
+    // 使用 Brave Search API 获取分桶新闻 + 重要新闻过滤
+    const result = await getBraveFinanceNews();
     
     return NextResponse.json({
       success: true,
-      source: "brave",
-      data: news,
+      source: result.source,
+      fetchedAt: result.fetchedAt,
+      data: {
+        topImportant: result.topImportant,
+        more: result.more,
+      },
     });
   } catch (error) {
     console.error('News API error:', error);
