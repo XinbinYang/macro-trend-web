@@ -433,7 +433,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <Badge className="bg-red-500/20 text-red-400 border-red-500/30">🇨🇳 中国市场</Badge>
             <span className="text-xs text-slate-500">
-              收盘数据 · AkShare (日度更新)
+              主要宽基指数 · AkShare (日度更新)
             </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -448,12 +448,14 @@ export default function DashboardPage() {
                 </Card>
               ))
             ) : (
-              marketData?.data.china.map((quote) => (
-                <AssetCard
-                  key={quote.symbol}
-                  quote={quote}
-                />
-              ))
+              marketData?.data.china
+                .filter((q) => q.category === "EQUITY")
+                .map((quote) => (
+                  <AssetCard
+                    key={quote.symbol}
+                    quote={quote}
+                  />
+                ))
             )}
           </div>
         </div>

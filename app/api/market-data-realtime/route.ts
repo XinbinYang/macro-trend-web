@@ -19,10 +19,9 @@ const ASSET_CONFIG: AssetConfig[] = [
   { symbol: "DIA", name: "道指30", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   { symbol: "TLT", name: "美债20Y", region: "US", category: "BOND", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   
-  // 中国资产 (美股ETF)
-  { symbol: "ASHR", name: "沪深300", region: "CN", category: "EQUITY", dataType: "DELAYED", dataSource: "Yahoo(美股ETF)" },
-  { symbol: "KWEB", name: "中概互联", region: "CN", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "FXI", name: "富时中国50", region: "CN", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
+  // 中国宽基指数（展示层优先用国内指数收盘口径；避免同一资产出现“ETF+指数”双口径冲突）
+  // NOTE: 如需额外增加宽基（上证50/创业板/科创50等），后续走国内口径再补。
+
   
   // 港股
   { symbol: "EWH", name: "恒生指数", region: "HK", category: "EQUITY", dataType: "DELAYED", dataSource: "Yahoo(美股ETF)" },
