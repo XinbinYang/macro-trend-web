@@ -258,6 +258,7 @@ export default function DashboardPage() {
   const [strategyNavData, setStrategyNavData] = useState<StrategyNavPoint[]>([]);
   const [navStatus, setNavStatus] = useState<"LOADING" | "SAMPLE" | "OFFLINE" | "LIVE">("LOADING");
   const [navAsOf, setNavAsOf] = useState<string>("");
+  const [navMetrics, setNavMetrics] = useState<{ cagr: number | null; vol: number | null; maxDrawdown: number | null; sharpe: number | null } | null>(null);
 
   // US/CN toggle for macro overview
   const [regionView, setRegionView] = useState<"US" | "CN">("US");
@@ -368,6 +369,7 @@ export default function DashboardPage() {
           
           setStrategyNavData(navPoints);
           setNavAsOf(json.data.asOf || "");
+          setNavMetrics(json.data.metrics || null);
           setNavStatus(json.data.status === "SAMPLE" ? "SAMPLE" : "LIVE");
         } else {
           setStrategyNavData([]);
@@ -953,6 +955,34 @@ export default function DashboardPage() {
             </div>
           </CardContent>
           )}
+        </Card>
+
+        {/* 组合表现（单策略） */}
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base md:text-lg text-slate-100">中美全天候Beta · 风险收益</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-3">
+                <div className="text-[11px] text-slate-400">年化收益率 (CAGR)</div>
+                <div className="text-lg font-bold text-slate-50">{navMetrics?.cagr == null ? "—" : `${(navMetrics.cagr * 100).toFixed(2)}%`}</div>
+              </div>
+              <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-3">
+                <div className="text-[11px] text-slate-400">年化波动率 (Vol)</div>
+                <div className="text-lg font-bold text-slate-50">{navMetrics?.vol == null ? "—" : `${(navMetrics.vol * 100).toFixed(2)}%`}</div>
+              </div>
+              <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-3">
+                <div className="text-[11px] text-slate-400">最大回撤 (Max DD)</div>
+                <div className="text-lg font-bold text-slate-50">{navMetrics?.maxDrawdown == null ? "—" : `${(navMetrics.maxDrawdown * 100).toFixed(2)}%`}</div>
+              </div>
+              <div className="bg-slate-900/40 border border-slate-800 rounded-lg p-3">
+                <div className="text-[11px] text-slate-400">夏普 (rf=0)</div>
+                <div className="text-lg font-bold text-slate-50">{navMetrics?.sharpe == null ? "—" : navMetrics.sharpe.toFixed(2)}</div>
+              </div>
+            </div>
+            <div className="mt-2 text-[10px] text-slate-500">月度口径（EOM）计算并年化 · asOf {navAsOf || "—"}</div>
+          </CardContent>
         </Card>
 
         {/* 快速操作 */}
