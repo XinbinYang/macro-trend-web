@@ -80,6 +80,15 @@ export default function AssetDetailPage() {
   const [aiStatus, setAiStatus] = useState<"on" | "off" | "error">("off");
   const [aiLoading, setAiLoading] = useState(false);
 
+  const [analysisStatus, setAnalysisStatus] = useState<"on" | "off" | "error">("off");
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisBlocks, setAnalysisBlocks] = useState<
+    { dimension: string; perspective: string; insight: string }[]
+  >([]);
+  const [levels, setLevels] = useState<
+    { support?: { level: number; note: string }; resistance?: { level: number; note: string } }
+  >({});
+
   // 获取实时数据和历史数据
   const fetchData = async () => {
     setIsLoading(true);
@@ -168,6 +177,72 @@ export default function AssetDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [quote]);
 
+  const fetchAssetAnalysis = async () => {
+    if (!quote || historyData.length < 2) return;
+
+    setAnalysisLoading(true);
+    setAnalysisStatus("off");
+
+    try {
+      const payload = {
+        symbol,
+        name: assetName,
+        metrics: {
+          price: quote.price,
+          changePercent: quote.changePercent,
+          timeRange,
+          ma200,
+          priceVsMa200,
+          high52w,
+          low52w,
+          return1M,
+          return3M,
+          return1Y,
+          maxDrawdownSelected,
+          supportLevel,
+          resistanceLevel,
+          pointsSample: historyData.slice(-60),
+        },
+        context: {
+          quoteSource: quote.source,
+          note: "Indicative display only; not for backtest/signal.",
+        },
+      };
+
+      const res = await fetch("/api/asset-analysis", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.success && data.data) {
+        setAnalysisBlocks(data.data.blocks || []);
+        setLevels({ support: data.data.support, resistance: data.data.resistance });
+        setAnalysisStatus("on");
+      } else {
+        setAnalysisBlocks([]);
+        setLevels({});
+        setAnalysisStatus("error");
+      }
+    } catch {
+      setAnalysisBlocks([]);
+      setLevels({});
+      setAnalysisStatus("error");
+    } finally {
+      setAnalysisLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // 产品要求：必须真 AI；拿到数据后自动拉取
+    if (quote && historyData.length > 0) {
+      fetchAssetAnalysis();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [quote, historyData, timeRange]);
+
   const assetName = ASSET_NAMES[symbol] || symbol;
   const description = ASSET_DESCRIPTIONS[symbol] || `${symbol} 是全球重要金融资产之一。`;
   
@@ -233,6 +308,9 @@ export default function AssetDetailPage() {
   const selectedRangeDays = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : timeRange === "90d" ? 90 : 252;
   const selectedRangeData = getDataForRange(historyData, selectedRangeDays);
   const maxDrawdownSelected = calculateMaxDrawdown(selectedRangeData);
+
+  const supportLevel = Number((low52w + (high52w - low52w) * 0.3).toFixed(2));
+  const resistanceLevel = Number((high52w * 1.05).toFixed(2));
 
   if (isLoading) {
     return (
@@ -473,62 +551,63 @@ export default function AssetDetailPage() {
         </div>
       </div>
 
-      {/* 四维度分析 */}
-      <div className="grid gap-4 md:grid-cols-2">
-        {[
-          {
-            dimension: "周期分析",
-            perspective: "全球经济处于扩张周期后期，逐步向滞胀阶段过渡。",
-            insight: "当前周期位置对风险资产影响中性偏正面。",
-          },
-          {
-            dimension: "反身性分析",
-            perspective: "市场主流预期与基本面存在一定预期差。",
-            insight: "关注预期修正带来的交易机会。",
-          },
-          {
-            dimension: "流动性分析",
-            perspective: "主要央行货币政策趋于宽松，流动性环境改善。",
-            insight: "流动性宽松利好风险资产。",
-          },
-          {
-            dimension: "技术趋势",
-            perspective: quote ? `当前价格${priceVsMa200 > 0 ? '高于' : '低于'}200日均线${Math.abs(priceVsMa200).toFixed(1)}%。` : "技术指标显示当前趋势。",
-            insight: priceVsMa200 > 5 ? "强势上涨，趋势延续概率高" : priceVsMa200 < -5 ? "弱势下跌，需谨慎" : "震荡整理，等待方向选择",
-          },
-        ].map((item, index) => (
-          <div key={index} className="border rounded-lg">
-            <div className="p-4 border-b">
-              <Badge variant="outline">{item.dimension}</Badge>
-            </div>
-            <div className="p-4 space-y-2">
-              <p className="text-sm text-muted-foreground">{item.perspective}</p>
-              <div className="flex items-start gap-2 pt-2 border-t">
-                <span className="text-primary">💡</span>
-                <p className="text-sm">{item.insight}</p>
-              </div>
-            </div>
-          </div>
-        ))}
+      {/* 四维度分析（必须真 AI；失败则不展示内容） */}
+      <div className="flex items-center justify-between mt-2">
+        <div className="text-sm text-slate-200 font-medium">四维度分析</div>
+        <span
+          className={`text-[11px] px-2 py-0.5 rounded border font-mono ${
+            analysisLoading
+              ? "text-slate-400 border-slate-700"
+              : analysisStatus === "on"
+              ? "text-green-400 border-green-500/30"
+              : analysisStatus === "off"
+              ? "text-slate-400 border-slate-700"
+              : "text-red-400 border-red-500/30"
+          }`}
+          title={analysisStatus === "on" ? "OpenRouter" : analysisStatus === "error" ? "Unavailable" : "Not loaded"}
+        >
+          AI: {analysisStatus === "on" ? "ON" : analysisStatus === "error" ? "OFF" : "—"}
+        </span>
       </div>
 
-      {/* 关键价位 */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="border rounded-lg p-4">
-          <div className="text-sm text-muted-foreground mb-2">关键支撑位</div>
-          <div className="text-2xl font-mono font-bold text-red-600">
-            ${(low52w + (high52w - low52w) * 0.3).toFixed(2)}
+      {analysisStatus === "on" && analysisBlocks.length > 0 ? (
+        <>
+          <div className="grid gap-4 md:grid-cols-2 mt-3">
+            {analysisBlocks.map((item, index) => (
+              <div key={index} className="border rounded-lg">
+                <div className="p-4 border-b">
+                  <Badge variant="outline">{item.dimension}</Badge>
+                </div>
+                <div className="p-4 space-y-2">
+                  <p className="text-sm text-muted-foreground">{item.perspective}</p>
+                  <div className="flex items-start gap-2 pt-2 border-t">
+                    <span className="text-primary">💡</span>
+                    <p className="text-sm">{item.insight}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-          <p className="text-xs text-muted-foreground mt-2">跌破支撑位可能加速下跌，建议减仓</p>
-        </div>
-        <div className="border rounded-lg p-4">
-          <div className="text-sm text-muted-foreground mb-2">关键阻力位</div>
-          <div className="text-2xl font-mono font-bold text-green-600">
-            ${(high52w * 1.05).toFixed(2)}
+
+          {/* 关键价位（AI 给 note，但 level 保持可审计来自指标） */}
+          <div className="grid gap-4 md:grid-cols-2 mt-4">
+            <div className="border rounded-lg p-4">
+              <div className="text-sm text-muted-foreground mb-2">关键支撑位</div>
+              <div className="text-2xl font-mono font-bold text-red-600">${(levels.support?.level ?? supportLevel).toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground mt-2">{levels.support?.note || "—"}</p>
+            </div>
+            <div className="border rounded-lg p-4">
+              <div className="text-sm text-muted-foreground mb-2">关键阻力位</div>
+              <div className="text-2xl font-mono font-bold text-green-600">${(levels.resistance?.level ?? resistanceLevel).toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground mt-2">{levels.resistance?.note || "—"}</p>
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground mt-2">突破阻力位可能开启新一轮上涨</p>
+        </>
+      ) : (
+        <div className="mt-3 border rounded-lg p-4 text-sm text-muted-foreground">
+          四维度分析暂不可用（需要 OpenRouter 正常返回）。
         </div>
-      </div>
+      )}
     </div>
   );
 }
