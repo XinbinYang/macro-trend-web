@@ -9,6 +9,7 @@ Design goals:
 Method (default):
 - Universe columns from all_weather_master_data: HS300, ZZ500, CN10Y_Bond, NDX, US10Y_Bond, Nanhua, Gold
 - Monthly rebalance on first available trading day of each month.
+- NAV output: MONTHLY (end-of-month) series by default (use --freq daily for daily output).
 - Risk model: Equal Risk Contribution (risk parity) using Ledoit-Wolf shrunk covariance.
 - Lookback window: 120 trading days.
 - No leverage; weights constrained to [0, 0.35] then renormalized.
@@ -174,16 +175,16 @@ def max_drawdown(nav: List[float]) -> float:
     return mdd
 
 
-def annual_metrics(nav: List[float], dates: List[str]) -> Dict[str, float]:
+def annual_metrics(nav: List[float], dates: List[str], periods_per_year: int) -> Dict[str, float]:
     if len(nav) < 2:
         return {"cagr": None, "vol": None, "maxDrawdown": None, "sharpe": None}
 
-    # daily log returns inferred by adjacent nav ratio
+    # log returns inferred by adjacent nav ratio
     rets = [math.log(nav[i] / nav[i - 1]) for i in range(1, len(nav)) if nav[i - 1] > 0 and nav[i] > 0]
     if len(rets) < 2:
         return {"cagr": None, "vol": None, "maxDrawdown": None, "sharpe": None}
 
-    # years
+    # years (calendar-based)
     d0 = datetime.fromisoformat(dates[0])
     d1 = datetime.fromisoformat(dates[-1])
     years = max(1e-9, (d1 - d0).days / 365.25)
@@ -192,12 +193,12 @@ def annual_metrics(nav: List[float], dates: List[str]) -> Dict[str, float]:
 
     mean = sum(rets) / len(rets)
     var = sum((r - mean) ** 2 for r in rets) / (len(rets) - 1)
-    vol = math.sqrt(var) * math.sqrt(252)
+    vol = math.sqrt(var) * math.sqrt(periods_per_year)
 
     mdd = max_drawdown(nav)
 
     rf = 0.0
-    sharpe = ((mean * 252) - rf) / vol if vol > 0 else None
+    sharpe = ((mean * periods_per_year) - rf) / vol if vol > 0 else None
 
     return {"cagr": cagr, "vol": vol, "maxDrawdown": mdd, "sharpe": sharpe}
 
@@ -214,12 +215,23 @@ def first_trading_day_of_month(date_strs: List[str]) -> List[int]:
     return idx
 
 
+def end_of_month_indices(date_strs: List[str]) -> List[int]:
+    # indices of last available trading day in each month
+    out = []
+    for i in range(len(date_strs) - 1):
+        if date_strs[i][:7] != date_strs[i + 1][:7]:
+            out.append(i)
+    out.append(len(date_strs) - 1)
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="macro_quant.db")
     ap.add_argument("--out", default="data/nav/beta70/latest.json")
     ap.add_argument("--lookback", type=int, default=120)
     ap.add_argument("--maxw", type=float, default=0.35)
+    ap.add_argument("--freq", choices=["daily", "monthly"], default="monthly", help="Output NAV frequency")
     args = ap.parse_args()
 
     db_path = Path(args.db)
@@ -311,7 +323,18 @@ def main():
         nav.append(nav[-1] * math.exp(port_r))
         nav_dates.append(dates[t])
 
-    metrics = annual_metrics(nav, nav_dates)
+    # Optional downsample to monthly NAV series (end-of-month)
+    if args.freq == "monthly":
+        idx = end_of_month_indices(nav_dates)
+        nav_dates = [nav_dates[i] for i in idx]
+        nav = [nav[i] for i in idx]
+        periods_per_year = 12
+        freq_label = "MONTHLY (end-of-month)"
+    else:
+        periods_per_year = 252
+        freq_label = "DAILY"
+
+    metrics = annual_metrics(nav, nav_dates, periods_per_year=periods_per_year)
 
     out = {
         "strategy": "beta70",
@@ -332,6 +355,7 @@ def main():
             "sources": ["macro_quant.db:all_weather_master_data"],
             "pricing": "From DB (Spot/Settle curated upstream)",
             "model": {
+                "navFrequency": freq_label,
                 "rebalance": "MONTHLY (first trading day)",
                 "lookbackDays": args.lookback,
                 "riskModel": "ERC Risk Parity + Ledoit-Wolf shrinkage covariance",
