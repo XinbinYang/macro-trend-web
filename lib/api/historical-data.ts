@@ -20,7 +20,7 @@ export async function getHistoricalData(
   try {
     // Yahoo Finance 图表 API
     const res = await fetch(
-      `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=${period}`,
+      `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=1d&range=${period}`, 
       {
         headers: { "User-Agent": "Mozilla/5.0" },
         signal: AbortSignal.timeout(10000),

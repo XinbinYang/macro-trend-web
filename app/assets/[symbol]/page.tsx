@@ -58,7 +58,7 @@ const ASSET_DESCRIPTIONS: Record<string, string> = {
 
 export default function AssetDetailPage() {
   const params = useParams();
-  const symbol = params.symbol as string;
+  const symbol = decodeURIComponent(params.symbol as string);
   const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "1y">("90d");
   const [isLoading, setIsLoading] = useState(true);
   const [quote, setQuote] = useState<MarketQuote | null>(null);
