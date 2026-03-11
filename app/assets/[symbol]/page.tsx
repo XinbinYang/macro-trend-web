@@ -263,17 +263,17 @@ export default function AssetDetailPage() {
 
       {/* 资产头部信息 */}
       <div className="border rounded-lg p-6">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                <span className="text-sm font-bold text-primary">{symbol.slice(0, 2)}</span>
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                <span className="text-xs sm:text-sm font-bold text-primary">{symbol.slice(0, 2)}</span>
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-bold">{assetName}</h1>
-                <span className="text-sm text-muted-foreground font-mono">{symbol}</span>
+                <h1 className="text-lg sm:text-2xl font-bold">{assetName}</h1>
+                <span className="text-xs sm:text-sm text-muted-foreground font-mono">{symbol}</span>
               </div>
-              <Badge variant={signal.direction === "bullish" ? "default" : signal.direction === "bearish" ? "destructive" : "secondary"}>
+              <Badge className="text-xs" variant={signal.direction === "bullish" ? "default" : signal.direction === "bearish" ? "destructive" : "secondary"}>
                 {signal.direction === "bullish" ? "看涨" : signal.direction === "bearish" ? "看跌" : "中性"}
               </Badge>
             </div>
@@ -307,8 +307,8 @@ export default function AssetDetailPage() {
               </p>
             </div>
           </div>
-          <div className="text-right">
-            <div className="text-4xl font-bold font-mono">
+          <div className="text-right sm:text-right">
+            <div className="text-3xl sm:text-4xl font-bold font-mono break-words">
               ${quote.price.toFixed(2)}
             </div>
             <div className={`flex items-center justify-end gap-1 text-sm font-medium ${isUp ? "text-green-600" : "text-red-600"}`}>
