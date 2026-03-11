@@ -40,59 +40,44 @@ ASSET_COLS = [
 
 
 def ledoit_wolf_shrinkage_cov(returns: List[List[float]]) -> List[List[float]]:
-    """Simple Ledoit-Wolf shrinkage to constant-correlation prior.
+    """Ledoit-Wolf covariance shrinkage (non-simplified).
 
-    This is a pragmatic implementation to stabilize covariance in noisy settings.
-    Returns daily covariance matrix.
+    Uses scikit-learn's LedoitWolf estimator for a standard, auditable implementation.
+    Returns covariance matrix on the aligned return sample.
+
+    Notes:
+    - Input: list of per-asset return series (already aligned in time or will be aligned by truncation).
+    - Output is a *covariance* matrix (not correlation).
     """
+
     n = len(returns)
+    if n == 0:
+        return []
+
     t = min(len(r) for r in returns)
-    if n == 0 or t < 2:
+    if t < 2:
         return [[0.0] * n for _ in range(n)]
 
-    # align
+    # align to last t observations, shape = (t, n)
     X = [r[-t:] for r in returns]
+    X = list(zip(*X))  # rows=time, cols=assets
 
-    # compute sample covariance
-    means = [sum(x) / t for x in X]
-    S = [[0.0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(i, n):
-            cov = 0.0
-            for k in range(t):
-                cov += (X[i][k] - means[i]) * (X[j][k] - means[j])
-            cov /= (t - 1)
-            S[i][j] = cov
-            S[j][i] = cov
+    try:
+        import numpy as np
+        from sklearn.covariance import LedoitWolf
 
-    # constant correlation prior
-    var = [S[i][i] for i in range(n)]
-    std = [math.sqrt(max(v, 0.0)) for v in var]
-    rho_sum = 0.0
-    cnt = 0
-    for i in range(n):
-        for j in range(i + 1, n):
-            denom = std[i] * std[j]
-            if denom > 0:
-                rho_sum += S[i][j] / denom
-                cnt += 1
-    rho = rho_sum / cnt if cnt else 0.0
+        Xnp = np.asarray(X, dtype=float)
+        # If any nan/inf exists, fail fast (should not happen if inputs are clean)
+        if not np.isfinite(Xnp).all():
+            raise ValueError("Non-finite values in return window")
 
-    F = [[0.0] * n for _ in range(n)]
-    for i in range(n):
-        for j in range(n):
-            if i == j:
-                F[i][j] = var[i]
-            else:
-                F[i][j] = rho * std[i] * std[j]
+        lw = LedoitWolf().fit(Xnp)
+        C = lw.covariance_
+        return C.tolist()
 
-    # shrinkage intensity (heuristic): clamp to [0,1]
-    # Full LW needs phi/gamma; we use a stable heuristic depending on t and n.
-    # More data -> less shrink. More assets -> more shrink.
-    alpha = min(1.0, max(0.0, (n + 1) / max(10.0, t)))
-
-    C = [[(1 - alpha) * S[i][j] + alpha * F[i][j] for j in range(n)] for i in range(n)]
-    return C
+    except Exception as e:
+        # Hard fail: we do not silently downgrade to a heuristic implementation.
+        raise RuntimeError(f"LedoitWolf covariance failed: {e}")
 
 
 def portfolio_vol(w: List[float], C: List[List[float]]) -> float:
@@ -374,7 +359,7 @@ def main():
                 "constraints": {"weightMin": 0.0, "weightMax": args.maxw, "leverage": 1.0},
             },
             "dataQuality": {"forwardFillCount": ff_count},
-            "notes": "Status remains SAMPLE until pricing lineage (Spot/Settle) is fully audited end-to-end.",
+            "notes": "Status remains SAMPLE until pricing lineage (Spot/Settle) is fully audited end-to-end. Ledoit-Wolf covariance uses sklearn.covariance.LedoitWolf (no heuristic downgrade).",
         },
         "disclaimer": "SAMPLE backtest artifact generated locally from macro_quant.db. Not indicative of performance.",
     }
