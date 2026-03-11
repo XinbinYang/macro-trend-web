@@ -72,7 +72,7 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({ success: true, data: parsed, source: result.provider });
+    return NextResponse.json({ success: true, data: parsed, source: result.provider, usage: result.usage });
   } catch (e) {
     console.error("asset-analysis error:", e);
     return NextResponse.json(

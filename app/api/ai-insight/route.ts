@@ -68,7 +68,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       data: insight,
-      source: result.provider
+      source: result.provider,
+      usage: result.usage
     });
     
   } catch (error) {

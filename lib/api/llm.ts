@@ -1,11 +1,18 @@
 type LLMProvider = "openrouter" | "deepseek";
 
+export interface LLMUsage {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+}
+
 export interface LLMChatResult {
   ok: boolean;
   provider?: LLMProvider;
   status?: number;
   text?: string;
   error?: string;
+  usage?: LLMUsage;
 }
 
 function getReferer() {
@@ -39,8 +46,19 @@ async function callOpenRouter(payload: unknown): Promise<LLMChatResult> {
   }
 
   const data: unknown = await resp.json();
-  const text = (data as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content;
-  return { ok: true, provider: "openrouter", status: 200, text };
+  const d = data as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  };
+  const text = d?.choices?.[0]?.message?.content;
+  const usage = d?.usage
+    ? {
+        promptTokens: d.usage.prompt_tokens,
+        completionTokens: d.usage.completion_tokens,
+        totalTokens: d.usage.total_tokens,
+      }
+    : undefined;
+  return { ok: true, provider: "openrouter", status: 200, text, usage };
 }
 
 async function callDeepSeek(payload: unknown): Promise<LLMChatResult> {
@@ -69,8 +87,19 @@ async function callDeepSeek(payload: unknown): Promise<LLMChatResult> {
   }
 
   const data: unknown = await resp.json();
-  const text = (data as { choices?: Array<{ message?: { content?: string } }> })?.choices?.[0]?.message?.content;
-  return { ok: true, provider: "deepseek", status: 200, text };
+  const d = data as {
+    choices?: Array<{ message?: { content?: string } }>;
+    usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+  };
+  const text = d?.choices?.[0]?.message?.content;
+  const usage = d?.usage
+    ? {
+        promptTokens: d.usage.prompt_tokens,
+        completionTokens: d.usage.completion_tokens,
+        totalTokens: d.usage.total_tokens,
+      }
+    : undefined;
+  return { ok: true, provider: "deepseek", status: 200, text, usage };
 }
 
 /**

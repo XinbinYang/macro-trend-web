@@ -38,7 +38,7 @@ function getClientIP(request: Request): string {
 }
 
 // DeepSeek 模型调用
-async function callDeepSeek(prompt: string): Promise<{ content: string; model: string }> {
+async function callDeepSeek(prompt: string): Promise<{ content: string; model: string; usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number } }> {
   const apiKey = process.env.DEEPSEEK_API_KEY;
   
   if (!apiKey) {
@@ -73,11 +73,18 @@ async function callDeepSeek(prompt: string): Promise<{ content: string; model: s
   return {
     content: data.choices?.[0]?.message?.content,
     model: "deepseek-chat",
+    usage: data.usage
+      ? {
+          promptTokens: data.usage.prompt_tokens,
+          completionTokens: data.usage.completion_tokens,
+          totalTokens: data.usage.total_tokens,
+        }
+      : undefined,
   };
 }
 
 // GPT-5.4 模型调用
-async function callGPT54(prompt: string): Promise<{ content: string; model: string }> {
+async function callGPT54(prompt: string): Promise<{ content: string; model: string; usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number } }> {
   const apiKey = process.env.OPENROUTER_API_KEY;
   
   if (!apiKey) {
@@ -111,6 +118,13 @@ async function callGPT54(prompt: string): Promise<{ content: string; model: stri
   return {
     content: data.choices?.[0]?.message?.content,
     model: "gpt-5.4",
+    usage: data.usage
+      ? {
+          promptTokens: data.usage.prompt_tokens,
+          completionTokens: data.usage.completion_tokens,
+          totalTokens: data.usage.total_tokens,
+        }
+      : undefined,
   };
 }
 
@@ -394,6 +408,7 @@ export async function POST(request: Request) {
       model: usedModel,
       clientIP,
       isChina,
+      usage: result.usage,
     });
 
   } catch (error) {
