@@ -261,8 +261,8 @@ export default function PortfolioPage() {
             <CardTitle className="text-base text-slate-100">资产配置</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[250px] w-full min-h-[300px]">
+              <ResponsiveContainer width="99%" height="100%">
                 <RePieChart>
                   <Pie
                     data={allocationData}

@@ -282,13 +282,14 @@ export default function StrategiesPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="h-[350px] md:h-[400px]">
+          <div className="h-[350px] md:h-[400px] w-full min-h-[300px]">
             {isLoading ? (
               <div className="h-full flex items-center justify-center">
                 <Skeleton className="h-[300px] w-full bg-slate-800" />
               </div>
             ) : (
-              <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full h-full min-h-[300px]">
+                <ResponsiveContainer width="99%" height="100%">
                 <LineChart data={navData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis 
@@ -352,6 +353,7 @@ export default function StrategiesPage() {
                   )}
                 </LineChart>
               </ResponsiveContainer>
+              </div>
             )}
           </div>
         </CardContent>

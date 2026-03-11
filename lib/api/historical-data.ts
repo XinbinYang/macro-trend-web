@@ -69,29 +69,42 @@ export async function getHistoricalData(
 export async function getChartData(
   symbol: string,
   days: number = 30
-): Promise<{ date: string; price: number }[]> {
+): Promise<{ date: string; price: number; high?: number; low?: number }[]> {
   // A-share index symbols like 000300.SH / 399006.SZ are not reliably supported by Yahoo.
   // Use Eastmoney kline (Indicative) for these.
   if (/^\d{6}\.(SH|SZ)$/i.test(symbol)) {
     try {
-      const { fetchIndexKline } = await import("./eastmoney-api");
+      const { fetchIndexKlineFull } = await import("./eastmoney-api");
       const code = symbol.split(".")[0];
       const limit = Math.min(Math.max(days, 30), 365);
-      const k = await fetchIndexKline(code, limit);
+      const k = await fetchIndexKlineFull(code, limit);
       if (k && k.length > 0) {
-        return k.slice(-days).map(p => ({ date: p.date, price: p.close }));
+        return k.slice(-days).map(p => ({ date: p.date, price: p.close, high: p.high, low: p.low }));
       }
     } catch (e) {
       console.error(`[Historical][Eastmoney] ${symbol} failed:`, e);
     }
   }
 
-  const period = days <= 30 ? "1mo" : days <= 90 ? "3mo" : "6mo";
+  // Determine period based on days
+  let period: "1mo" | "3mo" | "6mo" | "1y";
+  if (days <= 30) {
+    period = "1mo";
+  } else if (days <= 90) {
+    period = "3mo";
+  } else if (days <= 180) {
+    period = "6mo";
+  } else {
+    period = "1y";
+  }
+  
   const data = await getHistoricalData(symbol, period);
 
   // 取最近 N 天
   return data.slice(-days).map(d => ({
     date: d.date,
     price: d.close,
+    high: d.high,
+    low: d.low,
   }));
 }

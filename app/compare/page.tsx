@@ -298,12 +298,13 @@ export default function ComparePage() {
           {isLoading ? (
             <Skeleton className="h-[250px] md:h-[400px] w-full" />
           ) : chartData.length === 0 ? (
-            <div className="h-[250px] md:h-[400px] flex items-center justify-center text-muted-foreground">
+            <div className="h-[250px] md:h-[400px] flex items-center justify-center text-muted-foreground w-full min-h-[300px]">
               暂无数据
             </div>
           ) : (
-            <div className="h-[250px] md:h-[400px]">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[250px] md:h-[400px] w-full min-h-[300px]">
+              <div className="w-full h-full min-h-[300px]">
+                <ResponsiveContainer width="99%" height="100%">
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis 
@@ -339,6 +340,7 @@ export default function ComparePage() {
                   })}
                 </LineChart>
               </ResponsiveContainer>
+              </div>
             </div>
           )}
         </CardContent>

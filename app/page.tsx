@@ -710,8 +710,9 @@ export default function DashboardPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <div className="h-[250px] md:h-[320px]">
-              <ResponsiveContainer width="100%" height="100%">
+            <div className="h-[250px] md:h-[320px] w-full min-h-[300px]">
+              <div className="w-full h-full min-h-[300px]">
+                <ResponsiveContainer width="99%" height="100%">
                 <LineChart data={strategyNavData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis 
@@ -775,6 +776,7 @@ export default function DashboardPage() {
                   )}
                 </LineChart>
               </ResponsiveContainer>
+              </div>
             </div>
           </CardContent>
         </Card>

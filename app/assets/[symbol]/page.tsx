@@ -11,6 +11,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface HistoricalPoint {
   date: string;
   price: number;
+  high?: number;
+  low?: number;
 }
 
 interface MarketQuote {
@@ -59,7 +61,7 @@ const ASSET_DESCRIPTIONS: Record<string, string> = {
 export default function AssetDetailPage() {
   const params = useParams();
   const symbol = decodeURIComponent(params.symbol as string);
-  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "1y">("90d");
+  const [timeRange, setTimeRange] = useState<"7d" | "30d" | "90d" | "1y">("1y");
   const [isLoading, setIsLoading] = useState(true);
   const [quote, setQuote] = useState<MarketQuote | null>(null);
   const [historyData, setHistoryData] = useState<HistoricalPoint[]>([]);
@@ -70,10 +72,13 @@ export default function AssetDetailPage() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      // 获取更多历史数据用于计算技术指标 (需要252天计算MA200和52周高低)
+      const fetchDays = timeRange === "7d" ? 30 : timeRange === "30d" ? 90 : timeRange === "90d" ? 252 : 365;
+      
       // 并行获取实时数据和历史数据
       const [realtimeRes, historicalRes] = await Promise.all([
         fetch("/api/market-data-realtime"),
-        fetch(`/api/historical-data?symbol=${symbol}&days=${timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : timeRange === "90d" ? 90 : 252}`),
+        fetch(`/api/historical-data?symbol=${symbol}&days=${fetchDays}`),
       ]);
 
       const realtimeData = await realtimeRes.json();
@@ -190,11 +195,57 @@ export default function AssetDetailPage() {
     return sum / period;
   };
 
+  // 计算区间收益率
+  const calculateReturn = (data: HistoricalPoint[], days: number): number | null => {
+    if (data.length < 2) return null;
+    const endIdx = data.length - 1;
+    const startIdx = Math.max(0, endIdx - days + 1);
+    const startPrice = data[startIdx]?.price;
+    const endPrice = data[endIdx]?.price;
+    if (!startPrice || !endPrice) return null;
+    return ((endPrice - startPrice) / startPrice) * 100;
+  };
+
+  // 计算最大回撤
+  const calculateMaxDrawdown = (data: HistoricalPoint[]): number | null => {
+    if (data.length < 2) return null;
+    let maxDrawdown = 0;
+    let peak = data[0]?.price;
+    
+    for (const point of data) {
+      if (point.price > peak) {
+        peak = point.price;
+      }
+      const drawdown = ((peak - point.price) / peak) * 100;
+      if (drawdown > maxDrawdown) {
+        maxDrawdown = drawdown;
+      }
+    }
+    return maxDrawdown;
+  };
+
+  // 获取过去N个交易日的日期范围对应的数据
+  const getDataForRange = (data: HistoricalPoint[], days: number): HistoricalPoint[] => {
+    if (data.length <= days) return data;
+    return data.slice(-days);
+  };
+
   const ma200 = calculateMA(historyData, 200);
   const priceVsMa200 = ma200 && quote ? ((quote.price - ma200) / ma200) * 100 : 0;
   
+  // 52周高低点 (使用最近252个交易日，如果没有则用当前数据)
   const high52w = historyData.length > 0 ? Math.max(...historyData.map(d => d.price)) : (quote?.price || 0);
   const low52w = historyData.length > 0 ? Math.min(...historyData.map(d => d.price)) : (quote?.price || 0);
+
+  // 收益率计算
+  const return1M = calculateReturn(historyData, 21);  // 约21交易日
+  const return3M = calculateReturn(historyData, 63);  // 约63交易日  
+  const return1Y = calculateReturn(historyData, 252); // 约252交易日
+
+  // 最大回撤计算 (使用选择的时间范围)
+  const selectedRangeDays = timeRange === "7d" ? 7 : timeRange === "30d" ? 30 : timeRange === "90d" ? 90 : 252;
+  const selectedRangeData = getDataForRange(historyData, selectedRangeDays);
+  const maxDrawdownSelected = calculateMaxDrawdown(selectedRangeData);
 
   if (isLoading) {
     return (
@@ -273,13 +324,13 @@ export default function AssetDetailPage() {
               {isUp ? "+" : ""}{quote.change.toFixed(2)} ({isUp ? "+" : ""}{quote.changePercent.toFixed(2)}%)
             </div>
             <div className="text-xs text-muted-foreground mt-1">
-              来源: {quote.source} · 更新于 {new Date(quote.timestamp).toLocaleTimeString()}
+              来源: {quote.source}{quote.source?.includes("Eastmoney") || symbol.match(/^\d{6}\.(SH|SZ)$/i) ? " (Indicative)" : ""} · 更新于 {new Date(quote.timestamp).toLocaleTimeString()}
             </div>
           </div>
         </div>
 
         {/* 关键指标 */}
-        <div className="grid grid-cols-6 gap-4 mt-6 pt-6 border-t">
+        <div className="grid grid-cols-4 md:grid-cols-8 gap-4 mt-6 pt-6 border-t">
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">200日均线</div>
             <div className="text-lg font-mono font-medium">{ma200 ? ma200.toFixed(2) : "-"}</div>
@@ -296,6 +347,30 @@ export default function AssetDetailPage() {
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">52周最低</div>
             <div className="text-lg font-mono font-medium">{low52w.toFixed(2)}</div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground uppercase">1个月收益</div>
+            <div className={`text-lg font-mono font-medium ${return1M !== null ? (return1M >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
+              {return1M !== null ? `${return1M >= 0 ? '+' : ''}${return1M.toFixed(1)}%` : '-'}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground uppercase">3个月收益</div>
+            <div className={`text-lg font-mono font-medium ${return3M !== null ? (return3M >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
+              {return3M !== null ? `${return3M >= 0 ? '+' : ''}${return3M.toFixed(1)}%` : '-'}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground uppercase">1年收益</div>
+            <div className={`text-lg font-mono font-medium ${return1Y !== null ? (return1Y >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
+              {return1Y !== null ? `${return1Y >= 0 ? '+' : ''}${return1Y.toFixed(1)}%` : '-'}
+            </div>
+          </div>
+          <div className="text-center">
+            <div className="text-xs text-muted-foreground uppercase">最大回撤</div>
+            <div className="text-lg font-mono font-medium text-red-500">
+              {maxDrawdownSelected !== null ? `-${maxDrawdownSelected.toFixed(1)}%` : '-'}
+            </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">成交量</div>
@@ -343,9 +418,10 @@ export default function AssetDetailPage() {
           </div>
         </div>
         <div className="p-4">
-          <div className="h-[300px]">
+          <div className="h-[300px] w-full min-h-[300px]">
             {historyData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <div className="w-full h-full min-h-[300px]">
+                <ResponsiveContainer width="99%" height="100%">
                 <AreaChart data={historyData}>
                   <defs>
                     <linearGradient id={`gradient-${symbol}`} x1="0" y1="0" x2="0" y2="1">
@@ -380,6 +456,7 @@ export default function AssetDetailPage() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              </div>
             ) : (
               <div className="flex items-center justify-center h-full text-muted-foreground">
                 暂无历史数据
