@@ -262,7 +262,7 @@ export default function PortfolioPage() {
           </CardHeader>
           <CardContent>
             <div className="h-[250px] w-full min-h-[300px]">
-              <ResponsiveContainer width="99%" height="100%">
+              <ResponsiveContainer width="99%" height="100%" minHeight={300}>
                 <RePieChart>
                   <Pie
                     data={allocationData}

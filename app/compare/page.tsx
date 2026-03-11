@@ -304,7 +304,7 @@ export default function ComparePage() {
           ) : (
             <div className="h-[250px] md:h-[400px] w-full min-h-[300px]">
               <div className="w-full h-full min-h-[300px]">
-                <ResponsiveContainer width="99%" height="100%">
+                <ResponsiveContainer width="99%" height="100%" minHeight={300}>
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
                   <XAxis 

@@ -52,7 +52,7 @@ export function TradingViewChart({ data, symbol, height = 400 }: TradingViewChar
 
   return (
     <div style={{ height: `${height}px` }}>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" minHeight={240}>
         <ComposedChart data={chartData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
           <XAxis 

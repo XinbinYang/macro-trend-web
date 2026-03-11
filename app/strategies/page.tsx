@@ -339,7 +339,7 @@ export default function StrategiesPage() {
               </div>
             ) : (
               <div className="w-full h-full min-h-[300px]">
-                <ResponsiveContainer width="99%" height="100%">
+                <ResponsiveContainer width="99%" height="100%" minHeight={300}>
                 <LineChart data={navData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis 

@@ -919,7 +919,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="h-[250px] md:h-[320px] w-full min-h-[300px]">
               <div className="w-full h-full min-h-[300px]">
-                <ResponsiveContainer width="99%" height="100%">
+                <ResponsiveContainer width="99%" height="100%" minHeight={300}>
                 <LineChart data={strategyNavData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
                   <XAxis 
