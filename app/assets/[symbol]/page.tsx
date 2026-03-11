@@ -330,10 +330,10 @@ export default function AssetDetailPage() {
         </div>
 
         {/* 关键指标 */}
-        <div className="grid grid-cols-4 md:grid-cols-8 gap-4 mt-6 pt-6 border-t">
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4 mt-6 pt-6 border-t">
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">200日均线</div>
-            <div className="text-lg font-mono font-medium">{ma200 ? ma200.toFixed(2) : "-"}</div>
+            <div className="text-base sm:text-lg font-mono font-medium">{ma200 ? ma200.toFixed(2) : "-"}</div>
             {ma200 && (
               <div className={`text-xs ${priceVsMa200 >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {priceVsMa200 >= 0 ? "+" : ""}{priceVsMa200.toFixed(1)}%
@@ -342,47 +342,51 @@ export default function AssetDetailPage() {
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">52周最高</div>
-            <div className="text-lg font-mono font-medium">{high52w.toFixed(2)}</div>
+            <div className="text-base sm:text-lg font-mono font-medium">{high52w.toFixed(2)}</div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">52周最低</div>
-            <div className="text-lg font-mono font-medium">{low52w.toFixed(2)}</div>
+            <div className="text-base sm:text-lg font-mono font-medium">{low52w.toFixed(2)}</div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">1个月收益</div>
-            <div className={`text-lg font-mono font-medium ${return1M !== null ? (return1M >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
+            <div className={`text-base sm:text-lg font-mono font-medium ${return1M !== null ? (return1M >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
               {return1M !== null ? `${return1M >= 0 ? '+' : ''}${return1M.toFixed(1)}%` : '-'}
             </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">3个月收益</div>
-            <div className={`text-lg font-mono font-medium ${return3M !== null ? (return3M >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
+            <div className={`text-base sm:text-lg font-mono font-medium ${return3M !== null ? (return3M >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
               {return3M !== null ? `${return3M >= 0 ? '+' : ''}${return3M.toFixed(1)}%` : '-'}
             </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">1年收益</div>
-            <div className={`text-lg font-mono font-medium ${return1Y !== null ? (return1Y >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
+            <div className={`text-base sm:text-lg font-mono font-medium ${return1Y !== null ? (return1Y >= 0 ? 'text-green-600' : 'text-red-600') : 'text-muted-foreground'}`}>
               {return1Y !== null ? `${return1Y >= 0 ? '+' : ''}${return1Y.toFixed(1)}%` : '-'}
             </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">最大回撤</div>
-            <div className="text-lg font-mono font-medium text-red-500">
+            <div className="text-base sm:text-lg font-mono font-medium text-red-500">
               {maxDrawdownSelected !== null ? `-${maxDrawdownSelected.toFixed(1)}%` : '-'}
             </div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">成交量</div>
-            <div className="text-lg font-mono font-medium">{(quote.volume / 1000000).toFixed(1)}M</div>
+            <div className="text-base sm:text-base sm:text-lg font-mono font-medium">{(quote.volume / 1000000).toFixed(1)}M</div>
           </div>
+        </div>
+
+        {/* 元信息（移动端容易溢出，单独一行） */}
+        <div className="grid grid-cols-2 gap-4 mt-4"> 
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">数据源</div>
-            <div className="text-lg font-mono font-medium">{quote.source}</div>
+            <div className="text-sm sm:text-base font-mono font-medium truncate" title={quote.source}>{quote.source}</div>
           </div>
           <div className="text-center">
             <div className="text-xs text-muted-foreground uppercase">信号强度</div>
-            <div className="text-lg font-mono font-medium">
+            <div className="text-sm sm:text-base font-mono font-medium">
               {signal.strength === "strong" ? "强" : signal.strength === "moderate" ? "中" : "弱"}
             </div>
           </div>
