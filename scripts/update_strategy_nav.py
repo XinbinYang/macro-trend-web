@@ -1,133 +1,107 @@
 #!/usr/bin/env python3
-"""
-Beta 7.5 自适应全天候策略 - 每日净值更新
-6资产 + 相关性干预引擎
+"""\
+每日策略净值更新脚本（占位版）
+
+目的：
+- 为网站的“策略净值追踪”提供一个自动更新管道（GitHub Actions / cron）
+- 当前版本仅生成“模拟净值”（用于前端联调与管道打通）
+
+重要原则（请保持一致）：
+- 展示层可以使用模拟/Indicative 数据，但必须明确标注。
+- 回测真值/实盘信号必须来自 Master + 官方结算镜像（Spot/Settle 双轨），模拟数据不得混入。
+
+后续替换点：
+- 将 generate_mock_nav_data() 替换为真实回测引擎输出
+- 或直接从 macro_quant.db / parquet 真值库计算并写入
 """
 
 import os
-import sqlite3
-import pandas as pd
+import sys
+from datetime import datetime, timedelta
+
 import numpy as np
-from datetime import datetime
 from supabase import create_client
 
-SUPABASE_URL = os.environ.get('SUPABASE_URL')
-SUPABASE_KEY = os.environ.get('SUPABASE_KEY')
+# Supabase 配置（在 GitHub Actions secrets 中注入）
+SUPABASE_URL = os.environ.get("SUPABASE_URL", "https://xmdvozykqwolmfaycgyz.supabase.co")
+SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
 
-# 修复：使用绝对路径
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(SCRIPT_DIR, '..', 'data', 'macro_quant.db')
 
 def get_supabase_client():
-    if not SUPABASE_URL or not SUPABASE_KEY:
-        print("Error: Supabase credentials not set")
-        exit(1)
+    if not SUPABASE_KEY:
+        print("Error: SUPABASE_KEY not set")
+        sys.exit(1)
     return create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def run_beta_75_backtest():
-    print(f"Opening database: {DB_PATH}")
-    conn = sqlite3.connect(DB_PATH)
-    
-    asset_map = {
-        'CN_Equity': '000300.sh',
-        'CN_Bond': 'CBA00362',
-        'US_Equity': 'NDX.GI',
-        'US_Bond': 'TY.CBT',
-        'Commodity': '期货结算价(连续):WTI原油',
-        'Gold': 'GC.CMX'
-    }
-    
-    dfs = []
-    for name, ticker in asset_map.items():
-        if name in ['CN_Bond', 'US_Bond']:
-            table = 'assets_bond'
-            price_col = 'ytm'
-        elif name == 'Commodity':
-            table = 'assets_commodity'
-            price_col = 'close'
-        else:
-            table = 'assets_equity'
-            price_col = 'close'
-        
-        query = f"SELECT date, {price_col} as price FROM {table} WHERE ticker = '{ticker}' AND date >= '2006-01-01' ORDER BY date"
-        df = pd.read_sql_query(query, conn)
-        df['date'] = pd.to_datetime(df['date'])
-        df = df.set_index('date').rename(columns={'price': name})
-        dfs.append(df)
-    
-    data = pd.concat(dfs, axis=1).sort_index().ffill().dropna()
-    returns = data.pct_change().dropna()
-    returns = returns[(returns < 0.5) & (returns > -0.5)].dropna()
-    
-    base_weights = np.array([0.15, 0.25, 0.15, 0.20, 0.10, 0.15])
-    
-    portfolio_results = []
-    dates = returns.index
-    
-    for i in range(20, len(dates)):
-        current_date = dates[i]
-        window_rets = returns.iloc[i-20:i]
-        corr_matrix = window_rets.corr()
-        
-        cn_bond_equity_corr = corr_matrix.loc['CN_Bond', 'CN_Equity'] if 'CN_Bond' in corr_matrix.columns and 'CN_Equity' in corr_matrix.columns else 0
-        
-        adj_weights = base_weights.copy()
-        if cn_bond_equity_corr > 0.3:
-            reduction = adj_weights[1] * 0.2
-            adj_weights[1] -= reduction
-            adj_weights[5] += reduction
-        
-        day_ret = np.dot(returns.iloc[i], adj_weights)
-        portfolio_results.append({'date': current_date, 'return': day_ret})
-    
-    perf_df = pd.DataFrame(portfolio_results).set_index('date')
-    perf_df['cum_return'] = (1 + perf_df['return']).cumprod()
-    
-    latest_nav = perf_df['cum_return'].iloc[-1]
-    latest_date = perf_df.index[-1].strftime('%Y-%m-%d')
-    
-    total_years = len(perf_df) / 252
-    annual_return = (perf_df['cum_return'].iloc[-1]) ** (1/total_years) - 1
-    
-    conn.close()
-    
-    return {
-        'date': latest_date,
-        'nav': float(latest_nav),
-        'annual_return': float(annual_return),
-        'strategy': 'Beta 7.5'
-    }
-def update_supabase(supabase, result):
-    try:
-        supabase.table('strategy_nav').upsert({
-            'strategy_id': 'beta-7-5',
-            'strategy_name': 'Beta 7.5 自适应全天候',
-            'date': result['date'],
-            'nav': round(result['nav'], 6),
-            'daily_return': 0.0,
-            'cumulative_return': round((result['nav'] - 1) * 100, 4),
-        }, on_conflict='strategy_id,date').execute()
-        
-        print(f"Updated Beta 7.5 NAV: {result['nav']:.4f} (Date: {result['date']})")
-        print(f"Annual Return: {result['annual_return']:.2%}")
-        
-    except Exception as e:
-        print(f"Error updating Supabase: {e}")
-        raise
+
+def generate_mock_nav_data(days: int = 30):
+    """生成最近 N 天的模拟净值数据（跳过周末）"""
+
+    strategies = [
+        {"id": "beta-7-0", "name": "Beta 7.0"},
+        {"id": "alpha-2-0", "name": "Alpha 2.0"},
+        {"id": "mix-55", "name": "5:5 Mix"},
+        {"id": "mix-73", "name": "7:3 Mix"},
+    ]
+
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=days)
+
+    data = []
+
+    for strategy in strategies:
+        nav = 1.0
+        current_date = start_date
+
+        while current_date <= end_date:
+            if current_date.weekday() >= 5:  # weekend
+                current_date += timedelta(days=1)
+                continue
+
+            # 模拟日收益（占位用）
+            if strategy["id"] == "beta-7-0":
+                daily_return = np.random.normal(0.0003, 0.008)
+            elif strategy["id"] == "alpha-2-0":
+                daily_return = np.random.normal(0.0005, 0.012)
+            elif strategy["id"] == "mix-55":
+                daily_return = np.random.normal(0.0004, 0.009)
+            else:
+                daily_return = np.random.normal(0.00035, 0.0085)
+
+            nav *= (1.0 + daily_return)
+
+            data.append(
+                {
+                    "strategy_id": strategy["id"],
+                    "strategy_name": strategy["name"],
+                    "date": current_date.strftime("%Y-%m-%d"),
+                    "nav": round(float(nav), 6),
+                    "daily_return": round(float(daily_return) * 100, 4),
+                    "cumulative_return": round(float((nav - 1.0) * 100), 4),
+                    "data_source": "mock",  # 关键：明确标注
+                }
+            )
+
+            current_date += timedelta(days=1)
+
+    return data
+
+
+def upsert_strategy_nav(supabase, rows):
+    # 批量 upsert（supabase-py 支持直接传 list）
+    supabase.table("strategy_nav").upsert(rows, on_conflict="strategy_id,date").execute()
+
 
 def main():
-    print(f"Starting Beta 7.5 NAV Update at {datetime.now()}")
-    print(f"Database path: {DB_PATH}")
-    
-    supabase = get_supabase_client()
-    print("Connected to Supabase")
-    
-    print("Running Beta 7.5 backtest...")
-    result = run_beta_75_backtest()
-    
-    update_supabase(supabase, result)
-    
-    print("NAV update completed successfully")
+    print(f"Starting NAV update at {datetime.now().isoformat()}")
 
-if __name__ == '__main__':
+    supabase = get_supabase_client()
+    rows = generate_mock_nav_data(days=30)
+    print(f"Generated {len(rows)} rows")
+
+    upsert_strategy_nav(supabase, rows)
+    print("NAV update completed")
+
+
+if __name__ == "__main__":
     main()

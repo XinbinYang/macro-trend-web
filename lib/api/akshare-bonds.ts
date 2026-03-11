@@ -15,10 +15,10 @@ export interface BondFutureQuote {
 // 获取国债期货主力合约数据
 export async function getChinaBondFutures(): Promise<BondFutureQuote[]> {
   try {
-    // 由于AkShare是Python库，这里使用模拟数据
-    // 实际部署时需要通过Python服务调用AkShare API
+    // 由于 AkShare 是 Python 库，这里暂时使用“示例/占位数据”。
+    // 实际部署时需要通过 Python 服务或数据管道接入真实 AkShare/官方结算镜像。
     
-    // 模拟主力合约数据 (基于2024年3月市场情况)
+    // 示例主力合约数据 (仅用于前端联调/展示，非回测真值)
     const mockData: BondFutureQuote[] = [
       {
         symbol: "T2506",
@@ -28,7 +28,7 @@ export async function getChinaBondFutures(): Promise<BondFutureQuote[]> {
         changePercent: 0.14,
         volume: 125800,
         timestamp: new Date().toISOString(),
-        source: "AkShare",
+        source: "AkShare(sample)",
       },
       {
         symbol: "TF2506",
@@ -38,7 +38,7 @@ export async function getChinaBondFutures(): Promise<BondFutureQuote[]> {
         changePercent: 0.08,
         volume: 89200,
         timestamp: new Date().toISOString(),
-        source: "AkShare",
+        source: "AkShare(sample)",
       },
       {
         symbol: "TS2506",
@@ -48,7 +48,7 @@ export async function getChinaBondFutures(): Promise<BondFutureQuote[]> {
         changePercent: 0.03,
         volume: 45600,
         timestamp: new Date().toISOString(),
-        source: "AkShare",
+        source: "AkShare(sample)",
       },
       {
         symbol: "TL2506",
@@ -58,7 +58,7 @@ export async function getChinaBondFutures(): Promise<BondFutureQuote[]> {
         changePercent: 0.20,
         volume: 67800,
         timestamp: new Date().toISOString(),
-        source: "AkShare",
+        source: "AkShare(sample)",
       },
     ];
     

@@ -36,11 +36,13 @@ const ASSET_CONFIG: AssetConfig[] = [
   { symbol: "EEM", name: "新兴市场", region: "GLOBAL", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
 ];
 
-// AkShare收盘数据 - A股指数
+// AkShare收盘数据 - A股/港股指数
+// NOTE: 这里目前是“示例/占位数据”。用于页面展示与联调。
+// 等接入真实 AkShare 拉取后再替换；在此之前必须明确标注为 sample。
 const AKSHARE_EOD_DATA = [
-  { symbol: "000300.SH", name: "沪深300", price: 4602.63, change: 12.5, changePercent: 0.27, region: "CN", source: "AkShare" },
-  { symbol: "000905.SH", name: "中证500", price: 5847.21, change: -23.4, changePercent: -0.40, region: "CN", source: "AkShare" },
-  { symbol: "HSI", name: "恒生指数", price: 25249.48, change: 156.3, changePercent: 0.62, region: "HK", source: "AkShare" },
+  { symbol: "000300.SH", name: "沪深300", price: 4602.63, change: 12.5, changePercent: 0.27, region: "CN", source: "AkShare(sample)" },
+  { symbol: "000905.SH", name: "中证500", price: 5847.21, change: -23.4, changePercent: -0.40, region: "CN", source: "AkShare(sample)" },
+  { symbol: "HSI", name: "恒生指数", price: 25249.48, change: 156.3, changePercent: 0.62, region: "HK", source: "AkShare(sample)" },
 ];
 
 export interface MarketQuote {
@@ -90,7 +92,7 @@ export async function GET() {
       region: d.region as "CN" | "HK",
       category: "EQUITY",
       dataType: "EOD",
-      dataSource: "AkShare",
+      dataSource: "AkShare(sample)",
     }));
 
     // 获取中国国债期货数据
@@ -107,7 +109,7 @@ export async function GET() {
       region: "CN",
       category: "BOND",
       dataType: "EOD",
-      dataSource: "AkShare",
+      dataSource: "AkShare(sample)",
     }));
 
     const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes];

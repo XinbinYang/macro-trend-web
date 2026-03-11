@@ -255,7 +255,8 @@ export default function DashboardPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  // 生成策略净值数据 (模拟数据，后续从GitHub读取)
+  // 生成策略净值数据 (模拟数据，仅用于前端占位)
+  // NOTE: 策略净值/回测/信号属于“真值层”，最终必须来自 Master + 官方结算镜像数据管道。
   const generateStrategyNavData = (): StrategyNavPoint[] => {
     const data: StrategyNavPoint[] = [];
     const startDate = new Date("2020-01-01");
