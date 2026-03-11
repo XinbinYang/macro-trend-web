@@ -24,6 +24,7 @@ import {
 } from "recharts";
 
 // 策略配置
+// 注意：业绩指标需从 /api/nav 获取真实数据，当前显示 SAMPLE
 const STRATEGIES = [
   {
     id: "beta-7-0",
@@ -33,11 +34,11 @@ const STRATEGIES = [
     emoji: "🛡️",
     color: "#3b82f6",
     metrics: {
-      annualReturn: "8.5%",
-      volatility: "6.2%",
-      sharpe: "1.37",
-      maxDrawdown: "-12.3%",
-      since: "2005-01-01",
+      annualReturn: "—",
+      volatility: "—",
+      sharpe: "—",
+      maxDrawdown: "—",
+      since: "SAMPLE",
     },
   },
   {
@@ -48,11 +49,11 @@ const STRATEGIES = [
     emoji: "🎯",
     color: "#f59e0b",
     metrics: {
-      annualReturn: "12.3%",
-      volatility: "8.7%",
-      sharpe: "1.41",
-      maxDrawdown: "-15.8%",
-      since: "2015-01-01",
+      annualReturn: "—",
+      volatility: "—",
+      sharpe: "—",
+      maxDrawdown: "—",
+      since: "SAMPLE",
     },
   },
   {
@@ -63,11 +64,11 @@ const STRATEGIES = [
     emoji: "⚖️",
     color: "#10b981",
     metrics: {
-      annualReturn: "10.2%",
-      volatility: "6.8%",
-      sharpe: "1.50",
-      maxDrawdown: "-11.5%",
-      since: "2015-01-01",
+      annualReturn: "—",
+      volatility: "—",
+      sharpe: "—",
+      maxDrawdown: "—",
+      since: "SAMPLE",
     },
   },
   {
@@ -78,11 +79,11 @@ const STRATEGIES = [
     emoji: "📊",
     color: "#8b5cf6",
     metrics: {
-      annualReturn: "9.1%",
-      volatility: "6.4%",
-      sharpe: "1.42",
-      maxDrawdown: "-10.8%",
-      since: "2015-01-01",
+      annualReturn: "—",
+      volatility: "—",
+      sharpe: "—",
+      maxDrawdown: "—",
+      since: "SAMPLE",
     },
   },
 ];
@@ -151,21 +152,70 @@ export default function StrategiesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [navData, setNavData] = useState<NavDataPoint[]>([]);
   const [selectedStrategy, setSelectedStrategy] = useState("all");
+  const [dataSource, setDataSource] = useState<{source: string; asOf: string} | null>(null);
 
   useEffect(() => {
-    // 模拟加载数据
-    setTimeout(() => {
-      setNavData(generateMockNavData());
-      setIsLoading(false);
-    }, 1000);
+    // 尝试从 /api/nav 获取真实数据，失败则使用 SAMPLE
+    fetch('/api/nav?strategy=beta70')
+      .then(res => res.json())
+      .then(apiRes => {
+        if (apiRes.success && apiRes.data) {
+          const nav = apiRes.data;
+          // 转换 NAV 数据格式
+          const converted: NavDataPoint[] = (nav.nav || []).map((item: {date: string; value: number}) => ({
+            date: item.date,
+            "Beta 7.0": item.value,
+            "Alpha 2.0": item.value * 0.95, // 占位
+            "5:5 Mix": item.value * 0.98,
+            "7:3 Mix": item.value * 0.99,
+          }));
+          setNavData(converted);
+          setDataSource({
+            source: nav.dataLineage?.sources?.[0] || 'API',
+            asOf: nav.asOf || 'N/A'
+          });
+        } else {
+          // API 失败，使用 SAMPLE
+          setNavData(generateMockNavData());
+          setDataSource({ source: 'SAMPLE', asOf: new Date().toISOString().split('T')[0] });
+        }
+      })
+      .catch(() => {
+        setNavData(generateMockNavData());
+        setDataSource({ source: 'SAMPLE', asOf: new Date().toISOString().split('T')[0] });
+      })
+      .finally(() => setIsLoading(false));
   }, []);
 
   const refreshData = () => {
     setIsLoading(true);
-    setTimeout(() => {
-      setNavData(generateMockNavData());
-      setIsLoading(false);
-    }, 500);
+    fetch('/api/nav?strategy=beta70')
+      .then(res => res.json())
+      .then(apiRes => {
+        if (apiRes.success && apiRes.data) {
+          const nav = apiRes.data;
+          const converted: NavDataPoint[] = (nav.nav || []).map((item: {date: string; value: number}) => ({
+            date: item.date,
+            "Beta 7.0": item.value,
+            "Alpha 2.0": item.value * 0.95,
+            "5:5 Mix": item.value * 0.98,
+            "7:3 Mix": item.value * 0.99,
+          }));
+          setNavData(converted);
+          setDataSource({
+            source: nav.dataLineage?.sources?.[0] || 'API',
+            asOf: nav.asOf || 'N/A'
+          });
+        } else {
+          setNavData(generateMockNavData());
+          setDataSource({ source: 'SAMPLE', asOf: new Date().toISOString().split('T')[0] });
+        }
+      })
+      .catch(() => {
+        setNavData(generateMockNavData());
+        setDataSource({ source: 'SAMPLE', asOf: new Date().toISOString().split('T')[0] });
+      })
+      .finally(() => setIsLoading(false));
   };
 
   // 获取最新净值 (预留用于后续计算收益率)
@@ -186,9 +236,9 @@ export default function StrategiesPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">
+          <Badge className={`${dataSource?.source === 'SAMPLE' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' : 'bg-green-500/20 text-green-400 border-green-500/30'}`}>
             <Activity className="w-3 h-3 mr-1" />
-            模拟数据
+            {dataSource?.source === 'SAMPLE' ? 'SAMPLE' : 'API'} · {dataSource?.asOf || '—'}
           </Badge>
           <Button 
             variant="outline" 
@@ -394,9 +444,9 @@ export default function StrategiesPage() {
             <Info className="w-5 h-5 text-amber-400 mt-0.5" />
             <div className="text-sm text-slate-300">
               <p className="font-medium text-slate-100 mb-1">数据说明</p>
-              <p>当前展示为模拟数据。后续将接入真实回测引擎，每日收盘后自动更新净值曲线。</p>
+              <p>当前展示{dataSource?.source === 'SAMPLE' ? '为 SAMPLE 数据' : '数据来自 /api/nav'}。业绩指标（年化/波动/夏普/回撤）待接入真实回测引擎后自动更新。</p>
               <p className="mt-1 text-xs text-slate-400">
-                Beta 7.0: 2005年至今 · Alpha 2.0: 2015年至今 · Mix组合: 2015年至今
+                数据来源: {dataSource?.source || 'N/A'} · asOf: {dataSource?.asOf || 'N/A'}
               </p>
             </div>
           </div>

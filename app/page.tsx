@@ -18,6 +18,7 @@ import {
   Legend
 } from "recharts";
 import { MacroDashboard } from "@/components/macro-gauge";
+import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
 
 interface MarketQuote {
   symbol: string;
@@ -273,6 +274,12 @@ export default function DashboardPage() {
   // Expandable state for macro cards
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
+  // Macro indicators (FRED) - evidence source for macro cards
+  const [macroIndicators, setMacroIndicators] = useState<{
+    updatedAt: string;
+    byId: Record<string, { id: string; name: string; unit: string; value: number | null; status: "LIVE" | "OFF"; asOf: string | null; source: string }>;
+  } | null>(null);
+
   // AI 最新点评（展示层）
   const [latestAI, setLatestAI] = useState<{ title: string; summary: string; impact?: string; suggestion?: string; createdAt?: string } | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
@@ -290,7 +297,24 @@ export default function DashboardPage() {
     }
   };
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+
+    // Fetch macro indicators from same-origin absolute URL (serverless)
+    const fetchMacro = async () => {
+      try {
+        const origin = window.location.origin;
+        const res = await fetchMacroIndicatorsAbs(origin);
+        if (!res) return;
+        const byId = indexById(res.indicators);
+        setMacroIndicators({ updatedAt: res.updatedAt, byId });
+      } catch {
+        // keep OFF silently; UI will remain SAMPLE/—
+      }
+    };
+
+    fetchMacro();
+  }, []);
 
   const fetchLatestAI = async () => {
     setAiLoading(true);
@@ -467,7 +491,27 @@ export default function DashboardPage() {
           {/* 四大宏观维度 - Signal Light Style */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             {macroDimensions.map((dim) => {
-              const current = regionView === "US" ? dim.us : dim.china;
+              const currentBase = regionView === "US" ? dim.us : dim.china;
+              const byId = macroIndicators?.byId;
+
+              // Map indicators (US only for now; CN remains SAMPLE until a CN-auditable source is wired)
+              const dimToIndicatorId: Record<string, string> = {
+                growth: "us_unrate",
+                inflation: "us_cpi",
+                policy: "us_fedfunds",
+                liquidity: "us_10y",
+              };
+
+              const ind = regionView === "US" && byId ? byId[dimToIndicatorId[dim.id]] : null;
+
+              const current =
+                ind && ind.status === "LIVE"
+                  ? {
+                      status: formatValue(ind.value, ind.unit),
+                      trend: "neutral" as const,
+                      desc: `${ind.name}: ${formatValue(ind.value, ind.unit)} · asOf ${ind.asOf || "—"} · ${ind.source}`,
+                    }
+                  : currentBase;
               const isExpanded = expandedCards[dim.id];
               return (
                 <div 
@@ -482,10 +526,20 @@ export default function DashboardPage() {
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-amber-300 border-amber-500/30 bg-amber-500/10">
-                        SAMPLE
+                      {macroIndicators ? (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-green-300 border-green-500/30 bg-green-500/10">
+                          LIVE
+                        </span>
+                      ) : (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-amber-300 border-amber-500/30 bg-amber-500/10">
+                          SAMPLE
+                        </span>
+                      )}
+                      <span className="text-[9px] text-slate-500">
+                        {macroIndicators
+                          ? `source: FRED · updated ${new Date(macroIndicators.updatedAt).toLocaleDateString()}`
+                          : "未接入可审计宏观指标"}
                       </span>
-                      <span className="text-[9px] text-slate-500">未接入可审计宏观指标</span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">

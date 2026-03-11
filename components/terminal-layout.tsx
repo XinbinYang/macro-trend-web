@@ -86,7 +86,7 @@ export function TerminalLayout({ children }: { children: React.ReactNode }) {
         <div className="border-t border-terminal-border p-3">
           <div className="flex items-center gap-2 text-sm text-text-secondary">
             <User className="w-4 h-4 flex-shrink-0" />
-            <span className="truncate">杨总</span>
+            <span className="truncate">—</span>
           </div>
         </div>
       </aside>
@@ -155,8 +155,8 @@ export function TerminalLayout({ children }: { children: React.ReactNode }) {
                 day: "2-digit",
               })}
             </span>
-            <span className="text-xs text-signal-cyan">
-              市场状态: 交易中
+            <span className="text-xs text-text-muted">
+              市场状态: OFF
             </span>
           </div>
           <div className="flex items-center gap-3">
@@ -164,9 +164,9 @@ export function TerminalLayout({ children }: { children: React.ReactNode }) {
               <Bell className="w-4 h-4" />
             </button>
             <div className="flex items-center gap-2 text-xs">
-              <span className="text-data-up">美股 ↑ 0.85%</span>
-              <span className="text-data-down">A股 ↓ 0.32%</span>
-              <span className="text-data-up">黄金 ↑ 1.25%</span>
+              <span className="text-text-muted">美股 —</span>
+              <span className="text-text-muted">A股 —</span>
+              <span className="text-text-muted">黄金 —</span>
             </div>
           </div>
         </header>
