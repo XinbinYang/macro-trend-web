@@ -24,11 +24,11 @@ const ASSET_CONFIG: AssetConfig[] = [
 
   
   // 港股
-  { symbol: "EWH", name: "恒生指数", region: "HK", category: "EQUITY", dataType: "DELAYED", dataSource: "Yahoo(美股ETF)" },
+  // NOTE: 港股指数用 AkShare(sample) 的 HSI（收盘口径）展示，避免 EWH(HK ETF proxy) 与 HSI(指数) 双口径重复。
   
   // 商品
-  { symbol: "GLD", name: "黄金", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "GC=F", name: "黄金期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
+  // NOTE: 黄金仅保留一个口径（优先期货/更贴近可交易品种）；避免 GLD 与 GC=F 重复。
+  { symbol: "GC=F", name: "COMEX黄金期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   { symbol: "CL=F", name: "WTI原油期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   { symbol: "DJP", name: "道琼斯商品指数总回报ETN (DJP)", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   
