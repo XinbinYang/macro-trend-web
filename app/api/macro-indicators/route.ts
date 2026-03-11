@@ -26,6 +26,7 @@ export async function GET() {
   const updatedAt = new Date().toISOString();
 
   // If key missing, be explicit OFF (not mock pretending)
+  // NOTE: On Vercel, env var updates may need a redeploy to reach the serverless runtime.
   if (!process.env.FRED_API_KEY) {
     const indicators: MacroIndicator[] = [
       offIndicator("us_fedfunds", "US Fed Funds", "%"),
