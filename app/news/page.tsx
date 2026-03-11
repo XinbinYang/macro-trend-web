@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -199,7 +199,7 @@ export default function NewsPage() {
     }
   };
 
-  const handleAnalyze = (item: NewsItem) => {
+  const handleAnalyze = useCallback((item: NewsItem) => {
     if (!insights[item.id]) {
       setAnalyzing(prev => ({ ...prev, [item.id]: true }));
       analyzeNewsWithAI(item).then(insight => {
@@ -207,7 +207,7 @@ export default function NewsPage() {
         setAnalyzing(prev => ({ ...prev, [item.id]: false }));
       });
     }
-  };
+  }, [insights]);
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">

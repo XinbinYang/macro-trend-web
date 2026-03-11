@@ -138,15 +138,13 @@ export function NewsSection({
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   // 自动触发分析（当 items 更新时）
-  // NOTE: 避免在渲染期触发副作用
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     items.forEach((item) => {
       if (!insights[item.id]) {
         onAnalyze(item);
       }
     });
-  }, [items]);
+  }, [items, insights, onAnalyze]);
 
   return (
     <div className="space-y-3">
