@@ -27,9 +27,12 @@ interface EastMoneyQuote {
 
 // Convert East Money code format
 function toEastMoneyCode(code: string): string {
-  if (code.startsWith("6")) {
+  // A股：
+  // - 上交所：6xxxxxx、以及多数 ETF(51xxxx、58xxxx) -> 1.
+  // - 深交所：0xxxxxx/3xxxxxx、部分 ETF(15xxxx) -> 0.
+  if (code.startsWith("6") || code.startsWith("51") || code.startsWith("58")) {
     return `1.${code}`; // Shanghai
-  } else if (code.startsWith("0") || code.startsWith("3")) {
+  } else if (code.startsWith("0") || code.startsWith("3") || code.startsWith("15")) {
     return `0.${code}`; // Shenzhen
   }
   return code;
