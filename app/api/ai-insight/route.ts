@@ -21,12 +21,11 @@ export async function POST(request: Request) {
     const apiKey = process.env.OPENROUTER_API_KEY;
     
     if (!apiKey) {
-      // 如果没有API密钥，返回模拟的AI解读
+      // 没有 API Key：按产品要求「必须真 AI」→ 直接报错，不做 mock/fallback
       return NextResponse.json({
-        success: true,
-        data: generateMockInsight(titleEn),
-        source: 'mock'
-      });
+        success: false,
+        error: 'OPENROUTER_API_KEY is not configured'
+      }, { status: 503 });
     }
 
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
@@ -57,12 +56,10 @@ export async function POST(request: Request) {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('OpenRouter API error:', response.status, errorText);
-      // 返回模拟数据作为fallback
       return NextResponse.json({
-        success: true,
-        data: generateMockInsight(titleEn),
-        source: 'fallback'
-      });
+        success: false,
+        error: `OpenRouter API error: ${response.status}`
+      }, { status: 502 });
     }
 
     const data = await response.json();
@@ -101,37 +98,5 @@ export async function POST(request: Request) {
   }
 }
 
-// 生成模拟AI解读（作为fallback）
-function generateMockInsight(titleEn: string): AIInsight {
-  const lowerTitle = titleEn.toLowerCase();
-  
-  // 根据关键词判断影响方向
-  let impact = '中性';
-  let suggestion = '观望';
-  
-  const positiveKeywords = ['rise', 'gain', 'surge', 'rally', 'growth', 'strong', 'boost', 'up'];
-  const negativeKeywords = ['fall', 'drop', 'decline', 'crash', 'weak', 'cut', 'down', 'loss', 'recession'];
-  
-  if (positiveKeywords.some(k => lowerTitle.includes(k))) {
-    impact = '正面';
-    suggestion = '可考虑逢低布局';
-  } else if (negativeKeywords.some(k => lowerTitle.includes(k))) {
-    impact = '负面';
-    suggestion = '建议减仓观望';
-  }
-  
-  // 生成一句话总结
-  let summary = '该新闻涉及市场重要动态，建议密切关注后续发展。';
-  
-  if (lowerTitle.includes('fed') || lowerTitle.includes('federal reserve') || lowerTitle.includes('rate')) {
-    summary = '美联储政策动向对全球流动性产生重要影响，需关注利率路径指引。';
-  } else if (lowerTitle.includes('cpi') || lowerTitle.includes('inflation')) {
-    summary = '通胀数据直接影响央行政策预期，是近期市场关注焦点。';
-  } else if (lowerTitle.includes('oil') || lowerTitle.includes('crude') || lowerTitle.includes('energy')) {
-    summary = '能源价格波动影响通胀预期和全球经济增长前景。';
-  } else if (lowerTitle.includes('china') || lowerTitle.includes('chinese')) {
-    summary = '中国经济数据对全球供应链和大宗商品需求有重要指引作用。';
-  }
-  
-  return { summary, impact, suggestion };
-}
+// NOTE: 按产品规则「必须真 AI」，不提供 mock/fallback 生成功能。
+// 如需本地兜底，请显式开启 feature flag（当前未启用）。

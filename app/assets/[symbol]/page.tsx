@@ -127,44 +127,13 @@ export default function AssetDetailPage() {
       if (data.success && data.data) {
         setAiInsight(`${data.data.summary} 影响: ${data.data.impact}。建议: ${data.data.suggestion}`);
       } else {
-        // 生成本地解读
-        setAiInsight(generateLocalInsight(symbol, quote));
+        setAiInsight(data?.error || "AI 解读暂不可用（需要 OPENROUTER_API_KEY）");
       }
     } catch {
-      setAiInsight(generateLocalInsight(symbol, quote));
+      setAiInsight("AI 解读暂不可用");
     } finally {
       setAiLoading(false);
     }
-  };
-
-  // 生成本地AI解读
-  const generateLocalInsight = (sym: string, q: MarketQuote): string => {
-    const change = q.changePercent;
-    let insight = "";
-    
-    if (change > 2) {
-      insight = `${sym}今日强势上涨${change.toFixed(2)}%，市场情绪积极。`;
-    } else if (change > 0) {
-      insight = `${sym}小幅上涨${change.toFixed(2)}%，走势稳健。`;
-    } else if (change < -2) {
-      insight = `${sym}今日下跌${Math.abs(change).toFixed(2)}%，需关注支撑。`;
-    } else {
-      insight = `${sym}波动较小，处于盘整阶段。`;
-    }
-    
-    // 根据资产类型添加特定分析
-    if (sym === "SPY" || sym === "QQQ") {
-      insight += " 美股大盘受美联储政策预期影响较大。";
-    } else if (sym === "ASHR" || sym === "KWEB" || sym === "FXI") {
-      insight += " 中国资产受国内经济数据和政策影响。";
-    } else if (sym === "GLD" || sym === "GC=F") {
-      insight += " 黄金受实际利率和地缘风险影响。";
-    } else if (sym === "TLT") {
-      insight += " 美债受利率预期和通胀数据影响。";
-    }
-    
-    insight += " 建议关注宏观数据变化。";
-    return insight;
   };
 
   useEffect(() => {
@@ -294,7 +263,7 @@ export default function AssetDetailPage() {
                 <span className="text-sm font-bold text-primary">{symbol.slice(0, 2)}</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold">{assetName}</h1>
+                <h1 className="text-xl sm:text-2xl font-bold">{assetName}</h1>
                 <span className="text-sm text-muted-foreground font-mono">{symbol}</span>
               </div>
               <Badge variant={signal.direction === "bullish" ? "default" : signal.direction === "bearish" ? "destructive" : "secondary"}>
