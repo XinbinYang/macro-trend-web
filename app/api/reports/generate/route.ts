@@ -115,12 +115,32 @@ async function callGPT54(prompt: string): Promise<{ content: string; model: stri
 }
 
 // 构建提示词
-function buildPrompt(type: string, market: { indices: { symbol: string; price: number; changePercent: number; source: string }[]; assets: { symbol: string; price: number; changePercent: number; source: string }[]; sources: Record<string, number> }): string {
-  const allAssets = [...market.indices, ...market.assets];
-  
-  const assetSummary = allAssets.map((a) => 
-    `${a.symbol}: $${a.price.toFixed(2)} (${a.changePercent >= 0 ? "+" : ""}${a.changePercent.toFixed(2)}%) [${a.source}]`
-  ).join("\n");
+function buildPrompt(
+  type: string,
+  market: {
+    sources: Record<string, number>;
+    timestamp: string;
+    data: { us: unknown[]; china: unknown[]; hongkong: unknown[]; global: unknown[] };
+    disclaimer?: unknown;
+  }
+): string {
+  const allAssets = [
+    ...((market?.data?.us as unknown[]) || []),
+    ...((market?.data?.china as unknown[]) || []),
+    ...((market?.data?.hongkong as unknown[]) || []),
+    ...((market?.data?.global as unknown[]) || []),
+  ];
+
+  const assetSummary = allAssets
+    .map((x) => {
+      const a = x as { symbol?: string; price?: number; changePercent?: number; source?: string };
+      const sym = a.symbol || "?";
+      const price = typeof a.price === "number" ? a.price : Number(a.price);
+      const chg = typeof a.changePercent === "number" ? a.changePercent : Number(a.changePercent);
+      const src = a.source || "Unknown";
+      return `${sym}: $${Number.isFinite(price) ? price.toFixed(2) : "-"} (${Number.isFinite(chg) ? (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%" : "-"}) [${src}]`;
+    })
+    .join("\n");
 
   const dateStr = new Date().toLocaleDateString("zh-CN");
 
