@@ -1,30 +1,34 @@
-# SUBAGENT Task Template
+# SUBAGENT 任务模板（V1）
 
-把下面模板复制给 subagent，确保可并行、可集成、可验收。
+> 用于主线程下发给 subagent 的标准格式，避免口径丢失与返工。
 
----
+## 任务标题
+- [TYPE] 一句话（例如：`[Data/ETL] 接入 market_data.db 并写入 truth`）
 
-## Task
-一句话目标：
+## 目标（Goal）
+- 期望达成的具体结果（可验收）
 
-## Scope (allowed changes)
-- Allowed paths:
-  - 
-- Forbidden paths:
-  - 
+## 输入（Inputs）
+- 文件/表/路径/接口
+- 允许的数据源范围（Master/AkShare/proxy）
 
-## Constraints
-- Must: LIVE/AI/SAMPLE/MOCK/OFF 显式标注
-- Must: AI 必须真 AI（失败=OFF，不准冒充）
-- Must: 不改动未授权路径
+## 约束（Constraints）
+- 状态标注：LIVE/OFF/SAMPLE/MOCK
+- 不允许的行为（例如：禁止编造、禁止校准）
 
-## Deliverables
-- Changes summary (<=5 bullets)
-- Files changed (list)
-- Verification steps (URLs / API / screenshots)
-- Risks & rollback notes
+## 输出（Deliverables）
+- 代码改动路径
+- 产物路径 / API 端点
+- 文档路径
 
-## Acceptance Criteria
-- Lint/build should pass after Main integration
-- UI 不误导：写死数据必须 SAMPLE/—
+## 验收（Acceptance）
+- 需要通过的命令：
+  - `npm run lint`
+  - `npm run build`
+- 数据核对 SQL / asOf 规则
 
+## 风险点（Risks / Edge Cases）
+- 可能失败原因与应对策略
+
+## 汇报格式（1 屏内）
+- DONE / RESULT / GATING / COMMIT / NEXT
