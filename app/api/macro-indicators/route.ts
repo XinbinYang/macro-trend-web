@@ -16,6 +16,9 @@ export interface MacroIndicator {
 export interface MacroIndicatorsResponse {
   updatedAt: string;
   indicators: MacroIndicator[];
+  debug?: {
+    hasFredKey: boolean;
+  };
 }
 
 function offIndicator(id: string, name: string, unit: string): MacroIndicator {
@@ -24,10 +27,11 @@ function offIndicator(id: string, name: string, unit: string): MacroIndicator {
 
 export async function GET() {
   const updatedAt = new Date().toISOString();
+  const hasFredKey = Boolean(process.env.FRED_API_KEY);
 
   // If key missing, be explicit OFF (not mock pretending)
   // NOTE: On Vercel, env var updates may need a redeploy to reach the serverless runtime.
-  if (!process.env.FRED_API_KEY) {
+  if (!hasFredKey) {
     const indicators: MacroIndicator[] = [
       offIndicator("us_fedfunds", "US Fed Funds", "%"),
       offIndicator("us_2y", "US 2Y", "%"),
@@ -36,7 +40,11 @@ export async function GET() {
       offIndicator("us_unrate", "US Unemployment", "%"),
     ];
 
-    const res: MacroIndicatorsResponse = { updatedAt, indicators };
+    const res: MacroIndicatorsResponse = {
+      updatedAt,
+      indicators,
+      debug: { hasFredKey },
+    };
     return NextResponse.json(res, {
       status: 200,
       headers: {
@@ -72,12 +80,13 @@ export async function GET() {
   const res: MacroIndicatorsResponse = {
     updatedAt,
     indicators: values,
+    debug: { hasFredKey },
   };
 
   return NextResponse.json(res, {
     status: 200,
     headers: {
-      // daily data, but keep page snappy; let the upstream revalidate handle caching
+      // daily data, but keep page snappy
       "Cache-Control": "public, max-age=60",
     },
   });
