@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ArrowUpRight, ArrowDownRight, Sparkles, CandlestickChart, Gauge, Clock, TrendingUp, BookOpen } from "lucide-react";
+import { RefreshCw, ArrowUpRight, ArrowDownRight, Sparkles, CandlestickChart, Gauge, Clock, TrendingUp, BookOpen, ChevronDown, ChevronUp, Zap, ZapOff } from "lucide-react";
 import { 
   XAxis, 
   YAxis, 
@@ -254,6 +254,23 @@ export default function DashboardPage() {
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState<string>("all");
   const [strategyNavData, setStrategyNavData] = useState<StrategyNavPoint[]>([]);
+  
+  // US/CN toggle for macro overview
+  const [regionView, setRegionView] = useState<"US" | "CN">("US");
+  
+  // Macro regime strip state (static for now - can be connected to API later)
+  const [macroRegime] = useState<{
+    status: "Risk-ON" | "Risk-OFF" | "Neutral";
+    confidence: number;
+    driver: string;
+  }>({
+    status: "Risk-ON",
+    confidence: 75,
+    driver: "中美PMI回升，流动性充裕"
+  });
+  
+  // Expandable state for macro cards
+  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
   // AI 最新点评（展示层）
   const [latestAI, setLatestAI] = useState<{ title: string; summary: string; impact?: string; suggestion?: string; createdAt?: string } | null>(null);
@@ -350,8 +367,9 @@ export default function DashboardPage() {
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMzMzMiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0aDR2NGgtNHpNMjAgMjBoNHY0aC00eiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
         
         <div className="relative">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
+          {/* Top Row: Title + Toggle */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
+            <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <span className="status-dot status-dot-green animate-pulse"></span>
                 <span className="text-xs text-slate-400 font-medium tracking-wider uppercase">Market Live</span>
@@ -364,7 +382,30 @@ export default function DashboardPage() {
               </p>
             </div>
             
+            {/* US/CN Toggle */}
             <div className="flex items-center gap-2">
+              <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700">
+                <button
+                  onClick={() => setRegionView("US")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    regionView === "US" 
+                      ? "bg-blue-500 text-white shadow-md" 
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  🇺🇸 美国
+                </button>
+                <button
+                  onClick={() => setRegionView("CN")}
+                  className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
+                    regionView === "CN" 
+                      ? "bg-red-500 text-white shadow-md" 
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  🇨🇳 中国
+                </button>
+              </div>
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -378,50 +419,125 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 四大宏观维度 - 中美对比 */}
-          <div className="mt-4 md:mt-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {macroDimensions.map((dim) => (
+          {/* Macro Regime Summary Strip */}
+          <div className={`mb-4 px-4 py-3 rounded-xl border flex items-center justify-between gap-4 ${
+            macroRegime.status === "Risk-ON" 
+              ? "bg-green-500/10 border-green-500/30" 
+              : macroRegime.status === "Risk-OFF"
+              ? "bg-red-500/10 border-red-500/30"
+              : "bg-amber-500/10 border-amber-500/30"
+          }`}>
+            <div className="flex items-center gap-3">
+              {macroRegime.status === "Risk-ON" ? (
+                <Zap className="w-5 h-5 text-green-400" />
+              ) : macroRegime.status === "Risk-OFF" ? (
+                <ZapOff className="w-5 h-5 text-red-400" />
+              ) : (
+                <Gauge className="w-5 h-5 text-amber-400" />
+              )}
+              <div>
+                <span className={`text-sm font-bold ${
+                  macroRegime.status === "Risk-ON" 
+                    ? "text-green-400" 
+                    : macroRegime.status === "Risk-OFF"
+                    ? "text-red-400"
+                    : "text-amber-400"
+                }`}>
+                  {macroRegime.status}
+                </span>
+                <span className="text-xs text-slate-400 ml-2">宏观格局</span>
+              </div>
+            </div>
+            <div className="hidden md:flex items-center gap-2">
+              <span className="text-xs text-slate-500">置信度</span>
+              <div className="w-20 h-2 bg-slate-700 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-amber-500 rounded-full transition-all"
+                  style={{ width: `${macroRegime.confidence}%` }}
+                />
+              </div>
+              <span className="text-xs text-amber-400 font-medium">{macroRegime.confidence}%</span>
+            </div>
+            <div className="text-xs text-slate-400 truncate max-w-[200px] md:max-w-none">
+              {macroRegime.driver}
+            </div>
+          </div>
+
+          {/* 四大宏观维度 - Signal Light Style */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+            {macroDimensions.map((dim) => {
+              const current = regionView === "US" ? dim.us : dim.china;
+              const isExpanded = expandedCards[dim.id];
+              return (
                 <div 
                   key={dim.id}
-                  className="bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 md:p-4 hover:border-slate-600 transition-colors"
+                  className={`bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 transition-all ${
+                    isExpanded ? 'ring-1 ring-amber-500/50' : 'hover:border-slate-600'
+                  }`}
                 >
-                  {/* 维度标题 */}
-                  <div className="flex items-center gap-2 mb-3 pb-2 border-b border-slate-700/50">
-                    <span className="text-lg">{dim.emoji}</span>
-                    <span className="text-xs font-medium text-slate-300">{dim.name}</span>
-                  </div>
-                  
-                  {/* 中国 */}
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-base">🇨🇳</span>
-                      <span className={`text-sm font-bold ${
-                        dim.china.trend === 'up' ? 'text-green-400' : 
-                        dim.china.trend === 'down' ? 'text-red-400' : 'text-amber-400'
-                      }`}>
-                        {dim.china.status}
-                      </span>
+                  {/* Compact Header: Status + Top 2 Evidence */}
+                  <button
+                    onClick={() => setExpandedCards(prev => ({ ...prev, [dim.id]: !prev[dim.id] }))}
+                    className="w-full text-left"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg">{dim.emoji}</span>
+                        <span className="text-xs font-medium text-slate-300">{dim.name}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        {/* Signal Light */}
+                        <span className={`w-2 h-2 rounded-full ${
+                          current.trend === 'up' ? 'bg-green-400 animate-pulse' : 
+                          current.trend === 'down' ? 'bg-red-400' : 'bg-amber-400'
+                        }`}></span>
+                        <span className={`text-sm font-bold ${
+                          current.trend === 'up' ? 'text-green-400' : 
+                          current.trend === 'down' ? 'text-red-400' : 'text-amber-400'
+                        }`}>
+                          {current.status}
+                        </span>
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-500 leading-tight pl-6">{dim.china.desc}</div>
-                  </div>
-                  
-                  {/* 美国 */}
-                  <div>
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-base">🇺🇸</span>
-                      <span className={`text-sm font-bold ${
-                        dim.us.trend === 'up' ? 'text-green-400' : 
-                        dim.us.trend === 'down' ? 'text-red-400' : 'text-amber-400'
-                      }`}>
-                        {dim.us.status}
-                      </span>
+                    
+                    {/* Top 2 Evidence (collapsed view) */}
+                    <div className="space-y-1">
+                      <div className="text-[10px] text-slate-400 truncate">
+                        {current.desc.split('，')[0]}
+                      </div>
+                      <div className="text-[10px] text-slate-500 truncate">
+                        {current.desc.split('，')[1] || ''}
+                      </div>
                     </div>
-                    <div className="text-[10px] text-slate-500 leading-tight pl-6">{dim.us.desc}</div>
-                  </div>
+                    
+                    {/* Expand indicator */}
+                    <div className="flex items-center justify-center mt-2 text-slate-500">
+                      {isExpanded ? (
+                        <ChevronUp className="w-4 h-4" />
+                      ) : (
+                        <ChevronDown className="w-4 h-4" />
+                      )}
+                    </div>
+                  </button>
+                  
+                  {/* Expandable Details */}
+                  {isExpanded && (
+                    <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-2">
+                      <div className="text-[10px] text-slate-400">
+                        <span className="text-slate-500">详细描述：</span>
+                        {current.desc}
+                      </div>
+                      <div className="text-[10px] text-slate-500">
+                        <span className="text-slate-400">趋势信号：</span>
+                        <span className={current.trend === 'up' ? 'text-green-400' : current.trend === 'down' ? 'text-red-400' : 'text-amber-400'}>
+                          {current.trend === 'up' ? '↑ 上行' : current.trend === 'down' ? '↓ 下行' : '→ 震荡'}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>

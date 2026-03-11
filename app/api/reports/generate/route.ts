@@ -114,6 +114,33 @@ async function callGPT54(prompt: string): Promise<{ content: string; model: stri
   };
 }
 
+// 按区域格式化市场数据
+function formatMarketData(data: { us: unknown[]; china: unknown[]; hongkong: unknown[]; global: unknown[] }): string {
+  const formatAsset = (x: unknown) => {
+    const a = x as { symbol?: string; price?: number; changePercent?: number; source?: string };
+    const sym = a.symbol || "?";
+    const price = typeof a.price === "number" ? a.price : Number(a.price);
+    const chg = typeof a.changePercent === "number" ? a.changePercent : Number(a.changePercent);
+    const src = a.source || "Unknown";
+    return `${sym}: $${Number.isFinite(price) ? price.toFixed(2) : "-"} (${Number.isFinite(chg) ? (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%" : "-"}) [${src}]`;
+  };
+
+  const sections = [
+    ["美国市场", data.us || []],
+    ["中国市场", data.china || []],
+    ["香港市场", data.hongkong || []],
+    ["全球市场", data.global || []],
+  ];
+
+  return sections
+    .map(([title, assets]) => {
+      const formattedAssets = (assets as unknown[]).map(formatAsset).join("\n");
+      return `【${title}】\n${formattedAssets}`;
+    })
+    .filter(section => section.includes("\n"))  // 只显示有数据的区域
+    .join("\n\n");
+}
+
 // 构建提示词
 function buildPrompt(
   type: string,
@@ -124,79 +151,102 @@ function buildPrompt(
     disclaimer?: unknown;
   }
 ): string {
-  const allAssets = [
-    ...((market?.data?.us as unknown[]) || []),
-    ...((market?.data?.china as unknown[]) || []),
-    ...((market?.data?.hongkong as unknown[]) || []),
-    ...((market?.data?.global as unknown[]) || []),
-  ];
-
-  const assetSummary = allAssets
-    .map((x) => {
-      const a = x as { symbol?: string; price?: number; changePercent?: number; source?: string };
-      const sym = a.symbol || "?";
-      const price = typeof a.price === "number" ? a.price : Number(a.price);
-      const chg = typeof a.changePercent === "number" ? a.changePercent : Number(a.changePercent);
-      const src = a.source || "Unknown";
-      return `${sym}: $${Number.isFinite(price) ? price.toFixed(2) : "-"} (${Number.isFinite(chg) ? (chg >= 0 ? "+" : "") + chg.toFixed(2) + "%" : "-"}) [${src}]`;
-    })
-    .join("\n");
-
+  const marketData = formatMarketData(market.data);
   const dateStr = new Date().toLocaleDateString("zh-CN");
+  const disclaimer = `免责声明：本报告基于实时市场数据和AI分析生成。指示性观点仅供参考，不构成投资建议。回测表现不代表未来收益。请结合自身风险承受能力做出投资决策。\n`;
 
   if (type === "weekly") {
     return `生成一份全球宏观周报，日期：${dateStr}
 
-【实时市场数据】
-${assetSummary}
+${disclaimer}
+【市场数据】(按区域分类)
+${marketData}
 
 【数据源分布】
 ${JSON.stringify(market.sources, null, 2)}
 
-请按以下格式输出报告：
+请按以下固定格式输出报告（保持所有章节标题）：
 
-标题：[简洁有力的标题，反映本周核心主题]
+# 全球宏观周报
 
-核心观点：[1-2句话总结本周市场核心逻辑]
+## 核心观点
+[1-2句话总结本周市场核心逻辑]
 
-宏观情景：[通胀/通缩/金发姑娘/滞胀] - [简要说明判断依据]
+## 宏观情景
+[通胀/通缩/金发姑娘/滞胀] - [简要说明判断依据]
 
-关键驱动因素：
+## 关键驱动因素
 1. [因素1]
 2. [因素2]  
 3. [因素3]
 
-资产配置建议：
+## 区域市场分析
+
+### 美国市场
+[分析要点]
+
+### 中国市场
+[分析要点]
+
+### 欧洲市场
+[分析要点]
+
+### 新兴市场
+[分析要点]
+
+## 大类资产配置建议
 - 股票：[建议]
 - 债券：[建议]
 - 商品：[建议]
 - 现金：[建议]
 
-风险提示：[1-2个需要关注的风险点]`;
+## 风险提示
+[1-2个需要关注的风险点]`;
   } else {
     return `生成一份季度宏观展望报告，日期：${dateStr}
 
-【实时市场数据】
-${assetSummary}
+${disclaimer}
+【市场数据】(按区域分类)
+${marketData}
 
-请按以下格式输出报告：
+请按以下固定格式输出报告（保持所有章节标题）：
 
-标题：[季度主题]
+# 季度宏观展望报告
 
-核心观点：[季度核心判断]
+## 核心判断
+[季度核心判断]
 
-宏观情景：[判断及概率]
+## 宏观情景研判
+[情景判断及概率分布]
 
-三大主题：
+## 重点主题分析
 1. [主题1及分析]
 2. [主题2及分析]
 3. [主题3及分析]
 
-资产配置策略：
-- 战略配置（SAA）：[建议]
-- 战术配置（TAA）：[建议]
+## 区域市场展望
 
-关键监测指标：[需要跟踪的指标]`;
+### 美国市场
+[展望要点]
+
+### 中国市场
+[展望要点]
+
+### 欧洲市场
+[展望要点]
+
+### 新兴市场
+[展望要点]
+
+## 资产配置策略
+### 战略配置（SAA）
+[建议]
+
+### 战术配置（TAA）
+[建议]
+
+## 关键监测指标
+[列出需要重点跟踪的指标]`;
   }
 }
 
@@ -208,44 +258,77 @@ function parseReportContent(content: string, type: string, model: string): {
   type: string;
   coreThesis: string;
   scenario: string;
+  sections: { title: string; content: string }[];
   keyPoints: string[];
-  content: string;
   model: string;
+  disclaimer: string;
 } {
+  const disclaimer = "免责声明：本报告基于实时市场数据和AI分析生成。指示性观点仅供参考，不构成投资建议。回测表现不代表未来收益。请结合自身风险承受能力做出投资决策。";
   const lines = content.split("\n").filter(l => l.trim());
   
-  // 提取标题
-  const titleLine = lines.find(l => l.includes("标题")) || lines[0];
-  const title = titleLine.replace(/[标题：:]/g, "").trim() || (type === "weekly" ? "全球宏观周报" : "季度宏观展望");
+  // 提取各个章节
+  const sections: { title: string; content: string }[] = [];
+  let currentSection = "";
+  let currentContent: string[] = [];
   
+  lines.forEach(line => {
+    if (line.startsWith("##")) {
+      if (currentSection) {
+        sections.push({
+          title: currentSection,
+          content: currentContent.join("\n").trim()
+        });
+      }
+      currentSection = line.replace(/##\s*/, "").trim();
+      currentContent = [];
+    } else if (line.startsWith("#") && !line.startsWith("##")) {
+      // 主标题，跳过
+    } else {
+      currentContent.push(line);
+    }
+  });
+  
+  // 添加最后一个章节
+  if (currentSection) {
+    sections.push({
+      title: currentSection,
+      content: currentContent.join("\n").trim()
+    });
+  }
+
   // 提取核心观点
-  const thesisLine = lines.find(l => l.includes("核心观点"));
-  const coreThesis = thesisLine ? thesisLine.replace(/[核心观点：:]/g, "").trim() : "市场处于关键转折点";
-  
-  // 提取情景
-  const scenarioLine = lines.find(l => l.includes("宏观情景"));
-  const scenarioText = scenarioLine ? scenarioLine.replace(/[宏观情景：:]/g, "").trim() : "中性";
-  const scenario = scenarioText.includes("通胀") ? "inflation" : 
-                   scenarioText.includes("通缩") ? "deflation" :
-                   scenarioText.includes("滞胀") ? "stagflation" : "goldilocks";
-  
+  const coreSection = sections.find(s => s.title.includes("核心"));
+  const coreThesis = coreSection ? coreSection.content.trim() : "市场处于关键转折点";
+
+  // 提取宏观情景
+  const scenarioSection = sections.find(s => s.title.includes("宏观情景"));
+  const scenarioText = scenarioSection ? scenarioSection.content.trim() : "中性";
+  const scenario = scenarioText.toLowerCase().includes("inflation") ? "inflation" :
+                   scenarioText.toLowerCase().includes("deflation") ? "deflation" :
+                   scenarioText.toLowerCase().includes("stagflation") ? "stagflation" : 
+                   "goldilocks";
+
   // 提取关键点
-  const keyPoints = lines
-    .filter(l => l.match(/^\d+\./) || l.match(/^[•\-]/))
-    .slice(0, 4)
-    .map(l => l.replace(/^\d+\.[\s•\-]*/, "").trim())
-    .filter(l => l.length > 5);
+  const keyPoints = sections
+    .filter(s => s.title.includes("关键") || s.title.includes("重点"))
+    .flatMap(s => s.content.split("\n")
+      .filter(l => l.match(/^\d+\./) || l.match(/^[•\-]/))
+      .map(l => l.replace(/^\d+\.[\s•\-]*/, "").trim())
+      .filter(l => l.length > 5)
+    )
+    .slice(0, 4);
 
   return {
     id: `report_${Date.now()}`,
-    title,
+    title: type === "weekly" ? "全球宏观周报" : "季度宏观展望报告",
     date: new Date().toISOString().split("T")[0],
     type,
     coreThesis,
     scenario,
+    sections,
     keyPoints: keyPoints.length > 0 ? keyPoints : ["市场数据更新", "宏观环境变化", "配置策略调整"],
-    content,
     model,
+    disclaimer,
   };
 }
 
