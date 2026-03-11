@@ -41,34 +41,40 @@ const assetCategories = [
   },
 ];
 
-// 资产详细配置
+// 资产详细配置（注意：这里的 category 必须和页面 tabs 的 stocks/bonds/commodities/fx 对齐）
 const ASSET_CONFIG: Record<string, { name: string; category: string; region: string; dataType: string }> = {
-  // 中国股票
-  "ASHR": { name: "沪深300", category: "stocks", region: "CN", dataType: "DELAYED" },
-  "KWEB": { name: "中概互联", category: "stocks", region: "CN", dataType: "REALTIME" },
-  "FXI": { name: "富时中国50", category: "stocks", region: "CN", dataType: "REALTIME" },
+  // US Equities (use index symbols, consistent with homepage canonical instruments)
+  "^GSPC": { name: "标普500", category: "stocks", region: "US", dataType: "REALTIME" },
+  "^NDX": { name: "纳斯达克100", category: "stocks", region: "US", dataType: "REALTIME" },
+  "^DJI": { name: "道琼斯工业指数", category: "stocks", region: "US", dataType: "REALTIME" },
+
+  // China indices
   "000300.SH": { name: "沪深300", category: "stocks", region: "CN", dataType: "EOD" },
   "000905.SH": { name: "中证500", category: "stocks", region: "CN", dataType: "EOD" },
-  // 港股
-  "EWH": { name: "恒生指数", category: "stocks", region: "HK", dataType: "DELAYED" },
-  "HSI": { name: "恒生指数", category: "stocks", region: "HK", dataType: "EOD" },
-  // 美股
-  "SPY": { name: "标普500", category: "stocks", region: "US", dataType: "REALTIME" },
-  "QQQ": { name: "纳斯达克100", category: "stocks", region: "US", dataType: "REALTIME" },
-  "IWM": { name: "罗素2000", category: "stocks", region: "US", dataType: "REALTIME" },
-  // 美债
-  "TLT": { name: "美债20Y", category: "bonds", region: "US", dataType: "REALTIME" },
-  "IEF": { name: "美债7-10Y", category: "bonds", region: "US", dataType: "REALTIME" },
-  // 中国国债期货 (AkShare)
-  "T2506": { name: "国债期货10Y", category: "bonds", region: "CN", dataType: "EOD" },
-  "TF2506": { name: "国债期货5Y", category: "bonds", region: "CN", dataType: "EOD" },
+  "000016.SH": { name: "上证50", category: "stocks", region: "CN", dataType: "EOD" },
+  "399006.SZ": { name: "创业板指", category: "stocks", region: "CN", dataType: "EOD" },
+  "000688.SH": { name: "科创50", category: "stocks", region: "CN", dataType: "EOD" },
+
+  // HK
+  "^HSI": { name: "恒生指数", category: "stocks", region: "HK", dataType: "EOD" },
+
+  // US Rates / Treasuries (curve)
+  "US2Y": { name: "美债2Y", category: "bonds", region: "US", dataType: "REALTIME" },
+  "US5Y": { name: "美债5Y", category: "bonds", region: "US", dataType: "REALTIME" },
+  "US10Y": { name: "美债10Y", category: "bonds", region: "US", dataType: "REALTIME" },
+  "US30Y": { name: "美债30Y", category: "bonds", region: "US", dataType: "REALTIME" },
+
+  // China bond futures (AkShare)
   "TS2506": { name: "国债期货2Y", category: "bonds", region: "CN", dataType: "EOD" },
+  "TF2506": { name: "国债期货5Y", category: "bonds", region: "CN", dataType: "EOD" },
+  "T2506": { name: "国债期货10Y", category: "bonds", region: "CN", dataType: "EOD" },
   "TL2506": { name: "国债期货30Y", category: "bonds", region: "CN", dataType: "EOD" },
-  // 商品
-  "GLD": { name: "黄金ETF", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },
+
+  // Commodities
   "GC=F": { name: "黄金期货", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },
-  "CL=F": { name: "原油期货", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },
-  // 外汇 (模拟)
+  "CL=F": { name: "WTI原油期货", category: "commodities", region: "GLOBAL", dataType: "REALTIME" },
+
+  // FX (indicative)
   "UUP": { name: "美元指数", category: "fx", region: "US", dataType: "REALTIME" },
 };
 
