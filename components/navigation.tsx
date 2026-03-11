@@ -32,7 +32,7 @@ export function MobileNav() {
     <>
       {/* Mobile Menu Button */}
       <button
-        className="md:hidden p-2 rounded-lg hover:bg-slate-800 transition-colors relative z-[101]"
+        className="md:hidden p-2 rounded-lg hover:bg-slate-800 transition-colors relative z-[70]"
         onClick={() => setIsOpen(!isOpen)}
         aria-label="Toggle menu"
       >
@@ -47,7 +47,7 @@ export function MobileNav() {
 
       {/* Mobile Navigation Drawer (overlay + right panel) */}
       {isOpen && (
-        <div className="md:hidden fixed inset-0 z-[100]">
+        <div className="md:hidden fixed inset-0 z-[60]">
           {/* Backdrop */}
           <button
             aria-label="Close menu"
