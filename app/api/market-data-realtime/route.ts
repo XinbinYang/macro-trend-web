@@ -40,8 +40,14 @@ const ASSET_CONFIG: AssetConfig[] = [
 // NOTE: 这里目前是“示例/占位数据”。用于页面展示与联调。
 // 等接入真实 AkShare 拉取后再替换；在此之前必须明确标注为 sample。
 const AKSHARE_EOD_DATA = [
+  // 中国主要宽基指数（sample 占位；后续接入真实 AkShare/官方口径数据）
   { symbol: "000300.SH", name: "沪深300", price: 4602.63, change: 12.5, changePercent: 0.27, region: "CN", source: "AkShare(sample)" },
   { symbol: "000905.SH", name: "中证500", price: 5847.21, change: -23.4, changePercent: -0.40, region: "CN", source: "AkShare(sample)" },
+  { symbol: "000016.SH", name: "上证50", price: 3123.45, change: 8.7, changePercent: 0.28, region: "CN", source: "AkShare(sample)" },
+  { symbol: "399006.SZ", name: "创业板指", price: 2145.67, change: -5.4, changePercent: -0.25, region: "CN", source: "AkShare(sample)" },
+  { symbol: "000688.SH", name: "科创50", price: 987.65, change: 3.2, changePercent: 0.33, region: "CN", source: "AkShare(sample)" },
+
+  // 香港
   { symbol: "HSI", name: "恒生指数", price: 25249.48, change: 156.3, changePercent: 0.62, region: "HK", source: "AkShare(sample)" },
 ];
 
