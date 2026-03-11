@@ -406,6 +406,9 @@ def main():
     all_assets = [c for c, _ in ASSET_COLS]
     current_weights = {asset: 1.0 / len(all_assets) for asset in all_assets}
 
+    # Track leverage applied at each rebalance (for audit)
+    leverage_history = []
+
     for t in range(1, len(dates)):
         # Monthly rebalance at t if in reb_idx and enough lookback
         if t in reb_idx and t > args.lookback:
@@ -467,7 +470,13 @@ def main():
             import numpy as np
             sigma = float(np.std(window_rets, ddof=1)) if len(window_rets) > 1 else 0.0
             sigma_ann = sigma * math.sqrt(252)
-            leverage = (args.targetVol / sigma_ann) if sigma_ann and sigma_ann > 0 else 1.0
+            # Safety floor to avoid sigma->0 blow-ups. No explicit max cap per user instruction.
+            sigma_floor = 0.002  # 0.2% annual vol floor
+            denom = max(sigma_ann, sigma_floor)
+            leverage = (args.targetVol / denom) if denom > 0 else 1.0
+
+            leverage_history.append(leverage)
+
             # store leveraged weights (gross leverage can be >1)
             current_weights = {k: v * leverage for k, v in current_weights.items()}
 
@@ -494,6 +503,14 @@ def main():
 
     metrics = annual_metrics(nav, nav_dates, periods_per_year=periods_per_year)
 
+    # Leverage summary (rebalance points only)
+    if leverage_history:
+        import numpy as np
+        metrics["leverageCurrent"] = float(leverage_history[-1])
+        metrics["leverageAvg"] = float(np.mean(leverage_history))
+        metrics["leverageMin"] = float(np.min(leverage_history))
+        metrics["leverageMax"] = float(np.max(leverage_history))
+
     out = {
         "strategy": "beta70",
         "name": "中美全天候（基线/杠杆版）",
@@ -508,6 +525,10 @@ def main():
             "vol": None if metrics["vol"] is None else round(metrics["vol"], 6),
             "maxDrawdown": None if metrics["maxDrawdown"] is None else round(metrics["maxDrawdown"], 6),
             "sharpe": None if metrics["sharpe"] is None else round(metrics["sharpe"], 6),
+            "leverageCurrent": None if metrics.get("leverageCurrent") is None else round(metrics["leverageCurrent"], 6),
+            "leverageAvg": None if metrics.get("leverageAvg") is None else round(metrics["leverageAvg"], 6),
+            "leverageMin": None if metrics.get("leverageMin") is None else round(metrics["leverageMin"], 6),
+            "leverageMax": None if metrics.get("leverageMax") is None else round(metrics["leverageMax"], 6)
         },
         "dataLineage": {
             "truthLayer": "Backtest/Signal",
