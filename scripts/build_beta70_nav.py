@@ -275,6 +275,7 @@ def main():
     ap.add_argument("--maxw", type=float, default=0.35)
     ap.add_argument("--freq", choices=["daily", "monthly"], default="monthly", help="Output NAV frequency")
     ap.add_argument("--allowProxy", action="store_true", help="Allow proxy fallbacks (keeps status SAMPLE)")
+    ap.add_argument("--targetVol", type=float, default=0.10, help="Target annualized volatility (e.g. 0.10 = 10%%)")
     args = ap.parse_args()
 
     db_path = Path(args.db)
@@ -442,11 +443,33 @@ def main():
                 for asset, internal_w in zip(group_cols, internal_weights):
                     new_weights[asset] = unit_weight * internal_w
             
-            # Apply weight constraints
+            # Apply per-asset cap (but DO NOT force sum(weights)=1; leverage is applied via target volatility)
             total = sum(new_weights.values())
-            new_weights = {k: min(args.maxw, v / total) for k, v in new_weights.items()}
+            if total > 0:
+                new_weights = {k: v / total for k, v in new_weights.items()}
+            new_weights = {k: min(args.maxw, v) for k, v in new_weights.items()}
+            # renormalize after caps (still relative weights)
             total = sum(new_weights.values())
-            current_weights = {k: v / total for k, v in new_weights.items()}
+            current_weights = {k: (v / total if total > 0 else 0.0) for k, v in new_weights.items()}
+
+            # Compute target-vol leverage (annualized), no cap per user instruction
+            # Use lookback window returns to estimate sigma_hat of current (relative) weights
+            window_rets = []
+            for i in range(args.lookback):
+                idx = (t - args.lookback) + i
+                rr = 0.0
+                for asset, w in current_weights.items():
+                    rseries = returns_by_asset.get(asset, [])
+                    r = rseries[idx] if idx < len(rseries) else 0.0
+                    rr += w * r
+                window_rets.append(rr)
+
+            import numpy as np
+            sigma = float(np.std(window_rets, ddof=1)) if len(window_rets) > 1 else 0.0
+            sigma_ann = sigma * math.sqrt(252)
+            leverage = (args.targetVol / sigma_ann) if sigma_ann and sigma_ann > 0 else 1.0
+            # store leveraged weights (gross leverage can be >1)
+            current_weights = {k: v * leverage for k, v in current_weights.items()}
 
         # Calculate portfolio return
         port_r = 0.0
@@ -473,9 +496,10 @@ def main():
 
     out = {
         "strategy": "beta70",
-        "name": "中美全天候Beta",
+        "name": "中美全天候（基线/杠杆版）",
         "status": "SAMPLE",  # will be switched to LIVE only after pricing audit
         "asOf": nav_dates[-1],
+        "targetVol": args.targetVol,
         "currency": "USD",
         "base": base,
         "nav": [{"date": d, "value": round(v, 4)} for d, v in zip(nav_dates, nav)],
@@ -518,7 +542,7 @@ def main():
             "dataQuality": {"forwardFillCount": ff_count},
             "notes": "Status remains SAMPLE until pricing lineage (Spot/Settle) is fully audited end-to-end. Ledoit-Wolf covariance uses sklearn.covariance.LedoitWolf (no heuristic downgrade).",
         },
-        "disclaimer": "SAMPLE backtest artifact generated locally from macro_quant.db. Not indicative of performance.",
+        "disclaimer": "SAMPLE backtest artifact generated locally from macro_quant.db. Leverage targets volatility; financing cost excluded. Not indicative of performance.",
     }
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

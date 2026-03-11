@@ -43,7 +43,7 @@ from pathlib import Path
 # Configuration
 SOURCE_DB = "data/sources/wind_bundle/market_data.db"
 STAGING_DB = "data/staging/market_data_staging.db"
-TRUTH_DB = "macro_quant.db"
+TRUTH_DB = "../data/macro_quant.db"
 
 # Source priority (lower number = higher priority)
 SOURCE_PRIORITY = {
@@ -198,6 +198,18 @@ def deduplicate_records(records: List[Dict]) -> Tuple[List[Dict], List[DataQuali
     for (date, ticker), group in grouped.items():
         if len(group) == 1:
             deduped.append(group[0])
+            # Log proxy source usage even for single records
+            winner = group[0]
+            if winner.get('source') in ('Wind_proxy', 'Yahoo_proxy'):
+                quality_logs.append(DataQualityLogEntry(
+                    date=date,
+                    table_name=f"assets_{winner.get('asset_class')}",
+                    ticker=ticker,
+                    check_type="proxy_source_used",
+                    severity="INFO",
+                    description=f"Using proxy source {winner.get('source')} for {ticker} (lineage: {winner.get('source_code')} -> {ticker})",
+                    action_taken=f"Proxy data accepted as fallback - official source unavailable"
+                ))
             continue
         
         # Sort by source priority (asc), then by import_ts (desc, None last)
@@ -262,18 +274,6 @@ def deduplicate_records(records: List[Dict]) -> Tuple[List[Dict], List[DataQuali
             description=f"Resolved {len(group)} duplicates from sources: {sources_involved}",
             action_taken=f"Selected {winner.get('source')} (priority {get_source_priority(winner.get('source'))})"
         ))
-        
-        # Log proxy source usage for SPX/NDX lineage tracking
-        if winner.get('source') in ('Wind_proxy', 'Yahoo_proxy'):
-            quality_logs.append(DataQualityLogEntry(
-                date=date,
-                table_name=f"assets_{winner.get('asset_class')}",
-                ticker=ticker,
-                check_type="proxy_source_used",
-                severity="INFO",
-                description=f"Using proxy source {winner.get('source')} for {ticker} (lineage: {winner.get('source_code')} -> {ticker})",
-                action_taken=f"Proxy data accepted as fallback - official source unavailable"
-            ))
     
     return deduped, quality_logs
 
@@ -568,8 +568,10 @@ def write_to_truth_tables(truth_db: str, records: List[Dict], dry_run: bool = Fa
     # Write equity
     if by_class['equity']:
         if not dry_run:
+            # Simply insert - if duplicates exist due to no PK, that's a data quality issue to fix separately
+            # Primary fix: don't let proxy overwrite official data
             cursor.executemany("""
-                INSERT OR REPLACE INTO assets_equity 
+                INSERT OR IGNORE INTO assets_equity 
                 (date, ticker, close, source, updated_at)
                 VALUES (:date, :ticker, :value, :source, :updated_at)
             """, [{**r, 'updated_at': now} for r in by_class['equity']])

@@ -7,3 +7,9 @@ data/staging/
 
 # Local truth DB can be large and environment-specific
 macro_quant.db
+
+# Node/Next build artifacts
+node_modules/
+.next/
+tsconfig.tsbuildinfo
+.env.local
