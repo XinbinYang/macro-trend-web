@@ -14,11 +14,10 @@ interface AssetConfig {
 }
 
 const ASSET_CONFIG: AssetConfig[] = [
-  // 美股
-  { symbol: "SPY", name: "标普500", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "QQQ", name: "纳斯达克100", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "DIA", name: "道指30", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "TLT", name: "美债20Y", region: "US", category: "BOND", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
+  // 美股（指数口径，避免 ETF proxy 重复）
+  { symbol: "^GSPC", name: "标普500", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo" },
+  { symbol: "^NDX", name: "纳斯达克100", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo" },
+  { symbol: "^DJI", name: "道指30", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo" },
   
   // 中国宽基指数（展示层优先用国内指数收盘口径；避免同一资产出现“ETF+指数”双口径冲突）
   // NOTE: 如需额外增加宽基（上证50/创业板/科创50等），后续走国内口径再补。

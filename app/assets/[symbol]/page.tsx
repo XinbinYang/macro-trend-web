@@ -35,16 +35,14 @@ function analyzeSignal(changePercent: number): { direction: "bullish" | "bearish
 
 // 资产名称映射
 const ASSET_NAMES: Record<string, string> = {
-  "SPY": "标普500 ETF",
-  "QQQ": "纳斯达克100 ETF",
-  "IWM": "罗素2000 ETF",
-  "TLT": "20年+美国国债",
-  "GLD": "SPDR黄金ETF",
-  "ASHR": "沪深300 ETF",
-  "KWEB": "中概互联网 ETF",
-  "FXI": "中国大盘 ETF",
+  "^GSPC": "标普500指数",
+  "^NDX": "纳斯达克100指数",
+  "^DJI": "道琼斯工业指数",
+
+  "TLT": "20年+美国国债(ETF proxy)",
+  "GLD": "SPDR黄金ETF(ETF proxy)",
+
   "EEM": "新兴市场 ETF",
-  "EWH": "MSCI香港 ETF",
   "GC=F": "黄金期货",
   "CL=F": "WTI原油期货",
 };

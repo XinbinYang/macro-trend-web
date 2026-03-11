@@ -184,10 +184,13 @@ function RegionIcon({ region }: { region: string }) {
 function AssetCard({ quote }: { quote: MarketQuote }) {
   const isPositive = quote.change >= 0;
 
+  const href = `/assets/${encodeURIComponent(quote.symbol)}`;
+
   return (
-    <Card 
-      className="bg-slate-900/50 border-slate-800 transition-all hover:border-slate-700 hover:bg-slate-800/50"
-    >
+    <Link href={href} className="block">
+      <Card 
+        className="bg-slate-900/50 border-slate-800 transition-all hover:border-slate-700 hover:bg-slate-800/50"
+      >
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5">
@@ -210,6 +213,7 @@ function AssetCard({ quote }: { quote: MarketQuote }) {
         </div>
       </CardContent>
     </Card>
+    </Link>
   );
 }
 
@@ -251,6 +255,10 @@ export default function DashboardPage() {
   const [selectedStrategy, setSelectedStrategy] = useState<string>("all");
   const [strategyNavData, setStrategyNavData] = useState<StrategyNavPoint[]>([]);
 
+  // AI 最新点评（展示层）
+  const [latestAI, setLatestAI] = useState<{ title: string; summary: string; impact?: string; suggestion?: string; createdAt?: string } | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
   const fetchData = async () => {
     setIsLoading(true);
     try {
@@ -265,6 +273,40 @@ export default function DashboardPage() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  const fetchLatestAI = async () => {
+    setAiLoading(true);
+    try {
+      const spx = marketData?.data.us?.find(q => q.symbol === "^GSPC");
+      const ndx = marketData?.data.us?.find(q => q.symbol === "^NDX");
+      const dji = marketData?.data.us?.find(q => q.symbol === "^DJI");
+
+      const y2 = marketData?.data.us?.find(q => q.symbol === "US2Y");
+      const y10 = marketData?.data.us?.find(q => q.symbol === "US10Y");
+      const y30 = marketData?.data.us?.find(q => q.symbol === "US30Y");
+
+      const slope = (y10 && y2) ? (y10.price - y2.price) : null;
+
+      const title = "AI 最新点评（Indicative）";
+      const summary = [
+        `股指：${spx ? `${spx.name} ${spx.changePercent.toFixed(2)}%` : "SPX -"} / ${ndx ? `${ndx.name} ${ndx.changePercent.toFixed(2)}%` : "NDX -"} / ${dji ? `${dji.name} ${dji.changePercent.toFixed(2)}%` : "DJI -"}`,
+        `利率：2Y ${y2 ? y2.price.toFixed(2) : "-"}% · 10Y ${y10 ? y10.price.toFixed(2) : "-"}% · 30Y ${y30 ? y30.price.toFixed(2) : "-"}%` + (slope !== null ? ` · 10Y-2Y ${slope.toFixed(2)}%` : ""),
+        `结论：优先盯“曲线斜率 + 科技相对强弱”，它们决定风险偏好与久期方向。`,
+      ].join("\n");
+
+      setLatestAI({ title, summary, createdAt: new Date().toISOString() });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    // Load once after first market snapshot arrives
+    if (marketData?.success && !latestAI && !aiLoading) {
+      fetchLatestAI();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marketData?.timestamp]);
 
   // 生成策略净值数据 (模拟数据，仅用于前端占位)
   // NOTE: 策略净值/回测/信号属于“真值层”，最终必须来自 Master + 官方结算镜像数据管道。
@@ -384,6 +426,37 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* AI 最新点评 */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2 text-slate-100">
+            <Sparkles className="w-4 h-4 text-amber-500" />
+            AI 最新点评
+            <span className="text-[10px] text-slate-500 font-normal">(展示层 Indicative)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-3 pt-0 text-xs text-slate-300 space-y-2">
+          <div className="whitespace-pre-line leading-relaxed">
+            {aiLoading ? "生成中..." : (latestAI?.summary || "等待行情加载后生成...")}
+          </div>
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] text-slate-500">
+              {latestAI?.createdAt ? `更新时间: ${new Date(latestAI.createdAt).toLocaleString()}` : ""}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={fetchLatestAI}
+              disabled={aiLoading}
+              className="h-7 text-xs border-slate-700 text-slate-300"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 mr-2 ${aiLoading ? "animate-spin" : ""}`} />
+              刷新点评
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* 数据分层声明 */}
       <Card className="bg-slate-900/50 border-slate-800">
         <CardContent className="p-3 md:p-4 text-xs text-slate-400 space-y-1">
@@ -443,8 +516,9 @@ export default function DashboardPage() {
               ))
             ) : (
               marketData?.data.us
-                // 去重：收益率曲线单独在上方卡片展示，这里只展示可交易资产/指数 proxy
+                // 去重：收益率曲线单独在上方卡片展示；TLT 也移到详情页（二屏），首页不占位
                 .filter((q) => !(q.symbol === "US2Y" || q.symbol === "US5Y" || q.symbol === "US10Y" || q.symbol === "US30Y"))
+                .filter((q) => q.symbol !== "TLT")
                 .map((quote) => (
                   <AssetCard
                     key={quote.symbol}

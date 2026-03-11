@@ -16,10 +16,10 @@ export interface MarketQuote {
 
 // 代码映射
 const SYMBOL_MAP: Record<string, { yahoo: string; polygon: string }> = {
-  "SPY": { yahoo: "SPY", polygon: "SPY" },
-  "QQQ": { yahoo: "QQQ", polygon: "QQQ" },
-  "IWM": { yahoo: "IWM", polygon: "IWM" },
-  "DIA": { yahoo: "DIA", polygon: "DIA" },
+  "^GSPC": { yahoo: "^GSPC", polygon: "" },
+  "^NDX": { yahoo: "^NDX", polygon: "" },
+  "^DJI": { yahoo: "^DJI", polygon: "" },
+
   "TLT": { yahoo: "TLT", polygon: "TLT" },
   "GLD": { yahoo: "GLD", polygon: "GLD" },
   "EEM": { yahoo: "EEM", polygon: "EEM" },
@@ -112,8 +112,11 @@ async function getPolygonQuote(symbol: string): Promise<MarketQuote | null> {
 // 并行获取，优先使用 Polygon，失败回退到 Yahoo
 export async function getQuote(symbol: string): Promise<MarketQuote | null> {
   // 并行请求两个数据源
+  const mappedPolygon = SYMBOL_MAP[symbol]?.polygon;
+
   const [polygonResult, yahooResult] = await Promise.all([
-    getPolygonQuote(symbol),
+    // For index symbols (e.g. ^GSPC/^NDX/^DJI) polygon mapping is empty -> skip polygon.
+    mappedPolygon === "" ? Promise.resolve(null) : getPolygonQuote(symbol),
     getYahooQuote(symbol),
   ]);
 
