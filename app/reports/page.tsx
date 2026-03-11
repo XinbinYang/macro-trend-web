@@ -31,6 +31,7 @@ interface Report {
   keyPoints: string[];
   content?: string;
   model?: string;
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
 }
 
 // 历史报告（新用户初始为空，仅从 localStorage 读取用户自己生成的报告）
@@ -116,10 +117,16 @@ export default function ReportsPage() {
       const data = await res.json();
 
       if (data.success) {
-        setGeneratedReport(data.report);
+        const reportWithMeta = {
+          ...data.report,
+          model: data.model || data.report?.model,
+          usage: data.usage,
+        } as Report;
+
+        setGeneratedReport(reportWithMeta);
         // 保存到 localStorage
         if (typeof window !== "undefined") {
-          localStorage.setItem(`report_${data.report.id}`, JSON.stringify(data.report));
+          localStorage.setItem(`report_${reportWithMeta.id}`, JSON.stringify(reportWithMeta));
         }
       } else {
         setError(data.error || "生成失败");
@@ -218,6 +225,11 @@ export default function ReportsPage() {
                           {report.model && (
                             <Badge variant="secondary" className="text-xs">
                               {report.model.includes("deepseek") ? "DeepSeek" : "GPT-5.4"}
+                            </Badge>
+                          )}
+                          {typeof report.usage?.totalTokens === "number" && (
+                            <Badge variant="outline" className="text-xs font-mono">
+                              {report.usage.totalTokens.toLocaleString()} tok
                             </Badge>
                           )}
                           {index === 0 && generatedReport && (
@@ -320,6 +332,11 @@ export default function ReportsPage() {
                           {report.model && (
                             <Badge variant="secondary" className="text-xs">
                               {report.model.includes("deepseek") ? "DeepSeek" : "GPT-5.4"}
+                            </Badge>
+                          )}
+                          {typeof report.usage?.totalTokens === "number" && (
+                            <Badge variant="outline" className="text-xs font-mono">
+                              {report.usage.totalTokens.toLocaleString()} tok
                             </Badge>
                           )}
                         </div>

@@ -30,6 +30,7 @@ interface Report {
   keyPoints: string[];
   content?: string;
   model?: string;
+  usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number };
 }
 
 const scenarioLabels: Record<string, string> = {
@@ -191,6 +192,11 @@ export default function ReportDetailPage() {
               {report.model && (
                 <Badge variant="secondary" className="text-xs">
                   {report.model}
+                </Badge>
+              )}
+              {typeof report.usage?.totalTokens === "number" && (
+                <Badge variant="outline" className="text-xs font-mono">
+                  {report.usage.totalTokens.toLocaleString()} tok
                 </Badge>
               )}
             </div>
