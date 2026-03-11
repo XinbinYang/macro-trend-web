@@ -66,6 +66,7 @@ export default function AssetDetailPage() {
   const [quote, setQuote] = useState<MarketQuote | null>(null);
   const [historyData, setHistoryData] = useState<HistoricalPoint[]>([]);
   const [aiInsight, setAiInsight] = useState<string>("");
+  const [aiStatus, setAiStatus] = useState<"on" | "off" | "error">("off");
   const [aiLoading, setAiLoading] = useState(false);
 
   // 获取实时数据和历史数据
@@ -113,6 +114,7 @@ export default function AssetDetailPage() {
   const fetchAIInsight = async () => {
     if (!quote) return;
     setAiLoading(true);
+    setAiStatus("off");
     try {
       const response = await fetch('/api/ai-insight', {
         method: 'POST',
@@ -123,14 +125,19 @@ export default function AssetDetailPage() {
           source: quote.source
         }),
       });
-      const data = await response.json();
-      if (data.success && data.data) {
+
+      const data = await response.json().catch(() => ({}));
+
+      if (response.ok && data.success && data.data) {
         setAiInsight(`${data.data.summary} 影响: ${data.data.impact}。建议: ${data.data.suggestion}`);
+        setAiStatus("on");
       } else {
-        setAiInsight(data?.error || "AI 解读暂不可用（需要 OPENROUTER_API_KEY）");
+        setAiInsight(data?.error || `AI 解读暂不可用（HTTP ${response.status}）`);
+        setAiStatus("error");
       }
     } catch {
       setAiInsight("AI 解读暂不可用");
+      setAiStatus("error");
     } finally {
       setAiLoading(false);
     }
@@ -274,10 +281,26 @@ export default function AssetDetailPage() {
             
             {/* AI解读 */}
             <div className="mt-3 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-amber-500" />
-                <span className="text-sm font-medium text-amber-400">AI 解读</span>
-                {aiLoading && <span className="text-xs text-slate-500">分析中...</span>}
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500" />
+                  <span className="text-sm font-medium text-amber-400">AI 解读</span>
+                  {aiLoading && <span className="text-xs text-slate-500">分析中...</span>}
+                </div>
+                <span
+                  className={`text-[11px] px-2 py-0.5 rounded border font-mono ${
+                    aiLoading
+                      ? "text-slate-400 border-slate-700"
+                      : aiStatus === "on"
+                      ? "text-green-400 border-green-500/30"
+                      : aiStatus === "off"
+                      ? "text-slate-400 border-slate-700"
+                      : "text-red-400 border-red-500/30"
+                  }`}
+                  title={aiStatus === "on" ? "OpenRouter" : aiStatus === "error" ? "Unavailable" : "Not loaded"}
+                >
+                  AI: {aiStatus === "on" ? "ON" : aiStatus === "error" ? "OFF" : "—"}
+                </span>
               </div>
               <p className="text-sm text-slate-300">
                 {aiLoading ? "正在生成AI分析..." : aiInsight || "加载中..."}
