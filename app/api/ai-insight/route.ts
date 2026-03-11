@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { llmChat } from "@/lib/api/llm";
 
 interface AIInsight {
   summary: string;
@@ -18,54 +19,34 @@ export async function POST(request: Request) {
       }, { status: 400 });
     }
 
-    const apiKey = process.env.OPENROUTER_API_KEY;
-    
-    if (!apiKey) {
-      // 没有 API Key：按产品要求「必须真 AI」→ 直接报错，不做 mock/fallback
-      return NextResponse.json({
-        success: false,
-        error: 'OPENROUTER_API_KEY is not configured'
-      }, { status: 503 });
+    const payload = {
+      model: "openai/gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content:
+            '你是专业的宏观投资分析师。请分析以下财经新闻，提供：1）一句话总结；2）对市场的影响（正面/负面/中性）；3）投资建议。用JSON格式返回：{"summary": "", "impact": "", "suggestion": ""}',
+        },
+        {
+          role: "user",
+          content: `新闻标题：${titleEn}\n来源：${source || "Unknown"}`,
+        },
+      ],
+      max_tokens: 200,
+      temperature: 0.3,
+    };
+
+    const result = await llmChat(payload);
+    if (!result.ok) {
+      console.error("LLM error (ai-insight):", result.provider, result.status, result.error);
+      return NextResponse.json(
+        { success: false, error: `${result.provider}: ${result.error || "LLM error"}` },
+        { status: 502 }
+      );
     }
 
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.VERCEL_URL || 'https://macro-trend-web.vercel.app',
-        // NOTE: Headers must be ByteString (0-255). Avoid non-ASCII here.
-        'X-Title': 'AI Macro Trader'
-      },
-      body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
-        messages: [
-          {
-            role: 'system',
-            content: '你是专业的宏观投资分析师。请分析以下财经新闻，提供：1）一句话总结；2）对市场的影响（正面/负面/中性）；3）投资建议。用JSON格式返回：{"summary": "", "impact": "", "suggestion": ""}'
-          },
-          {
-            role: 'user',
-            content: `新闻标题：${titleEn}\n来源：${source || 'Unknown'}`
-          }
-        ],
-        max_tokens: 200,
-        temperature: 0.3,
-      }),
-    });
+    const content = result.text || "";
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('OpenRouter API error:', response.status, errorText);
-      return NextResponse.json({
-        success: false,
-        error: `OpenRouter API error: ${response.status}`
-      }, { status: 502 });
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-    
     // 尝试解析 JSON
     let insight: AIInsight;
     try {
@@ -87,7 +68,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       data: insight,
-      source: 'openrouter'
+      source: result.provider
     });
     
   } catch (error) {
