@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw, ArrowUpRight, ArrowDownRight, Sparkles, CandlestickChart, Gauge, Clock, TrendingUp, BookOpen, ChevronDown, ChevronUp, Zap, ZapOff } from "lucide-react";
-import { 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
+import {
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
   LineChart,
   Line,
@@ -85,7 +85,7 @@ function DataTypeBadge({ type }: { type: string }) {
     EOD: { color: "bg-blue-500/20 text-blue-400 border-blue-500/30", label: "收盘" },
   };
   const config = configs[type as keyof typeof configs] || configs.EOD;
-  
+
   return (
     <Badge variant="outline" className={`text-[9px] ${config.color}`}>
       <Clock className="w-2.5 h-2.5 mr-0.5" />
@@ -132,10 +132,10 @@ function NewsSection() {
         <div className="space-y-3">
           {news.length > 0 ? (
             news.map((item) => (
-              <a 
-                key={item.id} 
-                href={item.url || '#'} 
-                target="_blank" 
+              <a
+                key={item.id}
+                href={item.url || '#'}
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex gap-3 p-3 bg-slate-800/30 rounded-lg hover:bg-slate-800/50 transition-colors cursor-pointer"
               >
@@ -172,9 +172,9 @@ function RegionIcon({ region }: { region: string }) {
     HK: { bg: "bg-purple-500", label: "HK" },
     GLOBAL: { bg: "bg-green-500", label: "GL" },
   };
-  
+
   const { bg, label } = config[region] || { bg: "bg-slate-500", label: "??" };
-  
+
   return (
     <span className={`inline-flex items-center justify-center w-6 h-6 rounded text-[10px] font-bold text-white ${bg}`}>
       {label}
@@ -189,7 +189,7 @@ function AssetCard({ quote }: { quote: MarketQuote }) {
 
   return (
     <Link href={href} className="block">
-      <Card 
+      <Card
         className="bg-slate-900/50 border-slate-800 transition-all hover:border-slate-700 hover:bg-slate-800/50"
       >
       <CardContent className="p-3">
@@ -219,35 +219,35 @@ function AssetCard({ quote }: { quote: MarketQuote }) {
 }
 
 // 四大宏观维度配置
-// NOTE: 当前维度结论与“依据小字”尚未接入可审计数据源，必须按 SAMPLE 标注，避免误导。
+// NOTE: 当前维度结论与"依据小字"尚未接入可审计数据源，必须按 SAMPLE 标注，避免误导。
 const macroDimensions = [
   {
     id: "growth",
     name: "增长预期",
     emoji: "📈",
-    china: { status: "—", trend: "neutral", desc: "—" },
-    us: { status: "—", trend: "neutral", desc: "—" },
+    china: { status: "-", trend: "neutral", desc: "-" },
+    us: { status: "-", trend: "neutral", desc: "-" },
   },
   {
     id: "inflation",
     name: "通胀预期",
     emoji: "🔥",
-    china: { status: "—", trend: "neutral", desc: "—" },
-    us: { status: "—", trend: "neutral", desc: "—" },
+    china: { status: "-", trend: "neutral", desc: "-" },
+    us: { status: "-", trend: "neutral", desc: "-" },
   },
   {
     id: "policy",
     name: "政策预期",
     emoji: "🏛️",
-    china: { status: "—", trend: "neutral", desc: "—" },
-    us: { status: "—", trend: "neutral", desc: "—" },
+    china: { status: "-", trend: "neutral", desc: "-" },
+    us: { status: "-", trend: "neutral", desc: "-" },
   },
   {
     id: "liquidity",
     name: "流动性",
     emoji: "💧",
-    china: { status: "—", trend: "neutral", desc: "—" },
-    us: { status: "—", trend: "neutral", desc: "—" },
+    china: { status: "-", trend: "neutral", desc: "-" },
+    us: { status: "-", trend: "neutral", desc: "-" },
   },
 ];
 
@@ -256,10 +256,12 @@ export default function DashboardPage() {
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [selectedStrategy, setSelectedStrategy] = useState<string>("all");
   const [strategyNavData, setStrategyNavData] = useState<StrategyNavPoint[]>([]);
-  
+  const [navStatus, setNavStatus] = useState<"LOADING" | "SAMPLE" | "OFFLINE" | "LIVE">("LOADING");
+  const [navAsOf, setNavAsOf] = useState<string>("");
+
   // US/CN toggle for macro overview
   const [regionView, setRegionView] = useState<"US" | "CN">("US");
-  
+
   // Macro regime strip state (static for now - can be connected to API later)
   const [macroRegime] = useState<{
     status: "Risk-ON" | "Risk-OFF" | "Neutral";
@@ -268,9 +270,9 @@ export default function DashboardPage() {
   }>({
     status: "Neutral",
     confidence: 0,
-    driver: "—"
+    driver: "-"
   });
-  
+
   // Expandable state for macro cards
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
@@ -309,7 +311,7 @@ export default function DashboardPage() {
         const byId = indexById(res.indicators);
         setMacroIndicators({ updatedAt: res.updatedAt, byId });
       } catch {
-        // keep OFF silently; UI will remain SAMPLE/—
+        // keep OFF silently; UI will remain SAMPLE/-
       }
     };
 
@@ -333,7 +335,7 @@ export default function DashboardPage() {
       const summary = [
         `股指：${spx ? `${spx.name} ${spx.changePercent.toFixed(2)}%` : "SPX -"} / ${ndx ? `${ndx.name} ${ndx.changePercent.toFixed(2)}%` : "NDX -"} / ${dji ? `${dji.name} ${dji.changePercent.toFixed(2)}%` : "DJI -"}`,
         `利率：2Y ${y2 ? y2.price.toFixed(2) : "-"}% · 10Y ${y10 ? y10.price.toFixed(2) : "-"}% · 30Y ${y30 ? y30.price.toFixed(2) : "-"}%` + (slope !== null ? ` · 10Y-2Y ${slope.toFixed(2)}%` : ""),
-        `结论：优先盯“曲线斜率 + 科技相对强弱”，它们决定风险偏好与久期方向。`,
+        `结论：优先盯"曲线斜率 + 科技相对强弱"，它们决定风险偏好与久期方向。`,
       ].join("\n");
 
       setLatestAI({ title, summary, createdAt: new Date().toISOString() });
@@ -350,39 +352,38 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [marketData?.timestamp]);
 
-  // 生成策略净值数据 (模拟数据，仅用于前端占位)
-  // NOTE: 策略净值/回测/信号属于“真值层”，最终必须来自 Master + 官方结算镜像数据管道。
-  const generateStrategyNavData = (): StrategyNavPoint[] => {
-    const data: StrategyNavPoint[] = [];
-    const startDate = new Date("2020-01-01");
-    const endDate = new Date();
-    
-    let beta7 = 1.0;
-    let alpha2 = 1.0;
-    
-    for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-      if (d.getDay() === 0 || d.getDay() === 6) continue;
-      
-      const betaReturn = (Math.random() - 0.45) * 0.008;
-      const alphaReturn = (Math.random() - 0.42) * 0.012;
-      
-      beta7 *= (1 + betaReturn);
-      alpha2 *= (1 + alphaReturn);
-      
-      data.push({
-        date: d.toISOString().split('T')[0],
-        "Beta 7.0": Number(beta7.toFixed(4)),
-        "Alpha 2.0": Number(alpha2.toFixed(4)),
-        "5:5 Mix": Number((beta7 * 0.5 + alpha2 * 0.5).toFixed(4)),
-        "7:3 Mix": Number((beta7 * 0.7 + alpha2 * 0.3).toFixed(4)),
-      });
-    }
-    
-    return data;
-  };
-
+  // Fetch strategy NAV from API (truth layer) - replaces random generation
   useEffect(() => {
-    setStrategyNavData(generateStrategyNavData());
+    const fetchNav = async () => {
+      try {
+        const res = await fetch('/api/nav?strategy=beta70');
+        const json = await res.json();
+        
+        if (json.success && json.data?.nav) {
+          // Transform API response to StrategyNavPoint format
+          const navPoints = json.data.nav.map((item: { date: string; value: number }) => ({
+            date: item.date,
+            "Beta 7.0": item.value,
+            "Alpha 2.0": item.value,
+            "5:5 Mix": item.value,
+            "7:3 Mix": item.value,
+          }));
+          
+          setStrategyNavData(navPoints);
+          setNavAsOf(json.data.asOf || "");
+          setNavStatus(json.data.status === "SAMPLE" ? "SAMPLE" : "LIVE");
+        } else {
+          setStrategyNavData([]);
+          setNavStatus("OFFLINE");
+        }
+      } catch (error) {
+        console.error("Failed to fetch NAV:", error);
+        setStrategyNavData([]);
+        setNavStatus("OFFLINE");
+      }
+    };
+
+    fetchNav();
   }, []);
 
   return (
@@ -390,7 +391,7 @@ export default function DashboardPage() {
       {/* Hero Section */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 border border-slate-700/50 p-4 md:p-6">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMzMzMiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0aDR2NGgtNHpNMjAgMjBoNHY0aC00eiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
-        
+
         <div className="relative">
           {/* Top Row: Title + Toggle */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-4">
@@ -406,15 +407,15 @@ export default function DashboardPage() {
                 AI驱动的多维度市场分析 · {marketData?.timestamp ? new Date(marketData.timestamp).toLocaleString() : '实时更新'}
               </p>
             </div>
-            
+
             {/* US/CN Toggle */}
             <div className="flex items-center gap-2">
               <div className="flex bg-slate-800/80 rounded-lg p-1 border border-slate-700">
                 <button
                   onClick={() => setRegionView("US")}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    regionView === "US" 
-                      ? "bg-blue-500 text-white shadow-md" 
+                    regionView === "US"
+                      ? "bg-blue-500 text-white shadow-md"
                       : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
@@ -423,18 +424,18 @@ export default function DashboardPage() {
                 <button
                   onClick={() => setRegionView("CN")}
                   className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all ${
-                    regionView === "CN" 
-                      ? "bg-red-500 text-white shadow-md" 
+                    regionView === "CN"
+                      ? "bg-red-500 text-white shadow-md"
                       : "text-slate-400 hover:text-slate-200"
                   }`}
                 >
                   🇨🇳 中国
                 </button>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={fetchData} 
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={fetchData}
                 disabled={isLoading}
                 className="border-slate-700 bg-slate-800/50 hover:bg-slate-700 text-slate-300"
               >
@@ -446,8 +447,8 @@ export default function DashboardPage() {
 
           {/* Macro Regime Summary Strip */}
           <div className={`mb-4 px-4 py-3 rounded-xl border flex items-center justify-between gap-4 ${
-            macroRegime.status === "Risk-ON" 
-              ? "bg-green-500/10 border-green-500/30" 
+            macroRegime.status === "Risk-ON"
+              ? "bg-green-500/10 border-green-500/30"
               : macroRegime.status === "Risk-OFF"
               ? "bg-red-500/10 border-red-500/30"
               : "bg-amber-500/10 border-amber-500/30"
@@ -462,8 +463,8 @@ export default function DashboardPage() {
               )}
               <div>
                 <span className={`text-sm font-bold ${
-                  macroRegime.status === "Risk-ON" 
-                    ? "text-green-400" 
+                  macroRegime.status === "Risk-ON"
+                    ? "text-green-400"
                     : macroRegime.status === "Risk-OFF"
                     ? "text-red-400"
                     : "text-amber-400"
@@ -476,7 +477,7 @@ export default function DashboardPage() {
             <div className="hidden md:flex items-center gap-2">
               <span className="text-xs text-slate-500">置信度</span>
               <div className="w-20 h-2 bg-slate-700 rounded-full overflow-hidden">
-                <div 
+                <div
                   className="h-full bg-amber-500 rounded-full transition-all"
                   style={{ width: `${macroRegime.confidence}%` }}
                 />
@@ -509,12 +510,12 @@ export default function DashboardPage() {
                   ? {
                       status: formatValue(ind.value, ind.unit),
                       trend: "neutral" as const,
-                      desc: `${ind.name}: ${formatValue(ind.value, ind.unit)} · asOf ${ind.asOf || "—"} · ${ind.source}`,
+                      desc: `${ind.name}: ${formatValue(ind.value, ind.unit)} · asOf ${ind.asOf || "-"} · ${ind.source}`,
                     }
                   : currentBase;
               const isExpanded = expandedCards[dim.id];
               return (
-                <div 
+                <div
                   key={dim.id}
                   className={`bg-slate-800/50 backdrop-blur border border-slate-700/50 rounded-xl p-3 transition-all ${
                     isExpanded ? 'ring-1 ring-amber-500/50' : 'hover:border-slate-600'
@@ -549,18 +550,18 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-1.5">
                         {/* Signal Light */}
                         <span className={`w-2 h-2 rounded-full ${
-                          current.trend === 'up' ? 'bg-green-400 animate-pulse' : 
+                          current.trend === 'up' ? 'bg-green-400 animate-pulse' :
                           current.trend === 'down' ? 'bg-red-400' : 'bg-amber-400'
                         }`}></span>
                         <span className={`text-sm font-bold ${
-                          current.trend === 'up' ? 'text-green-400' : 
+                          current.trend === 'up' ? 'text-green-400' :
                           current.trend === 'down' ? 'text-red-400' : 'text-amber-400'
                         }`}>
                           {current.status}
                         </span>
                       </div>
                     </div>
-                    
+
                     {/* Top 2 Evidence (collapsed view) */}
                     <div className="space-y-1">
                       <div className="text-[10px] text-slate-400 truncate">
@@ -570,7 +571,7 @@ export default function DashboardPage() {
                         {current.desc.split('，')[1] || ''}
                       </div>
                     </div>
-                    
+
                     {/* Expand indicator */}
                     <div className="flex items-center justify-center mt-2 text-slate-500">
                       {isExpanded ? (
@@ -580,7 +581,7 @@ export default function DashboardPage() {
                       )}
                     </div>
                   </button>
-                  
+
                   {/* Expandable Details */}
                   {isExpanded && (
                     <div className="mt-3 pt-3 border-t border-slate-700/50 space-y-2">
@@ -638,7 +639,7 @@ export default function DashboardPage() {
       <Card className="bg-slate-900/50 border-slate-800">
         <CardContent className="p-3 md:p-4 text-xs text-slate-400 space-y-1">
           <div>
-            <span className="text-amber-400 font-medium">展示层(Indicative)</span>：实时行情/资讯用于“看盘与监控”，可能来自 Yahoo/Polygon 等第三方源，不作为回测真值。
+            <span className="text-amber-400 font-medium">展示层(Indicative)</span>：实时行情/资讯用于&quot;看盘与监控&quot;，可能来自 Yahoo/Polygon 等第三方源，不作为回测真值。
           </div>
           <div>
             <span className="text-green-400 font-medium">真值层(Backtest/Signal)</span>：策略回测/净值/信号仅使用 Master + 官方结算镜像（Spot/Settle 双轨），可审计可复现。
@@ -860,6 +861,12 @@ export default function DashboardPage() {
                   <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
                   策略净值追踪
                 </CardTitle>
+                <div className="flex items-center gap-2 mt-1">
+                  {navStatus === "LOADING" && <span className="text-xs text-slate-500">加载中...</span>}
+                  {navStatus === "SAMPLE" && <Badge variant="outline" className="text-[10px] bg-amber-500/10 border-amber-500/30 text-amber-400">SAMPLE · asOf {navAsOf}</Badge>}
+                  {navStatus === "LIVE" && <Badge variant="outline" className="text-[10px] bg-green-500/10 border-green-500/30 text-green-400">LIVE · asOf {navAsOf}</Badge>}
+                  {navStatus === "OFFLINE" && <Badge variant="outline" className="text-[10px] bg-red-500/10 border-red-500/30 text-red-400">OFFLINE · 无数据</Badge>}
+                </div>
               </div>
               <div className="flex gap-1">
                 {[
@@ -875,8 +882,8 @@ export default function DashboardPage() {
                     size="sm"
                     onClick={() => setSelectedStrategy(strategy.id)}
                     className={`text-xs h-7 px-2 ${
-                      selectedStrategy === strategy.id 
-                        ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-500' 
+                      selectedStrategy === strategy.id
+                        ? 'bg-amber-500 hover:bg-amber-600 text-slate-950 border-amber-500'
                         : 'border-slate-700 text-slate-400 hover:text-slate-200'
                     }`}
                   >
@@ -886,6 +893,93 @@ export default function DashboardPage() {
               </div>
             </div>
           </CardHeader>
+          <CardContent>
+            <div className="h-[250px] md:h-[320px] w-full min-h-[300px]">
+              <div className="w-full h-full min-h-[300px]">
+                <ResponsiveContainer width="99%" height="100%">
+                <LineChart data={strategyNavData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
+                  <XAxis
+                    dataKey="date"
+                    tickFormatter={(value) => value.slice(0, 7)}
+                    tick={{ fill: '#64748b', fontSize: 11 }}
+                    axisLine={{ stroke: '#334155' }}
+                  />
+                  <YAxis
+                    tick={{ fill: '#64748b', fontSize: 11 }}
+                    axisLine={{ stroke: '#334155' }}
+                    domain={['auto', 'auto']}
+                    tickFormatter={(value) => value.toFixed(2)}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      color: '#f8fafc'
+                    }}
+                    formatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
+                  />
+                  <Legend />
+
+                  {(selectedStrategy === 'all' || selectedStrategy === 'beta-7-0') && (
+                    <Line
+                      type="monotone"
+                      dataKey="Beta 7.0"
+                      stroke="#3b82f6"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                  {(selectedStrategy === 'all' || selectedStrategy === 'alpha-2-0') && (
+                    <Line
+                      type="monotone"
+                      dataKey="Alpha 2.0"
+                      stroke="#f59e0b"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                  {(selectedStrategy === 'all' || selectedStrategy === 'mix-55') && (
+                    <Line
+                      type="monotone"
+                      dataKey="5:5 Mix"
+                      stroke="#10b981"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                  {(selectedStrategy === 'all' || selectedStrategy === 'mix-73') && (
+                    <Line
+                      type="monotone"
+                      dataKey="7:3 Mix"
+                      stroke="#8b5cf6"
+                      strokeWidth={2}
+                      dot={false}
+                    />
+                  )}
+                </LineChart>
+              </ResponsiveContainer>
+              </div>
+            </div>
+          </CardContent>
+          {navStatus === "OFFLINE" && (
+            <CardContent>
+              <div className="h-[250px] md:h-[320px] w-full flex flex-col items-center justify-center text-slate-500 gap-2">
+                <TrendingUp className="w-8 h-8 opacity-50" />
+                <p className="text-sm">策略净值数据暂不可用</p>
+                <p className="text-xs text-slate-600">请稍后刷新或联系管理员</p>
+              </div>
+            </CardContent>
+          )}
+          {navStatus === "LOADING" && (
+            <CardContent>
+              <div className="h-[250px] md:h-[320px] w-full flex items-center justify-center">
+                <RefreshCw className="w-6 h-6 animate-spin text-slate-500" />
+              </div>
+            </CardContent>
+          )}
+          {navStatus !== "OFFLINE" && navStatus !== "LOADING" && (
           <CardContent>
             <div className="h-[250px] md:h-[320px] w-full min-h-[300px]">
               <div className="w-full h-full min-h-[300px]">
@@ -914,39 +1008,39 @@ export default function DashboardPage() {
                     formatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
                   />
                   <Legend />
-                  
+
                   {(selectedStrategy === 'all' || selectedStrategy === 'beta-7-0') && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="Beta 7.0" 
-                      stroke="#3b82f6" 
+                    <Line
+                      type="monotone"
+                      dataKey="Beta 7.0"
+                      stroke="#3b82f6"
                       strokeWidth={2}
                       dot={false}
                     />
                   )}
                   {(selectedStrategy === 'all' || selectedStrategy === 'alpha-2-0') && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="Alpha 2.0" 
-                      stroke="#f59e0b" 
+                    <Line
+                      type="monotone"
+                      dataKey="Alpha 2.0"
+                      stroke="#f59e0b"
                       strokeWidth={2}
                       dot={false}
                     />
                   )}
                   {(selectedStrategy === 'all' || selectedStrategy === 'mix-55') && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="5:5 Mix" 
-                      stroke="#10b981" 
+                    <Line
+                      type="monotone"
+                      dataKey="5:5 Mix"
+                      stroke="#10b981"
                       strokeWidth={2}
                       dot={false}
                     />
                   )}
                   {(selectedStrategy === 'all' || selectedStrategy === 'mix-73') && (
-                    <Line 
-                      type="monotone" 
-                      dataKey="7:3 Mix" 
-                      stroke="#8b5cf6" 
+                    <Line
+                      type="monotone"
+                      dataKey="7:3 Mix"
+                      stroke="#8b5cf6"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -956,6 +1050,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </CardContent>
+          )}
         </Card>
 
         {/* 快速操作 */}
@@ -973,7 +1068,7 @@ export default function DashboardPage() {
                 </div>
               </Button>
             </Link>
-            
+
             <Link href="/reports">
               <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3 border-slate-700 bg-slate-800/50 hover:bg-slate-700 text-slate-200">
                 <Sparkles className="w-5 h-5 text-amber-400" />
@@ -983,7 +1078,7 @@ export default function DashboardPage() {
                 </div>
               </Button>
             </Link>
-            
+
             <Link href="/academy">
               <Button variant="outline" className="w-full justify-start gap-3 h-auto py-3 border-slate-700 bg-slate-800/50 hover:bg-slate-700 text-slate-200">
                 <BookOpen className="w-5 h-5 text-blue-400" />

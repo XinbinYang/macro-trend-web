@@ -12,6 +12,7 @@ const navItems = [
   { href: "/academy", label: "学院", icon: "🎓" },
   { href: "/news", label: "资讯", icon: "📰" },
   { href: "/portfolio", label: "组合", icon: "💼" },
+  { href: "/nav", label: "NAV", icon: "📈" },
 ];
 
 export function MobileNav() {
