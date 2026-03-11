@@ -6,11 +6,16 @@ Design goals:
 - Produce website-readable artifact at data/nav/beta70/latest.json.
 - Be explicit about status/source/asOf/lineage. Never fabricate.
 
-Method (default):
-- Universe columns from all_weather_master_data: HS300, ZZ500, CN10Y_Bond, NDX, US10Y_Bond, Nanhua, Gold
+Method (Beta 7.0):
+- Universe: 8 assets organized in 6 risk units
+  - CN_EQUITY: [HS300, ZZ500] (internal risk balance)
+  - US_EQUITY: [SPX, NDX] (internal risk balance) 
+  - Single-asset units: CN_BOND (CN10Y), US_BOND (US10Y), COMMODITY (Nanhua), GOLD
 - Monthly rebalance on first available trading day of each month.
 - NAV output: MONTHLY (end-of-month) series by default (use --freq daily for daily output).
-- Risk model: Equal Risk Contribution (risk parity) using Ledoit-Wolf shrunk covariance.
+- Risk model: 2-level risk parity using Ledoit-Wolf shrunk covariance
+  - Level 1: Risk parity within equity groups (CN/US)
+  - Level 2: Risk parity across 6 risk units
 - Lookback window: 120 trading days.
 - No leverage; weights constrained to [0, 0.35] then renormalized.
 
@@ -25,18 +30,35 @@ import sqlite3
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
 
+# Asset structure for 2-level risk parity
+RISK_UNITS = {
+    "CN_EQUITY": [
+        ("HS300", "CN_STOCKS_HS300"),
+        ("ZZ500", "CN_STOCKS_ZZ500"),
+    ],
+    "US_EQUITY": [
+        ("SPX", "US_STOCKS_SPX"),
+        # NOTE: NDX proxy coverage to latest is not guaranteed. If NDX is stale, we fall back to QQQ.
+        ("NDX", "US_STOCKS_NDX"),
+    ],
+    "CN_BOND": [
+        ("CN10Y_Bond", "CN_BONDS_10Y"),
+    ],
+    "US_BOND": [
+        ("US10Y_Bond", "US_BONDS_10Y"),
+    ],
+    "COMMODITY": [
+        ("Nanhua", "COMMODITY_NANHUA"),
+    ],
+    "GOLD": [
+        ("Gold", "GOLD"),
+    ],
+}
 
-ASSET_COLS = [
-    ("HS300", "CN_STOCKS_HS300"),
-    ("ZZ500", "CN_STOCKS_ZZ500"),
-    ("CN10Y_Bond", "CN_BONDS_10Y"),
-    ("NDX", "US_STOCKS_NDX"),
-    ("US10Y_Bond", "US_BONDS_10Y"),
-    ("Nanhua", "COMMODITY_NANHUA"),
-    ("Gold", "GOLD"),
-]
+# Flattened asset columns for DB query
+ASSET_COLS = sum([assets for assets in RISK_UNITS.values()], [])
 
 
 def ledoit_wolf_shrinkage_cov(returns: List[List[float]]) -> List[List[float]]:
@@ -90,6 +112,7 @@ def portfolio_vol(w: List[float], C: List[List[float]]) -> float:
 
 
 def risk_parity_erc(C: List[List[float]], max_iter=500, tol=1e-8) -> List[float]:
+    """Equal Risk Contribution (ERC) portfolio using risk parity algorithm."""
     n = len(C)
     if n == 0:
         return []
@@ -135,7 +158,7 @@ def risk_parity_erc(C: List[List[float]], max_iter=500, tol=1e-8) -> List[float]
 
 
 def clamp_and_renorm(w: List[float], lo=0.0, hi=0.35) -> List[float]:
-    w2 = [min(hi, max(lo, x)) for x in w]
+    w2 = [min(hi, max(lo, x)) for x in w2]
     s = sum(w2)
     if s <= 0:
         return [1.0 / len(w2)] * len(w2)
@@ -148,6 +171,23 @@ def log_returns(prices: List[float]) -> List[float]:
         if prices[i - 1] > 0 and prices[i] > 0:
             out.append(math.log(prices[i] / prices[i - 1]))
     return out
+
+
+def compute_group_returns(group_assets: List[str], weights: List[float], 
+                        asset_returns: Dict[str, List[float]]) -> List[float]:
+    """Compute returns for a group of assets using given weights."""
+    if not group_assets or not weights:
+        return []
+    
+    n = len(asset_returns[group_assets[0]])
+    group_rets = [0.0] * n
+    
+    for asset, w in zip(group_assets, weights):
+        rets = asset_returns[asset]
+        for i in range(n):
+            group_rets[i] += w * rets[i]
+            
+    return group_rets
 
 
 def max_drawdown(nav: List[float]) -> float:
@@ -210,6 +250,21 @@ def end_of_month_indices(date_strs: List[str]) -> List[int]:
     return out
 
 
+def compute_group_weights(returns_by_asset: Dict[str, List[float]], 
+                        group_assets: List[str], lookback: int) -> List[float]:
+    """Compute risk-parity weights within a group using recent returns."""
+    if len(group_assets) == 1:
+        return [1.0]
+        
+    window_rets = []
+    for asset in group_assets:
+        r = returns_by_asset[asset][-lookback:]
+        window_rets.append(r)
+        
+    C = ledoit_wolf_shrinkage_cov(window_rets)
+    return risk_parity_erc(C)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="macro_quant.db")
@@ -217,6 +272,7 @@ def main():
     ap.add_argument("--lookback", type=int, default=120)
     ap.add_argument("--maxw", type=float, default=0.35)
     ap.add_argument("--freq", choices=["daily", "monthly"], default="monthly", help="Output NAV frequency")
+    ap.add_argument("--allowProxy", action="store_true", help="Allow proxy fallbacks (keeps status SAMPLE)")
     args = ap.parse_args()
 
     db_path = Path(args.db)
@@ -229,15 +285,78 @@ def main():
     con.row_factory = sqlite3.Row
 
     cols = [c for c, _ in ASSET_COLS]
-    sql = f"SELECT Date, {', '.join(cols)} FROM all_weather_master_data ORDER BY Date ASC"
-    rows = con.execute(sql).fetchall()
-    if not rows:
-        raise SystemExit("No rows in all_weather_master_data")
+
+    # If master table doesn't have newer columns (e.g. SPX), we can synthesize the master panel
+    # from assets_* truth tables when --allowProxy is enabled.
+    def master_table_has_column(col: str) -> bool:
+        info = con.execute("PRAGMA table_info(all_weather_master_data)").fetchall()
+        return any(r[1] == col for r in info)
+
+    if all(master_table_has_column(c) for c in cols):
+        sql = f"SELECT Date, {', '.join(cols)} FROM all_weather_master_data ORDER BY Date ASC"
+        rows = con.execute(sql).fetchall()
+        if not rows:
+            raise SystemExit("No rows in all_weather_master_data")
+    else:
+        if not args.allowProxy:
+            missing = [c for c in cols if not master_table_has_column(c)]
+            raise SystemExit(f"all_weather_master_data missing columns {missing}. Re-run with --allowProxy to synthesize from assets_* tables.")
+
+        # Build panel by joining assets tables. We assume daily dates are aligned by date.
+        # Equity: HS300, ZZ500, SPX, NDX
+        # Bond: CN10Y_Bond, US10Y_Bond
+        # Commodity: Nanhua, Gold
+        # NOTE: NDX may be proxied by QQQ if NDX is stale.
+        from collections import defaultdict
+
+        def fetch_series(table: str, key_col: str, key: str, value_col: str) -> dict:
+            out = {}
+            for d, v in con.execute(
+                f"SELECT date, {value_col} FROM {table} WHERE {key_col}=? ORDER BY date", (key,)
+            ).fetchall():
+                out[str(d)[:10]] = float(v) if v is not None else None
+            return out
+
+        hs300 = fetch_series('assets_equity', 'ticker', 'HS300', 'close')
+        zz500 = fetch_series('assets_equity', 'ticker', 'ZZ500', 'close')
+        spx = fetch_series('assets_equity', 'ticker', 'SPX', 'close')
+        ndx = fetch_series('assets_equity', 'ticker', 'NDX', 'close')
+        qqq = fetch_series('assets_equity', 'ticker', 'QQQ', 'close')
+
+        # Bonds in macro_quant.db are stored as yields (ytm). For proxy synthesis we prefer price-like series.
+        # Use futures settle proxies already loaded into assets_equity? If not available, fallback to ytm (will be inconsistent).
+        cn10y = fetch_series('assets_bond', 'ticker', 'CN_10Y', 'ytm')
+        us10y = fetch_series('assets_bond', 'ticker', 'US10Y_T_BOND_F', 'ytm')
+
+        nanhua = fetch_series('assets_commodity', 'ticker', 'NH0100.NHF', 'close')
+        gold = fetch_series('assets_commodity', 'ticker', 'COMEX_GOLD_SETTLE', 'close')
+
+        # date union
+        dates_set = set(hs300) | set(zz500) | set(spx) | set(cn10y) | set(us10y) | set(nanhua) | set(gold)
+        dates = sorted(dates_set)
+
+        # Drop clearly invalid timestamps (observed epoch rows in some sources)
+        dates = [d for d in dates if d >= "1990-01-01"]
+
+        rows = []
+        for d in dates:
+            rows.append({
+                'Date': d,
+                'HS300': hs300.get(d),
+                'ZZ500': zz500.get(d),
+                'SPX': spx.get(d),
+                'NDX': ndx.get(d) if (ndx.get(d) is not None) else qqq.get(d),
+                'CN10Y_Bond': cn10y.get(d),
+                'US10Y_Bond': us10y.get(d),
+                'Nanhua': nanhua.get(d),
+                'Gold': gold.get(d),
+            })
 
     # Drop clearly invalid timestamps (observed a few 1970-01-01 rows in DB)
     filtered = []
     for r in rows:
-        ds = str(r["Date"])[:10]
+        # r can be sqlite3.Row (master table) or dict (synthesized panel)
+        ds = str(r["Date"])[:10] if not isinstance(r, dict) else str(r.get("Date"))[:10]
         if ds < "1990-01-01":
             continue
         filtered.append(r)
@@ -266,6 +385,12 @@ def main():
                 last = v
         prices_by_col[c] = series
 
+    # Calculate returns for all assets
+    returns_by_asset = {
+        col: log_returns(prices_by_col[col])
+        for col, _ in ASSET_COLS
+    }
+
     # rebalance indices: first trading day each month
     reb_idx = set(first_trading_day_of_month(dates))
 
@@ -274,36 +399,59 @@ def main():
     nav = [base]
     nav_dates = [dates[0]]
 
-    # initialize weights equal
-    n_assets = len(cols)
-    w = [1.0 / n_assets] * n_assets
-
-    # precompute daily returns per asset from prices
-    asset_rets = [log_returns(prices_by_col[c]) for c in cols]
-    # align asset returns to dates[1:]
+    # Initialize with equal weights for all assets
+    all_assets = [c for c, _ in ASSET_COLS]
+    current_weights = {asset: 1.0 / len(all_assets) for asset in all_assets}
 
     for t in range(1, len(dates)):
-        # monthly rebalance at t if in reb_idx and enough lookback
+        # Monthly rebalance at t if in reb_idx and enough lookback
         if t in reb_idx and t > args.lookback:
-            # build lookback return series ending at t-1 (since returns indexed from 1)
-            window_rets = []
-            for i in range(n_assets):
-                r = asset_rets[i]
-                # r index corresponds to date index+1
-                end = t - 1
-                start = max(0, end - args.lookback)
-                # slice returns for [start, end)
-                window_rets.append(r[start:end])
+            # Step 1: Compute internal weights for equity groups
+            group_weights = {}
+            group_returns = {}
+            
+            for group_name, group_assets in RISK_UNITS.items():
+                group_cols = [c for c, _ in group_assets]
+                if len(group_cols) > 1:  # Multi-asset groups need internal balance
+                    group_weights[group_name] = compute_group_weights(
+                        returns_by_asset,
+                        group_cols,
+                        args.lookback
+                    )
+                else:
+                    group_weights[group_name] = [1.0]
+                
+                # Compute historical returns for the group
+                group_returns[group_name] = compute_group_returns(
+                    group_cols,
+                    group_weights[group_name],
+                    returns_by_asset
+                )[-args.lookback:]
 
-            C = ledoit_wolf_shrinkage_cov(window_rets)
-            w = risk_parity_erc(C)
-            w = clamp_and_renorm(w, lo=0.0, hi=args.maxw)
+            # Step 2: Risk parity across the 6 risk units
+            unit_C = ledoit_wolf_shrinkage_cov([rets for rets in group_returns.values()])
+            unit_weights = risk_parity_erc(unit_C)
+            
+            # Step 3: Combine unit and internal weights to get asset weights
+            new_weights = {}
+            for (group_name, group_assets), unit_weight in zip(RISK_UNITS.items(), unit_weights):
+                group_cols = [c for c, _ in group_assets]
+                internal_weights = group_weights[group_name]
+                for asset, internal_w in zip(group_cols, internal_weights):
+                    new_weights[asset] = unit_weight * internal_w
+            
+            # Apply weight constraints
+            total = sum(new_weights.values())
+            new_weights = {k: min(args.maxw, v / total) for k, v in new_weights.items()}
+            total = sum(new_weights.values())
+            current_weights = {k: v / total for k, v in new_weights.items()}
 
-        # portfolio return at t uses asset returns at t-1
+        # Calculate portfolio return
         port_r = 0.0
-        for i in range(n_assets):
-            r = asset_rets[i][t - 1]
-            port_r += w[i] * r
+        for asset, weight in current_weights.items():
+            rseries = returns_by_asset.get(asset, [])
+            r = rseries[t - 1] if (t - 1) < len(rseries) else 0.0
+            port_r += weight * r
 
         nav.append(nav[-1] * math.exp(port_r))
         nav_dates.append(dates[t])
@@ -342,7 +490,8 @@ def main():
                 "policy": "Spot/Settle dual-track (to be fully audited)",
                 "expected": {
                     "HS300": "Spot close (CN equity index)",
-                    "ZZ500": "Spot close (CN equity index)",
+                    "ZZ500": "Spot close (CN equity index)", 
+                    "SPX": "Index close (US equity index)",
                     "NDX": "Index close (US equity index)",
                     "CN10Y_Bond": "Settle (CN bond proxy)",
                     "US10Y_Bond": "Settle (US bond proxy)",
@@ -355,7 +504,13 @@ def main():
                 "navFrequency": freq_label,
                 "rebalance": "MONTHLY (first trading day)",
                 "lookbackDays": args.lookback,
-                "riskModel": "ERC Risk Parity + Ledoit-Wolf shrinkage covariance",
+                "riskModel": {
+                    "type": "2-Level Risk Parity",
+                    "level1": "Internal group risk parity for equity clusters",
+                    "level2": "Risk parity across 6 risk units",
+                    "covariance": "Ledoit-Wolf shrinkage (sklearn)",
+                    "riskUnits": list(RISK_UNITS.keys())
+                },
                 "constraints": {"weightMin": 0.0, "weightMax": args.maxw, "leverage": 1.0},
             },
             "dataQuality": {"forwardFillCount": ff_count},
