@@ -218,34 +218,35 @@ function AssetCard({ quote }: { quote: MarketQuote }) {
 }
 
 // 四大宏观维度配置
+// NOTE: 当前维度结论与“依据小字”尚未接入可审计数据源，必须按 SAMPLE 标注，避免误导。
 const macroDimensions = [
   {
     id: "growth",
     name: "增长预期",
     emoji: "📈",
-    china: { status: "复苏", trend: "up", desc: "制造业PMI 50.8，重回扩张" },
-    us: { status: "稳健", trend: "up", desc: "ISM 50.3，突破荣枯线" },
+    china: { status: "—", trend: "neutral", desc: "—" },
+    us: { status: "—", trend: "neutral", desc: "—" },
   },
   {
     id: "inflation",
     name: "通胀预期",
     emoji: "🔥",
-    china: { status: "温和", trend: "up", desc: "CPI 0.7%，通缩压力缓解" },
-    us: { status: "粘性", trend: "neutral", desc: "CPI 3.2%，高于目标" },
+    china: { status: "—", trend: "neutral", desc: "—" },
+    us: { status: "—", trend: "neutral", desc: "—" },
   },
   {
     id: "policy",
     name: "政策预期",
     emoji: "🏛️",
-    china: { status: "宽松", trend: "up", desc: "降准降息，财政发力" },
-    us: { status: "观望", trend: "neutral", desc: "3月FOMC，关注降息指引" },
+    china: { status: "—", trend: "neutral", desc: "—" },
+    us: { status: "—", trend: "neutral", desc: "—" },
   },
   {
     id: "liquidity",
     name: "流动性",
     emoji: "💧",
-    china: { status: "充裕", trend: "up", desc: "社融4.56万亿，合理充裕" },
-    us: { status: "紧缩", trend: "neutral", desc: "利率5.5%，维持高位" },
+    china: { status: "—", trend: "neutral", desc: "—" },
+    us: { status: "—", trend: "neutral", desc: "—" },
   },
 ];
 
@@ -264,9 +265,9 @@ export default function DashboardPage() {
     confidence: number;
     driver: string;
   }>({
-    status: "Risk-ON",
-    confidence: 75,
-    driver: "中美PMI回升，流动性充裕"
+    status: "Neutral",
+    confidence: 0,
+    driver: "—"
   });
   
   // Expandable state for macro cards
@@ -480,6 +481,12 @@ export default function DashboardPage() {
                     onClick={() => setExpandedCards(prev => ({ ...prev, [dim.id]: !prev[dim.id] }))}
                     className="w-full text-left"
                   >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-amber-300 border-amber-500/30 bg-amber-500/10">
+                        SAMPLE
+                      </span>
+                      <span className="text-[9px] text-slate-500">未接入可审计宏观指标</span>
+                    </div>
                     <div className="flex items-center justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <span className="text-lg">{dim.emoji}</span>
@@ -650,7 +657,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <Badge className="bg-red-500/20 text-red-400 border-red-500/30">🇨🇳 中国市场</Badge>
             <span className="text-xs text-slate-500">
-              主要宽基指数 · AkShare (日度更新)
+              收盘数据（EOD Close）· AkShare（占位将标 SAMPLE）
             </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -682,7 +689,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">🇨🇳 中国债券</Badge>
             <span className="text-xs text-slate-500">
-              国债期货主力 + 收益率曲线 · AkShare(sample)（占位联调，非回测真值）
+              国债期货主力 + 收益率曲线 · SAMPLE（占位联调，非实时/非回测真值）
             </span>
           </div>
 
@@ -722,7 +729,7 @@ export default function DashboardPage() {
                     <div className={`text-xs font-medium ${p.change < 0 ? "text-green-400" : p.change > 0 ? "text-red-400" : "text-slate-500"}`}>
                       {p.change > 0 ? "+" : ""}{p.change.toFixed(2)}
                     </div>
-                    <div className="text-[9px] text-slate-600 mt-1 truncate">AkShare(sample)</div>
+                    <div className="text-[9px] text-slate-600 mt-1 truncate">SAMPLE</div>
                   </CardContent>
                 </Card>
               ))}
