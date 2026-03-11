@@ -495,7 +495,7 @@ export default function DashboardPage() {
               const currentBase = regionView === "US" ? dim.us : dim.china;
               const byId = macroIndicators?.byId;
 
-              // Map indicators (US only for now; CN remains SAMPLE until a CN-auditable source is wired)
+              // Map indicators (US only for now). CN must be explicit OFF until an auditable CN feed is wired.
               const dimToIndicatorId: Record<string, string> = {
                 growth: "us_unrate",
                 inflation: "us_cpi",
@@ -506,13 +506,19 @@ export default function DashboardPage() {
               const ind = regionView === "US" && byId ? byId[dimToIndicatorId[dim.id]] : null;
 
               const current =
-                ind && ind.status === "LIVE"
+                regionView === "CN"
                   ? {
-                      status: formatValue(ind.value, ind.unit),
+                      status: "OFF",
                       trend: "neutral" as const,
-                      desc: `${ind.name}: ${formatValue(ind.value, ind.unit)} · asOf ${ind.asOf || "-"} · ${ind.source}`,
+                      desc: "CN source: OFF (pending auditable feed)",
                     }
-                  : currentBase;
+                  : ind && ind.status === "LIVE"
+                    ? {
+                        status: formatValue(ind.value, ind.unit),
+                        trend: "neutral" as const,
+                        desc: `${ind.name}: ${formatValue(ind.value, ind.unit)} · asOf ${ind.asOf || "-"} · ${ind.source}`,
+                      }
+                    : currentBase;
               const isExpanded = expandedCards[dim.id];
               return (
                 <div
@@ -893,76 +899,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="h-[250px] md:h-[320px] w-full min-h-[300px]">
-              <div className="w-full h-full min-h-[300px]">
-                <ResponsiveContainer width="99%" height="100%">
-                <LineChart data={strategyNavData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                  <XAxis
-                    dataKey="date"
-                    tickFormatter={(value) => value.slice(0, 7)}
-                    tick={{ fill: '#64748b', fontSize: 11 }}
-                    axisLine={{ stroke: '#334155' }}
-                  />
-                  <YAxis
-                    tick={{ fill: '#64748b', fontSize: 11 }}
-                    axisLine={{ stroke: '#334155' }}
-                    domain={['auto', 'auto']}
-                    tickFormatter={(value) => value.toFixed(2)}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#0f172a',
-                      border: '1px solid #334155',
-                      borderRadius: '8px',
-                      color: '#f8fafc'
-                    }}
-                    formatter={(value) => typeof value === 'number' ? value.toFixed(4) : value}
-                  />
-                  <Legend />
-
-                  {(selectedStrategy === 'all' || selectedStrategy === 'beta-7-0') && (
-                    <Line
-                      type="monotone"
-                      dataKey="Beta 7.0"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  )}
-                  {(selectedStrategy === 'all' || selectedStrategy === 'alpha-2-0') && (
-                    <Line
-                      type="monotone"
-                      dataKey="Alpha 2.0"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  )}
-                  {(selectedStrategy === 'all' || selectedStrategy === 'mix-55') && (
-                    <Line
-                      type="monotone"
-                      dataKey="5:5 Mix"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  )}
-                  {(selectedStrategy === 'all' || selectedStrategy === 'mix-73') && (
-                    <Line
-                      type="monotone"
-                      dataKey="7:3 Mix"
-                      stroke="#8b5cf6"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  )}
-                </LineChart>
-              </ResponsiveContainer>
-              </div>
-            </div>
-          </CardContent>
           {navStatus === "OFFLINE" && (
             <CardContent>
               <div className="h-[250px] md:h-[320px] w-full flex flex-col items-center justify-center text-slate-500 gap-2">
