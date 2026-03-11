@@ -1,6 +1,7 @@
 /**
  * Historical Market Data API
- * Yahoo Finance 历史数据获取
+ * - Yahoo Finance: global assets
+ * - Eastmoney: A-share indices (Indicative)
  */
 
 export interface HistoricalData {
@@ -69,9 +70,25 @@ export async function getChartData(
   symbol: string,
   days: number = 30
 ): Promise<{ date: string; price: number }[]> {
+  // A-share index symbols like 000300.SH / 399006.SZ are not reliably supported by Yahoo.
+  // Use Eastmoney kline (Indicative) for these.
+  if (/^\d{6}\.(SH|SZ)$/i.test(symbol)) {
+    try {
+      const { fetchIndexKline } = await import("./eastmoney-api");
+      const code = symbol.split(".")[0];
+      const limit = Math.min(Math.max(days, 30), 365);
+      const k = await fetchIndexKline(code, limit);
+      if (k && k.length > 0) {
+        return k.slice(-days).map(p => ({ date: p.date, price: p.close }));
+      }
+    } catch (e) {
+      console.error(`[Historical][Eastmoney] ${symbol} failed:`, e);
+    }
+  }
+
   const period = days <= 30 ? "1mo" : days <= 90 ? "3mo" : "6mo";
   const data = await getHistoricalData(symbol, period);
-  
+
   // 取最近 N 天
   return data.slice(-days).map(d => ({
     date: d.date,

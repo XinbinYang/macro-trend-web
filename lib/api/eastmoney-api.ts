@@ -136,10 +136,10 @@ export async function fetchAIndex(indexCode: string): Promise<{
 } | null> {
   // Index codes: 000001 (上证), 399001 (深证), 399006 (创业板)
   const emCode = indexCode.startsWith("000") ? `1.${indexCode}` : `0.${indexCode}`;
-  
+
   try {
     const url = `https://push2.eastmoney.com/api/qt/stock/get?secid=${emCode}&fields=f43,f58,f60,f169,f170`;
-    
+
     const response = await fetch(url, {
       next: { revalidate: 30 },
     });
@@ -157,6 +157,64 @@ export async function fetchAIndex(indexCode: string): Promise<{
     };
   } catch (error) {
     console.error(`[EastMoney] Index fetch error:`, error);
+    return null;
+  }
+}
+
+function toEastMoneyIndexSecid(code: string): string {
+  // Common index mapping:
+  // - 000xxx (SH indices like HS300/SH50) -> 1.
+  // - 399xxx (SZ indices like ChiNext) -> 0.
+  return code.startsWith("000") ? `1.${code}` : `0.${code}`;
+}
+
+export async function fetchIndexKline(
+  indexCode: string,
+  limit: number = 120
+): Promise<Array<{ date: string; close: number }> | null> {
+  try {
+    const secid = toEastMoneyIndexSecid(indexCode);
+
+    const params = new URLSearchParams({
+      fields1: "f1,f2,f3,f4,f5,f6",
+      fields2: "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f116",
+      ut: "7eea3edcaed734bea9cbfc24409ed989",
+      klt: "101",
+      fqt: "1",
+      secid,
+      beg: "20200101",
+      end: "20500101",
+      lmt: String(limit),
+      _: Date.now().toString(),
+    });
+
+    const url = `https://push2his.eastmoney.com/api/qt/stock/kline/get?${params.toString()}`;
+
+    const res = await fetch(url, {
+      next: { revalidate: 3600 },
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://quote.eastmoney.com/",
+      },
+    });
+    if (!res.ok) return null;
+
+    const json = await res.json();
+    const klines: string[] | undefined = json?.data?.klines;
+    if (!klines || klines.length === 0) return null;
+
+    // kline string format: "YYYY-MM-DD,open,close,high,low,volume,amount,amplitude,chg,chgPct,turn"
+    return klines
+      .map((line) => {
+        const parts = line.split(",");
+        return {
+          date: parts[0],
+          close: parseFloat(parts[2]),
+        };
+      })
+      .filter((p) => Number.isFinite(p.close));
+  } catch (e) {
+    console.error(`[EastMoney] kline fetch error:`, e);
     return null;
   }
 }
