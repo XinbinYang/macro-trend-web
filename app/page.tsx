@@ -463,11 +463,11 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">🇨🇳 中国债券</Badge>
             <span className="text-xs text-slate-500">
-              收盘数据 · AkShare(sample)（占位联调，非回测真值）
+              国债期货主力 + 收益率曲线 · AkShare(sample)（占位联调，非回测真值）
             </span>
           </div>
 
-          {/* 国债期货主力 */}
+          {/* 国债期货主力（TS → TF → T → TL） */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
             {isLoading ? (
               [1, 2, 3, 4].map(i => (
@@ -486,28 +486,28 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* 收益率曲线（简版列表） */}
-          <Card className="bg-slate-900/50 border-slate-800">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs text-slate-300">收益率曲线</div>
-                <div className="text-[10px] text-slate-500">2Y / 5Y / 10Y / 30Y</div>
-              </div>
-              <div className="grid grid-cols-4 gap-2">
-                {(marketData?.bond?.china?.yieldCurve || [])
-                  .filter(p => ["2Y", "5Y", "10Y", "30Y"].includes(p.maturity))
-                  .map((p) => (
-                    <div key={p.maturity} className="rounded-lg border border-slate-800 bg-slate-950/30 p-2">
-                      <div className="text-[10px] text-slate-500">{p.maturity}</div>
-                      <div className="text-sm font-bold text-slate-100">{p.yield.toFixed(2)}%</div>
-                      <div className={`text-[10px] ${p.change < 0 ? "text-green-400" : p.change > 0 ? "text-red-400" : "text-slate-500"}`}>
-                        {p.change > 0 ? "+" : ""}{p.change.toFixed(2)}
-                      </div>
+          {/* 收益率曲线（同屏展示：2Y / 5Y / 10Y / 30Y） */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {(marketData?.bond?.china?.yieldCurve || [])
+              .filter(p => ["2Y", "5Y", "10Y", "30Y"].includes(p.maturity))
+              .map((p) => (
+                <Card key={p.maturity} className="bg-slate-900/50 border-slate-800">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs text-slate-400">{p.maturity} 国债</div>
+                      <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-400 border-blue-500/20">
+                        收盘
+                      </Badge>
                     </div>
-                  ))}
-              </div>
-            </CardContent>
-          </Card>
+                    <div className="text-lg font-bold text-slate-50">{p.yield.toFixed(2)}%</div>
+                    <div className={`text-xs font-medium ${p.change < 0 ? "text-green-400" : p.change > 0 ? "text-red-400" : "text-slate-500"}`}>
+                      {p.change > 0 ? "+" : ""}{p.change.toFixed(2)}
+                    </div>
+                    <div className="text-[9px] text-slate-600 mt-1 truncate">AkShare(sample)</div>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
         </div>
 
         {/* 港股 */}

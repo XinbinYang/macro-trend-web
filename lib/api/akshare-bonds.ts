@@ -19,14 +19,15 @@ export async function getChinaBondFutures(): Promise<BondFutureQuote[]> {
     // 实际部署时需要通过 Python 服务或数据管道接入真实 AkShare/官方结算镜像。
     
     // 示例主力合约数据 (仅用于前端联调/展示，非回测真值)
+    // 排序：按期限从短到长（2Y → 5Y → 10Y → 30Y）
     const mockData: BondFutureQuote[] = [
       {
-        symbol: "T2506",
-        name: "10年期国债期货",
-        price: 108.25,
-        change: 0.15,
-        changePercent: 0.14,
-        volume: 125800,
+        symbol: "TS2506",
+        name: "2年期国债期货",
+        price: 102.85,
+        change: 0.03,
+        changePercent: 0.03,
+        volume: 45600,
         timestamp: new Date().toISOString(),
         source: "AkShare(sample)",
       },
@@ -41,12 +42,12 @@ export async function getChinaBondFutures(): Promise<BondFutureQuote[]> {
         source: "AkShare(sample)",
       },
       {
-        symbol: "TS2506",
-        name: "2年期国债期货",
-        price: 102.85,
-        change: 0.03,
-        changePercent: 0.03,
-        volume: 45600,
+        symbol: "T2506",
+        name: "10年期国债期货",
+        price: 108.25,
+        change: 0.15,
+        changePercent: 0.14,
+        volume: 125800,
         timestamp: new Date().toISOString(),
         source: "AkShare(sample)",
       },
