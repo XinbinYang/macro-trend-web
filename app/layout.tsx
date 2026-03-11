@@ -74,8 +74,10 @@ export default function RootLayout({
                 {/* Desktop Navigation */}
                 <DesktopNav />
 
-                {/* Mobile Menu Button */}
-                <MobileNav />
+                {/* Mobile: use bottom nav; hide top-right hamburger to reduce clutter */}
+                <div className="hidden md:block">
+                  <MobileNav />
+                </div>
               </div>
             </header>
             
