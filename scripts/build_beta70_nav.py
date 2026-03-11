@@ -353,7 +353,19 @@ def main():
         "dataLineage": {
             "truthLayer": "Backtest/Signal",
             "sources": ["macro_quant.db:all_weather_master_data"],
-            "pricing": "From DB (Spot/Settle curated upstream)",
+            "pricing": {
+                "policy": "Spot/Settle dual-track (to be fully audited)",
+                "expected": {
+                    "HS300": "Spot close (CN equity index)",
+                    "ZZ500": "Spot close (CN equity index)",
+                    "NDX": "Index close (US equity index)",
+                    "CN10Y_Bond": "Settle (CN bond proxy)",
+                    "US10Y_Bond": "Settle (US bond proxy)",
+                    "Nanhua": "Settle (commodity proxy)",
+                    "Gold": "Settle (futures proxy)"
+                },
+                "note": "This script does not fetch prices. It assumes macro_quant.db truth layer already enforces the pricing policy. Keep status=SAMPLE until each field's upstream source is documented."
+            },
             "model": {
                 "navFrequency": freq_label,
                 "rebalance": "MONTHLY (first trading day)",
