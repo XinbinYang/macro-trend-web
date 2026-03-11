@@ -19,6 +19,7 @@ const SYMBOL_MAP: Record<string, { yahoo: string; polygon: string }> = {
   "SPY": { yahoo: "SPY", polygon: "SPY" },
   "QQQ": { yahoo: "QQQ", polygon: "QQQ" },
   "IWM": { yahoo: "IWM", polygon: "IWM" },
+  "DIA": { yahoo: "DIA", polygon: "DIA" },
   "TLT": { yahoo: "TLT", polygon: "TLT" },
   "GLD": { yahoo: "GLD", polygon: "GLD" },
   "ASHR": { yahoo: "ASHR", polygon: "ASHR" },
@@ -28,6 +29,7 @@ const SYMBOL_MAP: Record<string, { yahoo: string; polygon: string }> = {
   "EWH": { yahoo: "EWH", polygon: "EWH" },
   "GC=F": { yahoo: "GC=F", polygon: "GC" },
   "CL=F": { yahoo: "CL=F", polygon: "CL" },
+  "DJP": { yahoo: "DJP", polygon: "DJP" },
 };
 
 // Yahoo Finance 获取

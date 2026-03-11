@@ -16,7 +16,7 @@ const ASSET_CONFIG: AssetConfig[] = [
   // 美股
   { symbol: "SPY", name: "标普500", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   { symbol: "QQQ", name: "纳斯达克100", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "IWM", name: "罗素2000", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
+  { symbol: "DIA", name: "道指30", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   { symbol: "TLT", name: "美债20Y", region: "US", category: "BOND", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   
   // 中国资产 (美股ETF)
@@ -30,7 +30,8 @@ const ASSET_CONFIG: AssetConfig[] = [
   // 商品
   { symbol: "GLD", name: "黄金", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   { symbol: "GC=F", name: "黄金期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "CL=F", name: "原油期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
+  { symbol: "CL=F", name: "WTI原油期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
+  { symbol: "DJP", name: "道琼斯商品指数总回报ETN (DJP)", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   
   // 新兴市场
   { symbol: "EEM", name: "新兴市场", region: "GLOBAL", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
