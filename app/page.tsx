@@ -403,9 +403,33 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <Badge className="bg-blue-500/20 text-blue-400 border-blue-500/30">🇺🇸 美国市场</Badge>
             <span className="text-xs text-slate-500">
-              实时数据 · Yahoo/Polygon
+              实时数据 · Yahoo/Polygon（利率曲线来自 FRED，仅展示）
             </span>
           </div>
+
+          {/* US Treasury Yield Curve (2Y/5Y/10Y/30Y) */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            {(marketData?.data.us || [])
+              .filter((q) => q.symbol === "US2Y" || q.symbol === "US5Y" || q.symbol === "US10Y" || q.symbol === "US30Y")
+              .map((q) => (
+                <Card key={q.symbol} className="bg-slate-900/50 border-slate-800">
+                  <CardContent className="p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="text-xs text-slate-400">{q.name.replace("美债收益率 ", "")}</div>
+                      <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-400 border-blue-500/20">
+                        收盘
+                      </Badge>
+                    </div>
+                    <div className="text-lg font-bold text-slate-50">{q.price.toFixed(2)}%</div>
+                    <div className={`text-xs font-medium ${q.change < 0 ? "text-green-400" : q.change > 0 ? "text-red-400" : "text-slate-500"}`}>
+                      {q.change > 0 ? "+" : ""}{q.change.toFixed(2)}
+                    </div>
+                    <div className="text-[9px] text-slate-600 mt-1 truncate">{q.source}</div>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
             {isLoading ? (
               [1, 2, 3, 4].map(i => (
@@ -418,12 +442,15 @@ export default function DashboardPage() {
                 </Card>
               ))
             ) : (
-              marketData?.data.us.map((quote) => (
-                <AssetCard
-                  key={quote.symbol}
-                  quote={quote}
-                />
-              ))
+              marketData?.data.us
+                // 去重：收益率曲线单独在上方卡片展示，这里只展示可交易资产/指数 proxy
+                .filter((q) => !(q.symbol === "US2Y" || q.symbol === "US5Y" || q.symbol === "US10Y" || q.symbol === "US30Y"))
+                .map((quote) => (
+                  <AssetCard
+                    key={quote.symbol}
+                    quote={quote}
+                  />
+                ))
             )}
           </div>
         </div>

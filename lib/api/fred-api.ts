@@ -3,13 +3,16 @@
 // API Docs: https://fred.stlouisfed.org/docs/api/fred/
 
 const FRED_API_BASE = "https://api.stlouisfed.org/fred";
-const FRED_API_KEY = process.env.FRED_API_KEY || "935f73b129321e28d71641c3f6d7b1a3";
+// NOTE: 展示层(Indicative)允许使用第三方源，但密钥绝不应硬编码进仓库。
+const FRED_API_KEY = process.env.FRED_API_KEY || "";
 
 // Key FRED Series IDs
 export const FRED_SERIES = {
   // Interest Rates
   FED_FUNDS: "FEDFUNDS",           // Federal Funds Rate
+  TREASURY_30Y: "DGS30",          // 30-Year Treasury
   TREASURY_10Y: "DGS10",           // 10-Year Treasury
+  TREASURY_5Y: "DGS5",             // 5-Year Treasury
   TREASURY_2Y: "DGS2",             // 2-Year Treasury
   TREASURY_3M: "TB3MS",            // 3-Month Treasury
   
@@ -59,6 +62,10 @@ export async function fetchFredSeries(
   try {
     const url = new URL(`${FRED_API_BASE}/series/observations`);
     url.searchParams.append("series_id", seriesId);
+    if (!FRED_API_KEY) {
+      // No key configured; caller should use fallback/mock.
+      return null;
+    }
     url.searchParams.append("api_key", FRED_API_KEY);
     url.searchParams.append("file_type", "json");
     url.searchParams.append("limit", limit.toString());
@@ -228,6 +235,16 @@ const mockFredData: Record<string, { date: string; value: number }[]> = {
     { date: "2026-01-01", value: 4.1 },
     { date: "2026-02-01", value: 4.0 },
   ],
+
+  // Treasury curve (mock)
+  [FRED_SERIES.TREASURY_5Y]: [
+    { date: "2026-01-01", value: 4.25 },
+    { date: "2026-02-01", value: 4.18 },
+  ],
+  [FRED_SERIES.TREASURY_30Y]: [
+    { date: "2026-01-01", value: 4.45 },
+    { date: "2026-02-01", value: 4.38 },
+  ],
 };
 
 // Fetch with fallback to mock data
@@ -237,10 +254,40 @@ export async function fetchFredWithFallback(
 ): Promise<{ date: string; value: number }[]> {
   const realData = await fetchFredSeries(seriesId, limit);
   if (realData && realData.length > 0) {
-    console.log(`[FRED] Using real data for ${seriesId}`);
     return realData;
   }
-  
-  console.log(`[FRED] Using mock data for ${seriesId}`);
+
   return mockFredData[seriesId] || [{ date: new Date().toISOString().split("T")[0], value: 0 }];
+}
+
+export async function getUsTreasuryCurveLatest(): Promise<
+  { maturity: "2Y" | "5Y" | "10Y" | "30Y"; yield: number; change: number; date: string; source: string }[]
+> {
+  const [y2, y5, y10, y30] = await Promise.all([
+    fetchFredWithFallback(FRED_SERIES.TREASURY_2Y, 2),
+    fetchFredWithFallback(FRED_SERIES.TREASURY_5Y, 2),
+    fetchFredWithFallback(FRED_SERIES.TREASURY_10Y, 2),
+    fetchFredWithFallback(FRED_SERIES.TREASURY_30Y, 2),
+  ]);
+
+  const calc = (arr: { date: string; value: number }[]) => {
+    const curr = arr[arr.length - 1];
+    const prev = arr.length > 1 ? arr[arr.length - 2] : curr;
+    return { curr, prev };
+  };
+
+  const r2 = calc(y2);
+  const r5 = calc(y5);
+  const r10 = calc(y10);
+  const r30 = calc(y30);
+
+  const date = (r10.curr?.date || new Date().toISOString().split("T")[0]);
+  const source = FRED_API_KEY ? "FRED" : "FRED(mock)";
+
+  return [
+    { maturity: "2Y", yield: r2.curr.value, change: r2.curr.value - r2.prev.value, date, source },
+    { maturity: "5Y", yield: r5.curr.value, change: r5.curr.value - r5.prev.value, date, source },
+    { maturity: "10Y", yield: r10.curr.value, change: r10.curr.value - r10.prev.value, date, source },
+    { maturity: "30Y", yield: r30.curr.value, change: r30.curr.value - r30.prev.value, date, source },
+  ];
 }

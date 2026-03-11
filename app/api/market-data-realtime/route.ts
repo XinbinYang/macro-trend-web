@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMultipleQuotes } from "@/lib/api/market-data";
 import { getChinaBondFutures, getChinaBondYieldCurve } from "@/lib/api/akshare-bonds";
+import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
 
 // 资产分类配置
 interface AssetConfig {
@@ -85,7 +86,7 @@ export async function GET() {
       };
     });
 
-    // 添加AkShare收盘数据 - A股指数
+    // 添加AkShare收盘数据 - A股/港股指数
     const akshareQuotes: MarketQuote[] = AKSHARE_EOD_DATA.map(d => ({
       symbol: d.symbol,
       name: d.name,
@@ -102,9 +103,11 @@ export async function GET() {
     }));
 
     // 获取中国国债期货/收益率曲线数据（当前为 sample，占位联调）
-    const [bondFutures, chinaYieldCurve] = await Promise.all([
+    // + US Treasury Curve（展示层，FRED；无 key 则自动 mock）
+    const [bondFutures, chinaYieldCurve, usTreasuryCurve] = await Promise.all([
       getChinaBondFutures(),
       getChinaBondYieldCurve(),
+      getUsTreasuryCurveLatest(),
     ]);
     const bondFutureQuotes: MarketQuote[] = bondFutures.map(bf => ({
       symbol: bf.symbol,
@@ -121,7 +124,23 @@ export async function GET() {
       dataSource: "AkShare(sample)",
     }));
 
-    const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes];
+    // US Treasury curve -> convert to MarketQuote (BOND / US / EOD)
+    const usTreasuryCurveQuotes: MarketQuote[] = usTreasuryCurve.map(p => ({
+      symbol: `US${p.maturity}`,
+      name: `美债收益率 ${p.maturity}`,
+      price: p.yield,
+      change: p.change,
+      changePercent: 0,
+      volume: 0,
+      timestamp: new Date().toISOString(),
+      source: p.source,
+      region: "US",
+      category: "BOND",
+      dataType: "EOD",
+      dataSource: p.source,
+    }));
+
+    const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes, ...usTreasuryCurveQuotes];
 
     // 按地区分类
     const usAssets = allQuotes.filter(q => q.region === "US");
