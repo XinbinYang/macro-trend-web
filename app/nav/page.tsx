@@ -92,7 +92,7 @@ export default function NavPage() {
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm text-slate-100 flex items-center justify-between">
-            <span>{payload?.name || "全球宏观对冲 (Beta 7.0)"}</span>
+            <span>{payload?.name || "中美全天候Beta"}</span>
             <span className="text-[11px] text-slate-400 font-mono">asOf: {payload?.asOf || "—"}</span>
           </CardTitle>
         </CardHeader>

@@ -254,7 +254,7 @@ const macroDimensions = [
 export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [marketData, setMarketData] = useState<MarketData | null>(null);
-  const [selectedStrategy, setSelectedStrategy] = useState<string>("all");
+  const [selectedStrategy, setSelectedStrategy] = useState<string>("beta-7-0");
   const [strategyNavData, setStrategyNavData] = useState<StrategyNavPoint[]>([]);
   const [navStatus, setNavStatus] = useState<"LOADING" | "SAMPLE" | "OFFLINE" | "LIVE">("LOADING");
   const [navAsOf, setNavAsOf] = useState<string>("");
@@ -363,10 +363,7 @@ export default function DashboardPage() {
           // Transform API response to StrategyNavPoint format
           const navPoints = json.data.nav.map((item: { date: string; value: number }) => ({
             date: item.date,
-            "Beta 7.0": item.value,
-            "Alpha 2.0": item.value,
-            "5:5 Mix": item.value,
-            "7:3 Mix": item.value,
+            "中美全天候Beta": item.value,
           }));
           
           setStrategyNavData(navPoints);
@@ -876,11 +873,7 @@ export default function DashboardPage() {
               </div>
               <div className="flex gap-1">
                 {[
-                  { id: 'all', label: '全部' },
-                  { id: 'beta-7-0', label: 'Beta 7.0' },
-                  { id: 'alpha-2-0', label: 'Alpha 2.0' },
-                  { id: 'mix-55', label: '5:5 Mix' },
-                  { id: 'mix-73', label: '7:3 Mix' },
+                  { id: 'beta-7-0', label: '中美全天候Beta' },
                 ].map((strategy) => (
                   <Button
                     key={strategy.id}
@@ -945,38 +938,11 @@ export default function DashboardPage() {
                   />
                   <Legend />
 
-                  {(selectedStrategy === 'all' || selectedStrategy === 'beta-7-0') && (
+                  {(selectedStrategy === 'beta-7-0') && (
                     <Line
                       type="monotone"
-                      dataKey="Beta 7.0"
+                      dataKey="中美全天候Beta"
                       stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  )}
-                  {(selectedStrategy === 'all' || selectedStrategy === 'alpha-2-0') && (
-                    <Line
-                      type="monotone"
-                      dataKey="Alpha 2.0"
-                      stroke="#f59e0b"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  )}
-                  {(selectedStrategy === 'all' || selectedStrategy === 'mix-55') && (
-                    <Line
-                      type="monotone"
-                      dataKey="5:5 Mix"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  )}
-                  {(selectedStrategy === 'all' || selectedStrategy === 'mix-73') && (
-                    <Line
-                      type="monotone"
-                      dataKey="7:3 Mix"
-                      stroke="#8b5cf6"
                       strokeWidth={2}
                       dot={false}
                     />
@@ -1000,7 +966,7 @@ export default function DashboardPage() {
                 <TrendingUp className="w-5 h-5" />
                 <div className="text-left">
                   <div className="text-sm">策略净值</div>
-                  <div className="text-[10px] opacity-80">Beta 7.0 / Alpha 2.0 / Mix组合</div>
+                  <div className="text-[10px] opacity-80">中美全天候Beta（月度净值）</div>
                 </div>
               </Button>
             </Link>

@@ -338,7 +338,7 @@ def main():
 
     out = {
         "strategy": "beta70",
-        "name": "全球宏观对冲 (Beta 7.0)",
+        "name": "中美全天候Beta",
         "status": "SAMPLE",  # will be switched to LIVE only after pricing audit
         "asOf": nav_dates[-1],
         "currency": "USD",
