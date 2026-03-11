@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMultipleQuotes } from "@/lib/api/market-data";
-import { getChinaBondFutures } from "@/lib/api/akshare-bonds";
+import { getChinaBondFutures, getChinaBondYieldCurve } from "@/lib/api/akshare-bonds";
 
 // 资产分类配置
 interface AssetConfig {
@@ -96,8 +96,11 @@ export async function GET() {
       dataSource: "AkShare(sample)",
     }));
 
-    // 获取中国国债期货数据
-    const bondFutures = await getChinaBondFutures();
+    // 获取中国国债期货/收益率曲线数据（当前为 sample，占位联调）
+    const [bondFutures, chinaYieldCurve] = await Promise.all([
+      getChinaBondFutures(),
+      getChinaBondYieldCurve(),
+    ]);
     const bondFutureQuotes: MarketQuote[] = bondFutures.map(bf => ({
       symbol: bf.symbol,
       name: bf.name,
@@ -143,6 +146,17 @@ export async function GET() {
         china: cnAssets,
         hongkong: hkAssets,
         global: globalAssets,
+      },
+      bond: {
+        china: {
+          futures: bondFutureQuotes,
+          yieldCurve: chinaYieldCurve,
+          source: "AkShare(sample)",
+        },
+      },
+      disclaimer: {
+        indicative: "Real-time/展示层数据仅供参考(Indicative)，不用于回测真值与策略净值。",
+        truth: "策略回测/净值/信号必须来自 Master + 官方结算镜像(Spot/Settle 双轨)。",
       },
     });
   } catch (error) {

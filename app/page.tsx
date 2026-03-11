@@ -45,6 +45,17 @@ interface MarketData {
     hongkong: MarketQuote[];
     global: MarketQuote[];
   };
+  bond?: {
+    china?: {
+      futures?: MarketQuote[];
+      yieldCurve?: { maturity: string; yield: number; change: number }[];
+      source?: string;
+    };
+  };
+  disclaimer?: {
+    indicative?: string;
+    truth?: string;
+  };
 }
 
 interface StrategyNavPoint {
@@ -372,6 +383,18 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* 数据分层声明 */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardContent className="p-3 md:p-4 text-xs text-slate-400 space-y-1">
+          <div>
+            <span className="text-amber-400 font-medium">展示层(Indicative)</span>：实时行情/资讯用于“看盘与监控”，可能来自 Yahoo/Polygon 等第三方源，不作为回测真值。
+          </div>
+          <div>
+            <span className="text-green-400 font-medium">真值层(Backtest/Signal)</span>：策略回测/净值/信号仅使用 Master + 官方结算镜像（Spot/Settle 双轨），可审计可复现。
+          </div>
+        </CardContent>
+      </Card>
 
       {/* 核心资产 - 按地区分组 */}
       <div className="space-y-4">
