@@ -54,11 +54,15 @@ SOURCE_PRIORITY = {
     "AkShare_proxy": 3,
     "akshare": 3,
     "AkShare": 3,
+    # Proxy sources for SPX/NDX (lower priority than official sources)
+    "Yahoo_proxy": 4,
+    "Wind_proxy": 4,
 }
 
 # Asset mapping: staged asset_code → (macro_quant ticker, asset_class, field_name)
 # asset_class: equity, bond, commodity, fx
-# Note: SPX/NDX proxies will be ingested separately from AkShare (see scripts/update_proxies_akshare.py)
+# Note: SPX proxy can be ingested from the wind_bundle index table via alias ^GSPC -> SPX.
+# NDX latest coverage is not guaranteed in provided bundles; if absent, Beta70 may fall back to QQQ as proxy (kept SAMPLE).
 ASSET_MAPPING = {
     # Bonds (China)
     "CN_Bond_10Y": ("CN_10Y", "bond", "settle"),
@@ -81,6 +85,13 @@ ASSET_MAPPING = {
     "FTSE": ("FTSE", "equity", "close"),
     "NIKKEI": ("NIKKEI", "equity", "close"),
     "STOXX50": ("STOXX50", "equity", "close"),
+    
+    # US Equity Index Proxies (^GSPC -> SPX, ^NDX -> NDX)
+    # These are compatibility aliases for when official sources unavailable
+    "^GSPC": ("SPX", "equity", "close"),
+    "^NDX": ("NDX", "equity", "close"),
+    "^DJI": ("DJI", "equity", "close"),
+    "^RUT": ("RTY", "equity", "close"),
     
     # Commodities
     "Brent_Crude": ("BRENT_CRUDE", "commodity", "settle"),
@@ -251,6 +262,18 @@ def deduplicate_records(records: List[Dict]) -> Tuple[List[Dict], List[DataQuali
             description=f"Resolved {len(group)} duplicates from sources: {sources_involved}",
             action_taken=f"Selected {winner.get('source')} (priority {get_source_priority(winner.get('source'))})"
         ))
+        
+        # Log proxy source usage for SPX/NDX lineage tracking
+        if winner.get('source') in ('Wind_proxy', 'Yahoo_proxy'):
+            quality_logs.append(DataQualityLogEntry(
+                date=date,
+                table_name=f"assets_{winner.get('asset_class')}",
+                ticker=ticker,
+                check_type="proxy_source_used",
+                severity="INFO",
+                description=f"Using proxy source {winner.get('source')} for {ticker} (lineage: {winner.get('source_code')} -> {ticker})",
+                action_taken=f"Proxy data accepted as fallback - official source unavailable"
+            ))
     
     return deduped, quality_logs
 
@@ -451,6 +474,31 @@ def extract_from_source(source_db: str) -> List[Dict]:
                 'source_code': ticker,
                 'import_ts': None,
                 'raw_table': 'global_equity_indices',
+            })
+    
+    # Extract from index_historical_prices (includes ^GSPC, ^NDX, etc. proxies)
+    # These are Yahoo-style ticker symbols from Wind's data bundle
+    cursor.execute("SELECT date, ticker, close_price as value FROM index_historical_prices ORDER BY date, ticker")
+    for row in cursor.fetchall():
+        ticker = row['ticker']
+        if ticker in ASSET_MAPPING:
+            normalized_date = normalize_date(row['date'])
+            if normalized_date is None:
+                continue
+            mapped_ticker, asset_class, field_name = ASSET_MAPPING[ticker]
+            # Mark proxy sources explicitly to preserve lineage
+            # (index_historical_prices contains Yahoo-style index tickers like ^GSPC)
+            source = 'Wind_proxy'
+            records.append({
+                'date': normalized_date,
+                'ticker': mapped_ticker,
+                'asset_class': asset_class,
+                'field': field_name,
+                'value': row['value'],
+                'source': source,
+                'source_code': ticker,
+                'import_ts': None,
+                'raw_table': 'index_historical_prices',
             })
     
     # Extract from global_commodity_futures

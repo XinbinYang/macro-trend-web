@@ -158,7 +158,7 @@ def risk_parity_erc(C: List[List[float]], max_iter=500, tol=1e-8) -> List[float]
 
 
 def clamp_and_renorm(w: List[float], lo=0.0, hi=0.35) -> List[float]:
-    w2 = [min(hi, max(lo, x)) for x in w2]
+    w2 = [min(hi, max(lo, x)) for x in w]
     s = sum(w2)
     if s <= 0:
         return [1.0 / len(w2)] * len(w2)
@@ -179,14 +179,16 @@ def compute_group_returns(group_assets: List[str], weights: List[float],
     if not group_assets or not weights:
         return []
     
-    n = len(asset_returns[group_assets[0]])
+    # Align lengths defensively (some series may be shorter if data is missing)
+    lens = [len(asset_returns.get(a, [])) for a in group_assets]
+    n = min(lens) if lens else 0
     group_rets = [0.0] * n
-    
+
     for asset, w in zip(group_assets, weights):
-        rets = asset_returns[asset]
+        rets = asset_returns.get(asset, [])
         for i in range(n):
             group_rets[i] += w * rets[i]
-            
+
     return group_rets
 
 
