@@ -40,6 +40,7 @@ export async function GET() {
   // NOTE: On Vercel, env var updates may need a redeploy to reach the serverless runtime.
   if (!hasFredKey) {
     const indicators: MacroIndicator[] = [
+      offIndicator("us_ism_pmi", "US ISM PMI", "idx"),
       offIndicator("us_fedfunds", "US Fed Funds", "%"),
       offIndicator("us_2y", "US 2Y", "%"),
       offIndicator("us_10y", "US 10Y", "%"),
@@ -61,6 +62,7 @@ export async function GET() {
   }
 
   const seriesMap: Array<{ id: string; name: string; unit: string; series: string }> = [
+    { id: "us_ism_pmi", name: "US ISM PMI", unit: "idx", series: FRED_SERIES.ISM_PMI },
     { id: "us_fedfunds", name: "US Fed Funds", unit: "%", series: FRED_SERIES.FED_FUNDS },
     { id: "us_2y", name: "US 2Y", unit: "%", series: FRED_SERIES.TREASURY_2Y },
     { id: "us_10y", name: "US 10Y", unit: "%", series: FRED_SERIES.TREASURY_10Y },

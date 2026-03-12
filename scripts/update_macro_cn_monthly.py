@@ -13,9 +13,11 @@ Output schema (latest.json)
   "updatedAt": "ISO",
   "asOf": "YYYY-MM" | null,
   "series": {
+    "pmi_mfg": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"},
     "cpi_yoy": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"},
-    "unemployment_urban": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"},
+    "social_financing": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare", "unit": "万亿"},
     "lpr_1y": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"},
+    "unemployment_urban": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"},
     "m2_yoy": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"}
   },
   "notes": "..."
@@ -143,6 +145,49 @@ def fetch_cn_m2_yoy() -> Tuple[Optional[str], Optional[float]]:
     return _latest_valid(df, date_col="日期", value_col="今值")
 
 
+def fetch_cn_pmi_mfg() -> Tuple[Optional[str], Optional[float]]:
+    import akshare as ak  # type: ignore
+
+    df = ak.macro_china_pmi()  # cols: 月份, 制造业-指数, ...
+    if df is None or df.empty:
+        return None, None
+
+    df = df.copy()
+    df["month"] = df["月份"].astype(str).map(_parse_month)
+    df = df.rename(columns={"month": "日期", "制造业-指数": "今值"})
+    return _latest_valid(df, date_col="日期", value_col="今值")
+
+
+def fetch_cn_social_financing() -> Tuple[Optional[str], Optional[float]]:
+    """Use a stable AkShare endpoint for bank financing as a proxy for social financing size.
+
+    Note: Naming in UI will be shown as 社融规模(代理). If you later provide an official auditable mirror,
+    we will swap the source and keep the label.
+    """
+    import akshare as ak  # type: ignore
+
+    df = ak.macro_china_bank_financing()  # cols: 日期, 最新值, ...
+    if df is None or df.empty:
+        return None, None
+
+    # 日期 is datetime.date; normalize to YYYY-MM
+    df = df.copy()
+    df["month"] = df["日期"].astype(str).str.slice(0, 7)
+
+    # Do not rely on _latest_valid here (its float casting on mixed dtypes can be brittle);
+    # pick latest row by month directly.
+    df["val"] = df["最新值"].astype(float)
+    latest = df.sort_values("month").iloc[-1]
+    asof = str(latest["month"])
+    val = float(latest["val"])
+
+    # Convert to 万亿: treat large values as 亿元.
+    if val > 1000:
+        val = val / 10000.0
+
+    return asof, val
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="data/macro/cn/latest.json")
@@ -160,13 +205,15 @@ def main() -> None:
             prev = None
 
     try:
+        pmi_asof, pmi_mfg = fetch_cn_pmi_mfg()
         cpi_asof, cpi = fetch_cn_cpi_yoy()
-        u_asof, u = fetch_cn_unemployment_urban()
+        sf_asof, social_financing = fetch_cn_social_financing()
         lpr_asof, lpr_1y = fetch_cn_lpr_1y()
+        u_asof, u = fetch_cn_unemployment_urban()
         m2_asof, m2_yoy = fetch_cn_m2_yoy()
 
-        status = "LIVE" if any(v is not None for v in [cpi, u, lpr_1y, m2_yoy]) else "OFF"
-        asof = max([d for d in [cpi_asof, u_asof, lpr_asof, m2_asof] if d is not None], default=None)
+        status = "LIVE" if any(v is not None for v in [pmi_mfg, cpi, social_financing, lpr_1y, u, m2_yoy]) else "OFF"
+        asof = max([d for d in [pmi_asof, cpi_asof, sf_asof, lpr_asof, u_asof, m2_asof] if d is not None], default=None)
 
         payload = {
             "region": "CN",
@@ -174,9 +221,11 @@ def main() -> None:
             "updatedAt": _now_iso(),
             "asOf": asof,
             "series": {
+                "pmi_mfg": {"value": pmi_mfg, "asOf": pmi_asof, "source": "AkShare"},
                 "cpi_yoy": {"value": cpi, "asOf": cpi_asof, "source": "AkShare"},
-                "unemployment_urban": {"value": u, "asOf": u_asof, "source": "AkShare"},
+                "social_financing": {"value": social_financing, "asOf": sf_asof, "source": "AkShare", "unit": "万亿"},
                 "lpr_1y": {"value": lpr_1y, "asOf": lpr_asof, "source": "AkShare"},
+                "unemployment_urban": {"value": u, "asOf": u_asof, "source": "AkShare"},
                 "m2_yoy": {"value": m2_yoy, "asOf": m2_asof, "source": "AkShare"},
             },
             "notes": "Monthly snapshot. Indicative display only; not for backtest/signal truth layer.",
@@ -198,9 +247,11 @@ def main() -> None:
                 "updatedAt": _now_iso(),
                 "asOf": None,
                 "series": {
+                    "pmi_mfg": {"value": None, "asOf": None, "source": "AkShare"},
                     "cpi_yoy": {"value": None, "asOf": None, "source": "AkShare"},
-                    "unemployment_urban": {"value": None, "asOf": None, "source": "AkShare"},
+                    "social_financing": {"value": None, "asOf": None, "source": "AkShare", "unit": "万亿"},
                     "lpr_1y": {"value": None, "asOf": None, "source": "AkShare"},
+                    "unemployment_urban": {"value": None, "asOf": None, "source": "AkShare"},
                     "m2_yoy": {"value": None, "asOf": None, "source": "AkShare"},
                 },
                 "notes": f"AkShare fetch failed: {e}",

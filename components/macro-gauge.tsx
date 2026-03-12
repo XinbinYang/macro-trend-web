@@ -1,8 +1,11 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
-
 import { TrendingUp, TrendingDown, Minus, Droplets, Activity, Gauge, DollarSign, type LucideIcon } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
+import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
 
 interface IndicatorProps {
   title: string;
@@ -12,6 +15,13 @@ interface IndicatorProps {
   level: "high" | "medium" | "low";
   description: string;
   icon: LucideIcon;
+}
+
+function fmt(val: number | null | undefined, unit?: string) {
+  if (val === null || val === undefined || Number.isNaN(val)) return "—";
+  if (unit === "%") return `${val.toFixed(2)}%`;
+  if (unit === "idx") return val.toFixed(2);
+  return String(val);
 }
 
 const levelConfig = {
@@ -29,7 +39,7 @@ const trendIcons = {
 function IndicatorCard({ title, value, unit, trend, level, description, icon: Icon }: IndicatorProps) {
   const config = levelConfig[level];
   const TrendIcon = trendIcons[trend];
-  
+
   return (
     <Card className={`${config.bg} ${config.border} border`}>
       <CardContent className="p-3 md:p-4">
@@ -42,120 +52,196 @@ function IndicatorCard({ title, value, unit, trend, level, description, icon: Ic
               <div className="text-xs text-slate-400">{title}</div>
               <div className="flex items-baseline gap-1">
                 <span className={`text-lg font-bold ${config.color}`}>{value}</span>
-                {unit && <span className="text-xs text-slate-500">{unit}</span>}
+                {unit ? <span className="text-xs text-slate-500">{unit}</span> : null}
               </div>
             </div>
           </div>
           <TrendIcon className={`w-4 h-4 ${config.color}`} />
         </div>
-        <div className="mt-2 text-[10px] md:text-xs text-slate-500">
-          {description}
-        </div>
+        <div className="mt-2 text-[10px] md:text-xs text-slate-500">{description}</div>
       </CardContent>
     </Card>
   );
 }
 
-// 中国宏观指标
-const chinaIndicators: IndicatorProps[] = [
-  {
-    title: "制造业PMI",
-    value: "—",
-    unit: "",
-    trend: "neutral",
-    level: "medium",
-    description: "数据源未连接或处理中",
-    icon: TrendingUp,
-  },
-  {
-    title: "CPI同比",
-    value: "—",
-    unit: "%",
-    trend: "neutral",
-    level: "medium",
-    description: "数据源未连接或处理中",
-    icon: Activity,
-  },
-  {
-    title: "社融规模",
-    value: "—",
-    unit: "万亿",
-    trend: "neutral",
-    level: "medium",
-    description: "数据源未连接或处理中",
-    icon: Droplets,
-  },
-  {
-    title: "LPR利率",
-    value: "—",
-    unit: "%",
-    trend: "neutral",
-    level: "medium",
-    description: "数据源未连接或处理中",
-    icon: DollarSign,
-  },
-];
-
-// 美国宏观指标
-const usIndicators: IndicatorProps[] = [
-  {
-    title: "ISM制造业",
-    value: "—",
-    unit: "",
-    trend: "neutral",
-    level: "medium",
-    description: "数据源未连接或处理中",
-    icon: TrendingUp,
-  },
-  {
-    title: "CPI同比",
-    value: "—",
-    unit: "%",
-    trend: "neutral",
-    level: "medium",
-    description: "数据源未连接或处理中",
-    icon: Activity,
-  },
-  {
-    title: "联邦利率",
-    value: "—",
-    unit: "%",
-    trend: "neutral",
-    level: "medium",
-    description: "数据源未连接或处理中",
-    icon: DollarSign,
-  },
-  {
-    title: "失业率",
-    value: "—",
-    unit: "%",
-    trend: "neutral",
-    level: "medium",
-    description: "数据源未连接或处理中",
-    icon: Gauge,
-  },
-];
-
 export function MacroDashboard() {
+  const [us, setUs] = useState<{ updatedAt: string; byId: Record<string, unknown> } | null>(null);
+  const [usStatus, setUsStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
+
+  const [cn, setCn] = useState<CnMacroSnapshot | null>(null);
+  const [cnStatus, setCnStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
+
+  useEffect(() => {
+    const fetchUs = async () => {
+      try {
+        setUsStatus("LOADING");
+        const origin = window.location.origin;
+        const res = await fetchMacroIndicatorsAbs(origin);
+        if (!res) {
+          setUs(null);
+          setUsStatus("OFF");
+          return;
+        }
+        setUs({ updatedAt: res.updatedAt, byId: indexById(res.indicators) });
+        setUsStatus("LIVE");
+      } catch {
+        setUs(null);
+        setUsStatus("ERROR");
+      }
+    };
+
+    const fetchCn = async () => {
+      try {
+        setCnStatus("LOADING");
+        const snap = await fetchCnMacroSnapshot();
+        if (!snap) {
+          setCn(null);
+          setCnStatus("OFF");
+          return;
+        }
+        setCn(snap);
+        setCnStatus(snap.status === "LIVE" ? "LIVE" : "OFF");
+      } catch {
+        setCn(null);
+        setCnStatus("ERROR");
+      }
+    };
+
+    fetchUs();
+    fetchCn();
+
+    // monthly-ish: refresh daily
+    const usInt = setInterval(fetchUs, 24 * 60 * 60_000);
+    const cnInt = setInterval(fetchCn, 24 * 60 * 60_000);
+    return () => {
+      clearInterval(usInt);
+      clearInterval(cnInt);
+    };
+  }, []);
+
+  const usById = (us?.byId as Record<string, { value: number | null; asOf: string | null; source: string }>) || null;
+
+  const cnIndicators: IndicatorProps[] = [
+    {
+      title: "制造业PMI",
+      value: fmt(cn?.series.pmi_mfg?.value, "idx"),
+      unit: "",
+      trend: "neutral",
+      level: cnStatus === "LIVE" ? "low" : "medium",
+      description:
+        cnStatus === "LIVE"
+          ? `asOf ${cn?.series.pmi_mfg?.asOf || "-"} · ${cn?.series.pmi_mfg?.source || "-"}`
+          : "数据源未连接或处理中",
+      icon: TrendingUp,
+    },
+    {
+      title: "CPI同比",
+      value: fmt(cn?.series.cpi_yoy?.value, "%"),
+      unit: "%",
+      trend: "neutral",
+      level: cnStatus === "LIVE" ? "low" : "medium",
+      description:
+        cnStatus === "LIVE"
+          ? `asOf ${cn?.series.cpi_yoy?.asOf || "-"} · ${cn?.series.cpi_yoy?.source || "-"}`
+          : "数据源未连接或处理中",
+      icon: Activity,
+    },
+    {
+      title: "社融规模(代理)",
+      value:
+        cn?.series.social_financing?.value === null || cn?.series.social_financing?.value === undefined
+          ? "—"
+          : cn.series.social_financing.value.toFixed(4),
+      unit: cn?.series.social_financing?.unit || "万亿",
+      trend: "neutral",
+      level: cnStatus === "LIVE" ? "medium" : "medium",
+      description:
+        cnStatus === "LIVE"
+          ? `asOf ${cn?.series.social_financing?.asOf || "-"} · ${cn?.series.social_financing?.source || "-"}`
+          : "数据源未连接或处理中",
+      icon: Droplets,
+    },
+    {
+      title: "LPR利率(1Y)",
+      value: fmt(cn?.series.lpr_1y?.value, "%"),
+      unit: "%",
+      trend: "neutral",
+      level: cnStatus === "LIVE" ? "low" : "medium",
+      description:
+        cnStatus === "LIVE"
+          ? `asOf ${cn?.series.lpr_1y?.asOf || "-"} · ${cn?.series.lpr_1y?.source || "-"}`
+          : "数据源未连接或处理中",
+      icon: DollarSign,
+    },
+  ];
+
+  const usIndicators: IndicatorProps[] = [
+    {
+      title: "ISM制造业",
+      value: usById ? formatValue(usById["us_ism_pmi"]?.value ?? null, "idx") : "—",
+      unit: "",
+      trend: "neutral",
+      level: usStatus === "LIVE" ? "low" : "medium",
+      description:
+        usStatus === "LIVE"
+          ? `asOf ${usById?.["us_ism_pmi"]?.asOf || "-"} · ${usById?.["us_ism_pmi"]?.source || "-"}`
+          : "数据源未连接或处理中",
+      icon: TrendingUp,
+    },
+    {
+      title: "CPI同比",
+      value: usById ? formatValue(usById["us_cpi"]?.value ?? null, "idx") : "—",
+      unit: "",
+      trend: "neutral",
+      level: usStatus === "LIVE" ? "low" : "medium",
+      description:
+        usStatus === "LIVE"
+          ? `asOf ${usById?.["us_cpi"]?.asOf || "-"} · ${usById?.["us_cpi"]?.source || "-"}`
+          : "数据源未连接或处理中",
+      icon: Activity,
+    },
+    {
+      title: "联邦利率",
+      value: usById ? formatValue(usById["us_fedfunds"]?.value ?? null, "%") : "—",
+      unit: "%",
+      trend: "neutral",
+      level: usStatus === "LIVE" ? "low" : "medium",
+      description:
+        usStatus === "LIVE"
+          ? `asOf ${usById?.["us_fedfunds"]?.asOf || "-"} · ${usById?.["us_fedfunds"]?.source || "-"}`
+          : "数据源未连接或处理中",
+      icon: DollarSign,
+    },
+    {
+      title: "失业率",
+      value: usById ? formatValue(usById["us_unrate"]?.value ?? null, "%") : "—",
+      unit: "%",
+      trend: "neutral",
+      level: usStatus === "LIVE" ? "low" : "medium",
+      description:
+        usStatus === "LIVE"
+          ? `asOf ${usById?.["us_unrate"]?.asOf || "-"} · ${usById?.["us_unrate"]?.source || "-"}`
+          : "数据源未连接或处理中",
+      icon: Gauge,
+    },
+  ];
+
   return (
     <div className="space-y-4">
-      {/* 中国宏观指标 */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xl">🇨🇳</span>
           <span className="text-sm font-medium text-slate-300">中国宏观指标</span>
         </div>
         <div className="grid grid-cols-2 gap-2 md:gap-4">
-          {chinaIndicators.map((ind) => (
+          {cnIndicators.map((ind) => (
             <IndicatorCard key={`cn-${ind.title}`} {...ind} />
           ))}
         </div>
       </div>
 
-      {/* 分隔线 */}
-      <div className="border-t border-slate-800"></div>
+      <div className="border-t border-slate-800" />
 
-      {/* 美国宏观指标 */}
       <div>
         <div className="flex items-center gap-2 mb-3">
           <span className="text-xl">🇺🇸</span>

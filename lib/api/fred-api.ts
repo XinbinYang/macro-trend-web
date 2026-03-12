@@ -31,6 +31,9 @@ export const FRED_SERIES = {
   
   // Leading Indicators
   LEADING_INDEX: "USSLIND",        // Leading Economic Index
+
+  // Surveys
+  ISM_PMI: "NAPM",                 // ISM Manufacturing PMI
 };
 
 interface FredObservation {
