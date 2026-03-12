@@ -1,0 +1,50 @@
+name: Update CN Macro Monthly (AkShare)
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Run monthly on the 2nd day (avoid month-end clock edge cases)
+    - cron: "15 3 2 * *"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-macro-cn-monthly
+  cancel-in-progress: true
+
+jobs:
+  update-cn-macro:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Update CN macro monthly snapshot
+        run: |
+          python3 scripts/update_macro_cn_monthly.py --out data/macro/cn/latest.json
+
+      - name: Commit & push if changed
+        run: |
+          if git diff --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/macro/cn/latest.json
+          git commit -m "chore(macro): update CN macro monthly snapshot"
+          git push
