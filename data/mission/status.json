@@ -5,7 +5,7 @@
     "done": 2,
     "doing": 2,
     "blocked": 1,
-    "updatedAt": "2026-03-12T23:13:32.930Z"
+    "updatedAt": "2026-03-12T23:20:08.586Z"
   },
   "tasks": [
     {
@@ -42,7 +42,7 @@
       "module": "research",
       "priority": "P1",
       "status": "DOING",
-      "note": "先落地研究中枢骨架，再接真实数据"
+      "note": "Macro Hub 已接入首页宏观展示层数据"
     },
     {
       "id": "DATA-001",
@@ -87,6 +87,7 @@
     }
   ],
   "timeline": [
+    "🟡 MACRO-001 宏观研究页 /macro 搭建",
     "🟡 OPS-001 Mission Control 页面动态化",
     "🟢 网站恢复可访问",
     "🟢 低价值 AI token 消耗已关闭",

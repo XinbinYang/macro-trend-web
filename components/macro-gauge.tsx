@@ -69,6 +69,7 @@ export function MacroDashboard() {
   const [usStatus, setUsStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 
   const [cn, setCn] = useState<CnMacroSnapshot | null>(null);
+  const [cnFreshness, setCnFreshness] = useState<"LIVE" | "STALE" | null>(null);
   const [cnStatus, setCnStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 
   useEffect(() => {
@@ -94,13 +95,15 @@ export function MacroDashboard() {
       try {
         setCnStatus("LOADING");
         const snap = await fetchCnMacroSnapshot();
-        if (!snap) {
+        if (!snap || !snap.data) {
           setCn(null);
+          setCnFreshness(null);
           setCnStatus("OFF");
           return;
         }
-        setCn(snap);
-        setCnStatus(snap.status === "LIVE" ? "LIVE" : "OFF");
+        setCn(snap.data);
+        setCnFreshness(snap.freshness || null);
+        setCnStatus(snap.data.status === "LIVE" ? "LIVE" : "OFF");
       } catch {
         setCn(null);
         setCnStatus("ERROR");
@@ -130,7 +133,7 @@ export function MacroDashboard() {
       level: cnStatus === "LIVE" ? "low" : "medium",
       description:
         cnStatus === "LIVE"
-          ? `asOf ${cn?.series.pmi_mfg?.asOf || "-"} · ${cn?.series.pmi_mfg?.source || "-"}`
+          ? `asOf ${cn?.series.pmi_mfg?.asOf || "-"} · ${cn?.series.pmi_mfg?.source || "-"}${cnFreshness === "STALE" ? " · STALE" : ""}`
           : "数据源未连接或处理中",
       icon: TrendingUp,
     },
@@ -142,7 +145,7 @@ export function MacroDashboard() {
       level: cnStatus === "LIVE" ? "low" : "medium",
       description:
         cnStatus === "LIVE"
-          ? `asOf ${cn?.series.cpi_yoy?.asOf || "-"} · ${cn?.series.cpi_yoy?.source || "-"}`
+          ? `asOf ${cn?.series.cpi_yoy?.asOf || "-"} · ${cn?.series.cpi_yoy?.source || "-"}${cnFreshness === "STALE" ? " · STALE" : ""}`
           : "数据源未连接或处理中",
       icon: Activity,
     },
@@ -157,7 +160,7 @@ export function MacroDashboard() {
       level: cnStatus === "LIVE" ? "medium" : "medium",
       description:
         cnStatus === "LIVE"
-          ? `asOf ${cn?.series.social_financing?.asOf || "-"} · ${cn?.series.social_financing?.source || "-"}`
+          ? `asOf ${cn?.series.social_financing?.asOf || "-"} · ${cn?.series.social_financing?.source || "-"}${cnFreshness === "STALE" ? " · STALE" : ""}`
           : "数据源未连接或处理中",
       icon: Droplets,
     },
@@ -169,7 +172,7 @@ export function MacroDashboard() {
       level: cnStatus === "LIVE" ? "low" : "medium",
       description:
         cnStatus === "LIVE"
-          ? `asOf ${cn?.series.lpr_1y?.asOf || "-"} · ${cn?.series.lpr_1y?.source || "-"}`
+          ? `asOf ${cn?.series.lpr_1y?.asOf || "-"} · ${cn?.series.lpr_1y?.source || "-"}${cnFreshness === "STALE" ? " · STALE" : ""}`
           : "数据源未连接或处理中",
       icon: DollarSign,
     },

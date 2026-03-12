@@ -14,12 +14,19 @@ export type CnMacroSnapshot = {
   notes?: string;
 };
 
-export async function fetchCnMacroSnapshot(): Promise<CnMacroSnapshot | null> {
+export type CnMacroResponse = {
+  success: boolean;
+  freshness?: "LIVE" | "STALE";
+  stale?: boolean;
+  data?: CnMacroSnapshot;
+};
+
+export async function fetchCnMacroSnapshot(): Promise<CnMacroResponse | null> {
   try {
     const res = await fetch("/api/macro-cn", { cache: "no-store" });
-    const json = await res.json().catch(() => ({}));
+    const json = (await res.json().catch(() => ({}))) as CnMacroResponse;
     if (!json?.success || !json?.data) return null;
-    return json.data as CnMacroSnapshot;
+    return json;
   } catch {
     return null;
   }
