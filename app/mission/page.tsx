@@ -50,6 +50,7 @@ function statusBadge(status: string) {
 export default function MissionPage() {
   const [data, setData] = useState<MissionPayload | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
 
   const fetchMission = async () => {
     try {
@@ -57,6 +58,7 @@ export default function MissionPage() {
       const json = await res.json();
       if (json?.success && json?.data) {
         setData(json.data);
+        setLastFetchedAt(new Date());
       }
     } catch (error) {
       console.error("[mission] fetch failed", error);
@@ -96,6 +98,7 @@ export default function MissionPage() {
           <div>
             <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-50">执行中枢 / 任务作战看板</h1>
             <p className="text-sm text-slate-400">🧭 当前用于跟踪网页端建设、子代理协同、阻塞项与阶段目标。</p>
+            <p className="text-xs text-slate-500 mt-1">⏱️ last refresh: {lastFetchedAt ? `${Math.max(0, Math.floor((Date.now() - lastFetchedAt.getTime()) / 1000))}s ago` : "-"}</p>
           </div>
           <button
             onClick={fetchMission}
@@ -138,6 +141,8 @@ export default function MissionPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs border-slate-700 text-slate-300">👤 {task.owner}</Badge>
                     {statusBadge(task.status)}
+                    {task.status === "DOING" ? <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" /> : null}
+                    {task.status === "BLOCKED" ? <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> : null}
                   </div>
                 </div>
                 <div className="text-xs text-slate-400">{task.note}</div>

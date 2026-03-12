@@ -5,7 +5,7 @@
     "done": 2,
     "doing": 2,
     "blocked": 1,
-    "updatedAt": "2026-03-12T23:20:08.586Z"
+    "updatedAt": "2026-03-12T23:32:12.456Z"
   },
   "tasks": [
     {
@@ -68,7 +68,7 @@
       "name": "GPT-5.4 / main",
       "role": "总控 / 战略 / 执行调度",
       "status": "RUNNING",
-      "task": "Mission Control 动态版 + /macro 骨架",
+      "task": "Mission Control 写入 API + UI增强中",
       "risk": "LOW"
     },
     {
