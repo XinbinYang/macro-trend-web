@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getMultipleQuotes } from "@/lib/api/market-data";
-import { getChinaBondFutures, getChinaBondYieldCurve } from "@/lib/api/akshare-bonds";
+import { getCnBondData } from "@/lib/api/bond-cn";
 import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
 import { fetchAIndex, fetchHKIndex } from "@/lib/api/eastmoney-api";
 
@@ -183,14 +183,12 @@ export async function GET() {
       })
     );
 
-    // 获取中国国债期货/收益率曲线数据（当前为 sample，占位联调）
-    // + US Treasury Curve（展示层，FRED；无 key 则自动 mock）
-    const [bondFutures, chinaYieldCurve, usTreasuryCurve] = await Promise.all([
-      getChinaBondFutures(),
-      getChinaBondYieldCurve(),
+    // 获取中国债券稳态数据 + US Treasury Curve（展示层，FRED；无 key 则自动 mock）
+    const [cnBondData, usTreasuryCurve] = await Promise.all([
+      getCnBondData({ level: "L2", realtime: false, fallback: true }),
       getUsTreasuryCurveLatest(),
     ]);
-    const bondFutureQuotes: MarketQuote[] = bondFutures.map(bf => ({
+    const bondFutureQuotes: MarketQuote[] = cnBondData.futures.map(bf => ({
       symbol: bf.symbol,
       name: bf.name,
       price: bf.price,
@@ -201,8 +199,8 @@ export async function GET() {
       source: bf.source,
       region: "CN",
       category: "BOND",
-      dataType: "EOD",
-      dataSource: bf.source?.includes("mock") ? "MOCK" : "SAMPLE",
+      dataType: bf.dataType === "REALTIME" ? "REALTIME" : "EOD",
+      dataSource: bf.status === "LIVE" ? "LIVE" : bf.status === "DELAYED" ? "LIVE" : bf.status === "STALE" ? "MOCK" : "SAMPLE",
     }));
 
     // US Treasury curve -> convert to MarketQuote (BOND / US / EOD)
@@ -256,9 +254,15 @@ export async function GET() {
         bond: {
           china: {
             futures: bondFutureQuotes,
-            yieldCurve: Array.isArray(chinaYieldCurve) ? chinaYieldCurve : ((chinaYieldCurve as { yields?: { maturity: string; yield: number; change: number }[] })?.yields || []),
-            source: "AkShare(sample)",
-            status: "SAMPLE",
+            yieldCurve: cnBondData.yieldCurve
+              ? Object.entries(cnBondData.yieldCurve.maturities).map(([maturity, yield_]) => ({
+                  maturity,
+                  yield: yield_ as number,
+                  change: 0,
+                }))
+              : [],
+            source: cnBondData.source,
+            status: cnBondData.status,
           },
         },
         disclaimer: {
