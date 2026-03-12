@@ -14,7 +14,9 @@ Output schema (latest.json)
   "asOf": "YYYY-MM" | null,
   "series": {
     "cpi_yoy": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"},
-    "unemployment_urban": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"}
+    "unemployment_urban": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"},
+    "lpr_1y": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"},
+    "m2_yoy": {"value": number|null, "asOf": "YYYY-MM"|null, "source": "AkShare"}
   },
   "notes": "..."
 }
@@ -116,6 +118,31 @@ def fetch_cn_unemployment_urban() -> Tuple[Optional[str], Optional[float]]:
     return _latest_valid(sub, date_col="date", value_col="value", reject_zeros=True)
 
 
+def fetch_cn_lpr_1y() -> Tuple[Optional[str], Optional[float]]:
+    import akshare as ak  # type: ignore
+
+    df = ak.macro_china_lpr()  # cols: TRADE_DATE, LPR1Y, LPR5Y, ...
+    if df is None or df.empty:
+        return None, None
+
+    # Normalize to YYYY-MM
+    df = df.copy()
+    df["month"] = df["TRADE_DATE"].astype(str).str.slice(0, 7)
+
+    # Pick latest finite LPR1Y
+    return _latest_valid(df.rename(columns={"month": "日期", "LPR1Y": "今值"}), date_col="日期", value_col="今值")
+
+
+def fetch_cn_m2_yoy() -> Tuple[Optional[str], Optional[float]]:
+    import akshare as ak  # type: ignore
+
+    df = ak.macro_china_m2_yearly()  # cols: 商品, 日期, 今值, 预测值, 前值
+    if df is None or df.empty:
+        return None, None
+
+    return _latest_valid(df, date_col="日期", value_col="今值")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="data/macro/cn/latest.json")
@@ -135,9 +162,11 @@ def main() -> None:
     try:
         cpi_asof, cpi = fetch_cn_cpi_yoy()
         u_asof, u = fetch_cn_unemployment_urban()
+        lpr_asof, lpr_1y = fetch_cn_lpr_1y()
+        m2_asof, m2_yoy = fetch_cn_m2_yoy()
 
-        status = "LIVE" if (cpi is not None or u is not None) else "OFF"
-        asof = max([d for d in [cpi_asof, u_asof] if d is not None], default=None)
+        status = "LIVE" if any(v is not None for v in [cpi, u, lpr_1y, m2_yoy]) else "OFF"
+        asof = max([d for d in [cpi_asof, u_asof, lpr_asof, m2_asof] if d is not None], default=None)
 
         payload = {
             "region": "CN",
@@ -147,6 +176,8 @@ def main() -> None:
             "series": {
                 "cpi_yoy": {"value": cpi, "asOf": cpi_asof, "source": "AkShare"},
                 "unemployment_urban": {"value": u, "asOf": u_asof, "source": "AkShare"},
+                "lpr_1y": {"value": lpr_1y, "asOf": lpr_asof, "source": "AkShare"},
+                "m2_yoy": {"value": m2_yoy, "asOf": m2_asof, "source": "AkShare"},
             },
             "notes": "Monthly snapshot. Indicative display only; not for backtest/signal truth layer.",
         }
@@ -169,6 +200,8 @@ def main() -> None:
                 "series": {
                     "cpi_yoy": {"value": None, "asOf": None, "source": "AkShare"},
                     "unemployment_urban": {"value": None, "asOf": None, "source": "AkShare"},
+                    "lpr_1y": {"value": None, "asOf": None, "source": "AkShare"},
+                    "m2_yoy": {"value": None, "asOf": None, "source": "AkShare"},
                 },
                 "notes": f"AkShare fetch failed: {e}",
             }

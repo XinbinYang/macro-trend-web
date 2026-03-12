@@ -301,6 +301,8 @@ export default function DashboardPage() {
     series: {
       cpi_yoy: { value: number | null; asOf: string | null; source: string };
       unemployment_urban: { value: number | null; asOf: string | null; source: string };
+      lpr_1y?: { value: number | null; asOf: string | null; source: string };
+      m2_yoy?: { value: number | null; asOf: string | null; source: string };
     };
   } | null>(null);
   const [cnMacroStatus, setCnMacroStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
@@ -585,8 +587,24 @@ export default function DashboardPage() {
                       source: cnMacro.series.cpi_yoy.source,
                     }
                   : null,
-                policy: null,
-                liquidity: null,
+                policy: cnMacro && cnMacro.series.lpr_1y
+                  ? {
+                      label: "中国LPR(1Y)",
+                      value: cnMacro.series.lpr_1y.value,
+                      unit: "%",
+                      asOf: cnMacro.series.lpr_1y.asOf,
+                      source: cnMacro.series.lpr_1y.source,
+                    }
+                  : null,
+                liquidity: cnMacro && cnMacro.series.m2_yoy
+                  ? {
+                      label: "中国M2同比",
+                      value: cnMacro.series.m2_yoy.value,
+                      unit: "%",
+                      asOf: cnMacro.series.m2_yoy.asOf,
+                      source: cnMacro.series.m2_yoy.source,
+                    }
+                  : null,
               };
 
               const indUS = regionView === "US" && byId ? byId[dimToIndicatorIdUS[dim.id]] : null;

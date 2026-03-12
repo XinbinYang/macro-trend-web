@@ -1,8 +1,8 @@
 {
   "region": "CN",
   "status": "LIVE",
-  "updatedAt": "2026-03-12T13:12:46Z",
-  "asOf": "2026-01",
+  "updatedAt": "2026-03-12T14:25:58Z",
+  "asOf": "2026-02",
   "series": {
     "cpi_yoy": {
       "value": 0.0,
@@ -12,6 +12,16 @@
     "unemployment_urban": {
       "value": 5.2,
       "asOf": "2026-01",
+      "source": "AkShare"
+    },
+    "lpr_1y": {
+      "value": 3.0,
+      "asOf": "2026-02",
+      "source": "AkShare"
+    },
+    "m2_yoy": {
+      "value": 8.8,
+      "asOf": "2025-08",
       "source": "AkShare"
     }
   },
