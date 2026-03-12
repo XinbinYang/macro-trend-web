@@ -278,8 +278,8 @@ export default function DashboardPage() {
     driver: string;
   }>({
     status: "Neutral",
-    confidence: 0,
-    driver: "-"
+    confidence: 50,
+    driver: "数据源恢复中，暂按中性基线显示"
   });
 
   // Expandable state for macro cards
