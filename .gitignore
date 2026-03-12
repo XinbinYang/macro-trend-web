@@ -7,6 +7,9 @@ data/staging/
 
 # Local truth DB can be large and environment-specific
 macro_quant.db
+macro_quant.db-*
+*.db-wal
+*.db-shm
 
 # Node/Next build artifacts
 node_modules/
