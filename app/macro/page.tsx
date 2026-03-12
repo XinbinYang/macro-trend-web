@@ -3,14 +3,27 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, ShieldAlert } from "lucide-react";
+import { BarChart3, ShieldAlert, Target } from "lucide-react";
 import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
+
+interface RegimeData {
+  region: string;
+  status: string;
+  updatedAt: string;
+  regime: {
+    name: string;
+    confidence: number;
+    driver: string;
+    counterSignals: string[];
+  };
+}
 
 export default function MacroPage() {
   const [usById, setUsById] = useState<Record<string, { value: number | null; asOf: string | null; source: string }> | null>(null);
   const [cn, setCn] = useState<CnMacroSnapshot | null>(null);
   const [cnFreshness, setCnFreshness] = useState<string | null>(null);
+  const [regime, setRegime] = useState<RegimeData | null>(null);
 
   useEffect(() => {
     const run = async () => {
@@ -26,6 +39,12 @@ export default function MacroPage() {
           setCn(cnRes.data);
           setCnFreshness(cnRes.freshness || null);
         }
+      } catch {}
+
+      try {
+        const res = await fetch("/api/macro-regime", { cache: "no-store" });
+        const json = await res.json();
+        if (json?.success && json?.data) setRegime(json.data);
       } catch {}
     };
 
@@ -91,6 +110,25 @@ export default function MacroPage() {
         <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-50">宏观研究中枢 / Macro Hub</h1>
         <p className="text-sm text-slate-400">🌍 已接入首页宏观数据骨架，后续继续增强 regime 判断与中美双主轴研究层。</p>
       </div>
+
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader>
+          <CardTitle className="text-slate-100 flex items-center gap-2"><Target className="w-5 h-5 text-amber-500" /> 当前 Regime</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-slate-300">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Badge className="bg-slate-800 text-slate-200 border border-slate-700">{regime?.regime?.name || "Neutral"}</Badge>
+            <span>📊 置信度：{regime?.regime?.confidence ?? 50}%</span>
+          </div>
+          <div>🧭 核心驱动：{regime?.regime?.driver || "数据源恢复中，暂按中性基线显示"}</div>
+          <div className="space-y-1">
+            <div className="text-slate-400">⚠️ 反证条件：</div>
+            {(regime?.regime?.counterSignals || ["等待更多数据验证", "中美主轴仍在恢复", "流动性链条仍需观察"]).map((item) => (
+              <div key={item} className="text-xs text-slate-400">• {item}</div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader>

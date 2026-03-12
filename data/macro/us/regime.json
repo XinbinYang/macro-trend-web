@@ -1,0 +1,15 @@
+{
+  "region": "US",
+  "status": "LIVE",
+  "updatedAt": "2026-03-13T07:26:00+08:00",
+  "regime": {
+    "name": "Neutral",
+    "confidence": 50,
+    "driver": "数据源恢复中，暂按中性基线显示",
+    "counterSignals": [
+      "增长尚未形成一致上行确认",
+      "通胀与政策路径仍需更多数据验证",
+      "流动性与利率链条处于观察期"
+    ]
+  }
+}
