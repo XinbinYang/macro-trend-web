@@ -134,7 +134,11 @@ export async function fetchAIndex(indexCode: string): Promise<{
   change: number;
   changePercent: number;
 } | null> {
-  // Index codes: 000001 (上证), 399001 (深证), 399006 (创业板)
+  // Index codes:
+  // - 000xxx (SH indices like HS300/SH50) -> 1.
+  // - 399xxx (SZ indices like ChiNext) -> 0.
+  // NOTE: Eastmoney also supports some HK indices via special codes (e.g. 恒指=HSI -> 100.HSI)
+
   const emCode = indexCode.startsWith("000") ? `1.${indexCode}` : `0.${indexCode}`;
 
   try {
@@ -157,6 +161,37 @@ export async function fetchAIndex(indexCode: string): Promise<{
     };
   } catch (error) {
     console.error(`[EastMoney] Index fetch error:`, error);
+    return null;
+  }
+}
+
+export async function fetchHKIndex(secid: string): Promise<{
+  name: string;
+  price: number;
+  change: number;
+  changePercent: number;
+} | null> {
+  try {
+    const url = `https://push2.eastmoney.com/api/qt/stock/get?secid=${encodeURIComponent(secid)}&fields=f43,f58,f60,f169,f170`;
+    const response = await fetch(url, {
+      next: { revalidate: 30 },
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://quote.eastmoney.com/",
+      },
+    });
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (!data.data) return null;
+
+    return {
+      name: data.data.f58,
+      price: data.data.f43 / 100,
+      change: data.data.f169 / 100,
+      changePercent: data.data.f170 / 100,
+    };
+  } catch (error) {
+    console.error(`[EastMoney] HK index fetch error:`, error);
     return null;
   }
 }

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getMultipleQuotes } from "@/lib/api/market-data";
 import { getChinaBondFutures, getChinaBondYieldCurve } from "@/lib/api/akshare-bonds";
 import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
-import { fetchAIndex } from "@/lib/api/eastmoney-api";
+import { fetchAIndex, fetchHKIndex } from "@/lib/api/eastmoney-api";
 
 // 资产分类配置
 interface AssetConfig {
@@ -91,8 +91,46 @@ export async function GET() {
     // CN/HK 宽基指数：优先接 Eastmoney（免 key，Indicative）；失败则 OFF
     const akshareQuotes: MarketQuote[] = await Promise.all(
       AKSHARE_EOD_DATA.map(async (d) => {
-        // Eastmoney 仅支持数字 code；HSI 暂无对应，先 OFF
-        const code = /^\d{6}\.(SH|SZ)$/i.test(d.symbol) ? d.symbol.split(".")[0] : null;
+        // Eastmoney：A股指数用数字 code；恒指用 secid=100.HSI
+        const isCNIndex = /^\d{6}\.(SH|SZ)$/i.test(d.symbol);
+        const isHSI = d.symbol === "HSI";
+
+        if (isHSI) {
+          const q = await fetchHKIndex("100.HSI");
+          if (!q) {
+            return {
+              symbol: d.symbol,
+              name: d.name,
+              price: 0,
+              change: 0,
+              changePercent: 0,
+              volume: 0,
+              timestamp: new Date().toISOString(),
+              source: "OFF",
+              region: d.region,
+              category: "EQUITY",
+              dataType: "EOD",
+              dataSource: "OFF",
+            };
+          }
+
+          return {
+            symbol: d.symbol,
+            name: q.name || d.name,
+            price: q.price,
+            change: q.change,
+            changePercent: q.changePercent,
+            volume: 0,
+            timestamp: new Date().toISOString(),
+            source: "Eastmoney",
+            region: d.region,
+            category: "EQUITY",
+            dataType: "EOD",
+            dataSource: "LIVE",
+          };
+        }
+
+        const code = isCNIndex ? d.symbol.split(".")[0] : null;
         if (!code) {
           return {
             symbol: d.symbol,
