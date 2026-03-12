@@ -46,8 +46,16 @@ const CACHE_TTL = {
 // ============================================================
 // API Keys (read from env)
 // ============================================================
-const FINNHUB_KEY = () => process.env.FINNHUB_API_KEY || "";
-const POLYGON_KEY = () => process.env.POLYGON_API_KEY || "";
+const FINNHUB_KEY = () => {
+  const k = process.env.FINNHUB_API_KEY;
+  if (!k) throw new Error("FINNHUB_API_KEY is not set");
+  return k;
+};
+const POLYGON_KEY = () => {
+  const k = process.env.POLYGON_API_KEY;
+  if (!k) throw new Error("POLYGON_API_KEY is not set");
+  return k;
+};
 
 // ============================================================
 // Types
@@ -217,8 +225,13 @@ async function fetchYFChart(
 // Source 2: Finnhub (direct HTTP — stocks/ETFs only)
 // ============================================================
 async function fetchFromFinnhub(symbol: string): Promise<QuoteResult | null> {
-  const key = FINNHUB_KEY();
-  if (!key) return null;
+  let key: string;
+  try {
+    key = FINNHUB_KEY();
+  } catch (e: any) {
+    console.warn(`[Finnhub] OFF: ${e.message || e}`);
+    return null;
+  }
 
   try {
     const controller = new AbortController();
@@ -253,8 +266,13 @@ async function fetchFromFinnhub(symbol: string): Promise<QuoteResult | null> {
 // Source 3: Polygon.io (direct HTTP — stocks/ETFs/forex)
 // ============================================================
 async function fetchFromPolygon(symbol: string): Promise<QuoteResult | null> {
-  const key = POLYGON_KEY();
-  if (!key) return null;
+  let key: string;
+  try {
+    key = POLYGON_KEY();
+  } catch (e: any) {
+    console.warn(`[Polygon] OFF: ${e.message || e}`);
+    return null;
+  }
 
   try {
     const controller = new AbortController();

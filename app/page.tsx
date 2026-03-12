@@ -282,6 +282,7 @@ export default function DashboardPage() {
     updatedAt: string;
     byId: Record<string, { id: string; name: string; unit: string; value: number | null; status: "LIVE" | "OFF"; asOf: string | null; source: string }>;
   } | null>(null);
+  const [macroIndicatorsStatus, setMacroIndicatorsStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 
   // AI 最新点评（展示层）
   const [latestAI, setLatestAI] = useState<{ title: string; summary: string; impact?: string; suggestion?: string; createdAt?: string } | null>(null);
@@ -306,13 +307,19 @@ export default function DashboardPage() {
     // Fetch macro indicators from same-origin absolute URL (serverless)
     const fetchMacro = async () => {
       try {
+        setMacroIndicatorsStatus("LOADING");
         const origin = window.location.origin;
         const res = await fetchMacroIndicatorsAbs(origin);
-        if (!res) return;
+        if (!res) {
+          setMacroIndicatorsStatus("OFF");
+          return;
+        }
         const byId = indexById(res.indicators);
         setMacroIndicators({ updatedAt: res.updatedAt, byId });
-      } catch {
-        // keep OFF silently; UI will remain SAMPLE/-
+        setMacroIndicatorsStatus("LIVE");
+      } catch (e) {
+        console.error("[MacroIndicators] fetch failed", e);
+        setMacroIndicatorsStatus("ERROR");
       }
     };
 
@@ -532,9 +539,13 @@ export default function DashboardPage() {
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      {macroIndicators ? (
+                      {macroIndicatorsStatus === "LIVE" ? (
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-green-300 border-green-500/30 bg-green-500/10">
                           LIVE
+                        </span>
+                      ) : macroIndicatorsStatus === "ERROR" ? (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-red-300 border-red-500/30 bg-red-500/10">
+                          ERROR
                         </span>
                       ) : (
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-amber-300 border-amber-500/30 bg-amber-500/10">

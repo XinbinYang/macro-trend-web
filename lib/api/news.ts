@@ -50,7 +50,7 @@ async function translateWithAI(text: string): Promise<string> {
     const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || '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'}`,
+        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || ''}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -71,7 +71,7 @@ async function translateWithAI(text: string): Promise<string> {
     });
 
     if (!response.ok) {
-      throw new Error('Translation API error');
+      throw new Error(`Translation API error: ${response.status}`);
     }
 
     const data = await response.json();
