@@ -69,7 +69,8 @@ export async function GET() {
   ];
 
   // Quick probe: verify the key works (helps debug "env is set but still OFF")
-  let fredProbe: MacroIndicatorsResponse["debug"]["fredProbe"] | undefined = undefined;
+  type FredProbe = { ok: boolean; status?: number; error?: string };
+  let fredProbe: FredProbe | undefined = undefined;
   try {
     const probeUrl = new URL("https://api.stlouisfed.org/fred/series/observations");
     probeUrl.searchParams.set("series_id", FRED_SERIES.UNEMPLOYMENT);

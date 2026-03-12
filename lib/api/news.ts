@@ -44,26 +44,31 @@ const QUERY_BUCKETS = [
   { name: 'breaking', query: 'breaking news market alert', label: '突发新闻' },
 ];
 
-// AI 翻译函数
+// AI 翻译函数（可选）
+// 原则：缺 key / 调用失败必须 fail-closed，不得导致 build 失败。
 async function translateWithAI(text: string): Promise<string> {
+  const key = process.env.OPENROUTER_API_KEY;
+  if (!key) return text;
+
   try {
-    const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-      method: 'POST',
+    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
       headers: {
-        'Authorization': `Bearer ${process.env.OPENROUTER_API_KEY || ''}`,
-        'Content-Type': 'application/json',
+        Authorization: `Bearer ${key}`,
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        model: "openai/gpt-4o-mini",
         messages: [
           {
-            role: 'system',
-            content: '你是一个专业的财经新闻翻译助手。将英文财经新闻标题翻译成简洁的中文，保持专业术语准确。只返回翻译结果，不要解释。'
+            role: "system",
+            content:
+              "你是一个专业的财经新闻翻译助手。将英文财经新闻标题翻译成简洁的中文，保持专业术语准确。只返回翻译结果，不要解释。",
           },
           {
-            role: 'user',
-            content: `翻译以下财经新闻标题为中文：\n\n${text}`
-          }
+            role: "user",
+            content: `翻译以下财经新闻标题为中文：\n\n${text}`,
+          },
         ],
         max_tokens: 100,
         temperature: 0.3,
@@ -71,13 +76,15 @@ async function translateWithAI(text: string): Promise<string> {
     });
 
     if (!response.ok) {
-      throw new Error(`Translation API error: ${response.status}`);
+      // Do NOT throw (avoid breaking build/runtime) — just return original text
+      console.warn(`[Translation] OFF (HTTP ${response.status})`);
+      return text;
     }
 
-    const data = await response.json();
-    return data.choices?.[0]?.message?.content?.trim() || text;
+    const data = await response.json().catch(() => ({}));
+    return data?.choices?.[0]?.message?.content?.trim() || text;
   } catch (error) {
-    console.error('Translation error:', error);
+    console.warn("[Translation] OFF", error);
     return text;
   }
 }
