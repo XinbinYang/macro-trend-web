@@ -146,6 +146,10 @@ export async function fetchAIndex(indexCode: string): Promise<{
 
     const response = await fetch(url, {
       next: { revalidate: 30 },
+      headers: {
+        "User-Agent": "Mozilla/5.0",
+        "Referer": "https://quote.eastmoney.com/",
+      },
     });
 
     if (!response.ok) return null;
