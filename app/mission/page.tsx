@@ -1,113 +1,44 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Bot, Clock3, Flag, Layers3, Target } from "lucide-react";
+import { AlertTriangle, Bot, Clock3, Flag, Layers3, RefreshCw, Target } from "lucide-react";
 
-const summary = {
-  objective: "网页端作战驾驶舱：稳定版恢复 → Mission Control MVP → 宏观研究层重建",
-  phase: "P1 · Mission Control MVP",
-  done: 6,
-  doing: 4,
-  blocked: 1,
-  updatedAt: new Date().toLocaleString("zh-CN"),
-};
+type TaskStatus = "TODO" | "DOING" | "DONE" | "BLOCKED";
 
-const tasks = [
-  {
-    id: "WEB-001",
-    title: "恢复网站可访问与可部署",
-    owner: "main",
-    module: "frontend",
-    priority: "P0",
-    status: "DONE",
-    note: "首页已恢复，client-side exception 已修复",
-  },
-  {
-    id: "WEB-002",
-    title: "关闭低价值 AI 新闻点评与翻译调用",
-    owner: "main",
-    module: "frontend",
-    priority: "P0",
-    status: "DONE",
-    note: "新闻 AI 点评/翻译、资产 AI 分析已关闭",
-  },
-  {
-    id: "OPS-001",
-    title: "Mission Control 页面信息架构落地",
-    owner: "main",
-    module: "ops",
-    priority: "P1",
-    status: "DOING",
-    note: "当前页面已建立 MVP 框架",
-  },
-  {
-    id: "OPS-002",
-    title: "任务追踪数据结构定义",
-    owner: "kimi",
-    module: "ops",
-    priority: "P1",
-    status: "DOING",
-    note: "先用静态任务流，后续接真实动态状态",
-  },
-  {
-    id: "OPS-003",
-    title: "子代理派活追踪接入",
-    owner: "minimax",
-    module: "ops",
-    priority: "P1",
-    status: "TODO",
-    note: "待 Mission Control MVP 稳定后接入",
-  },
-  {
-    id: "MACRO-001",
-    title: "中国宏观数据正式重建",
-    owner: "main",
-    module: "data",
-    priority: "P1",
-    status: "TODO",
-    note: "当前仍是降级展示",
-  },
-  {
-    id: "BOND-001",
-    title: "中国债券数据正式重建",
-    owner: "main",
-    module: "data",
-    priority: "P1",
-    status: "BLOCKED",
-    note: "需先确定运行时数据服务方案，避免再次破坏构建链",
-  },
-];
+interface MissionTask {
+  id: string;
+  title: string;
+  owner: string;
+  module: string;
+  priority: string;
+  status: TaskStatus;
+  note: string;
+}
 
-const agents = [
-  {
-    name: "GPT-5.4 / main",
-    role: "总控 / 战略 / 执行调度",
-    status: "RUNNING",
-    task: "Mission Control MVP + 网页端路线图",
-    risk: "LOW",
-  },
-  {
-    name: "MiniMax Highspeed",
-    role: "前端快速开发 / 热修",
-    status: "IDLE",
-    task: "待接入子代理追踪模块",
-    risk: "LOW",
-  },
-  {
-    name: "Kimi 2.5",
-    role: "信息架构 / 长上下文整理 / 审计",
-    status: "IDLE",
-    task: "待输出结构化路线图文档",
-    risk: "LOW",
-  },
-];
+interface AgentStatus {
+  name: string;
+  role: string;
+  status: string;
+  task: string;
+  risk: string;
+}
 
-const timeline = [
-  "🟢 网站已恢复可访问",
-  "🟢 新闻 AI 点评 / 翻译 / 资产 AI 分析已关闭",
-  "🟢 宏观置信度已修正为 50% 中性基线",
-  "🟡 Mission Control MVP 页面开始落地",
-  "🔴 中国债券/中国宏观仍处于降级展示，待稳态重建",
-];
+interface MissionPayload {
+  summary: {
+    objective: string;
+    phase: string;
+    done: number;
+    doing: number;
+    blocked: number;
+    updatedAt: string;
+  };
+  tasks: MissionTask[];
+  agents: AgentStatus[];
+  timeline: string[];
+  blockers: string[];
+}
 
 function statusBadge(status: string) {
   if (status === "DONE") return <Badge className="bg-green-500/15 text-green-400 border-green-500/30">🟢 DONE</Badge>;
@@ -117,14 +48,62 @@ function statusBadge(status: string) {
 }
 
 export default function MissionPage() {
+  const [data, setData] = useState<MissionPayload | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const fetchMission = async () => {
+    try {
+      const res = await fetch("/api/mission", { cache: "no-store" });
+      const json = await res.json();
+      if (json?.success && json?.data) {
+        setData(json.data);
+      }
+    } catch (error) {
+      console.error("[mission] fetch failed", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMission();
+    const timer = setInterval(fetchMission, 30000);
+    return () => clearInterval(timer);
+  }, []);
+
+  if (loading || !data) {
+    return (
+      <div className="space-y-6 pb-20 md:pb-0">
+        <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
+          <Target className="w-4 h-4" /> Mission Control
+        </div>
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardContent className="p-6 text-slate-400 flex items-center gap-2">
+            <RefreshCw className="w-4 h-4 animate-spin" /> 正在加载执行状态...
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 pb-20 md:pb-0">
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-2 text-amber-400 text-sm font-medium">
           <Target className="w-4 h-4" /> Mission Control
         </div>
-        <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-50">执行中枢 / 任务作战看板</h1>
-        <p className="text-sm text-slate-400">🧭 当前用于跟踪网页端建设、子代理协同、阻塞项与阶段目标。</p>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-50">执行中枢 / 任务作战看板</h1>
+            <p className="text-sm text-slate-400">🧭 当前用于跟踪网页端建设、子代理协同、阻塞项与阶段目标。</p>
+          </div>
+          <button
+            onClick={fetchMission}
+            className="inline-flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-sm text-slate-300 hover:bg-slate-800"
+          >
+            <RefreshCw className="w-4 h-4" /> 刷新
+          </button>
+        </div>
       </div>
 
       <Card className="bg-slate-900/50 border-slate-800">
@@ -132,13 +111,13 @@ export default function MissionPage() {
           <CardTitle className="text-slate-100 flex items-center gap-2"><Flag className="w-5 h-5 text-amber-500" /> 总任务概览</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-slate-300">
-          <div><span className="text-slate-500">🎯 当前总目标：</span> {summary.objective}</div>
-          <div><span className="text-slate-500">📍 当前阶段：</span> {summary.phase}</div>
+          <div><span className="text-slate-500">🎯 当前总目标：</span> {data.summary.objective}</div>
+          <div><span className="text-slate-500">📍 当前阶段：</span> {data.summary.phase}</div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🟢 已完成</div><div className="text-xl font-bold">{summary.done}</div></div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🟡 进行中</div><div className="text-xl font-bold">{summary.doing}</div></div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🔴 阻塞</div><div className="text-xl font-bold">{summary.blocked}</div></div>
-            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">⏱️ 更新时间</div><div className="text-sm font-medium">{summary.updatedAt}</div></div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🟢 已完成</div><div className="text-xl font-bold">{data.summary.done}</div></div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🟡 进行中</div><div className="text-xl font-bold">{data.summary.doing}</div></div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🔴 阻塞</div><div className="text-xl font-bold">{data.summary.blocked}</div></div>
+            <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">⏱️ 更新时间</div><div className="text-sm font-medium">{new Date(data.summary.updatedAt).toLocaleString("zh-CN")}</div></div>
           </div>
         </CardContent>
       </Card>
@@ -149,7 +128,7 @@ export default function MissionPage() {
             <CardTitle className="text-slate-100 flex items-center gap-2"><Layers3 className="w-5 h-5 text-blue-400" /> 当前任务列表</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            {tasks.map((task) => (
+            {data.tasks.map((task) => (
               <div key={task.id} className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2">
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                   <div>
@@ -173,7 +152,7 @@ export default function MissionPage() {
               <CardTitle className="text-slate-100 flex items-center gap-2"><Bot className="w-5 h-5 text-emerald-400" /> 子代理状态</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {agents.map((agent) => (
+              {data.agents.map((agent) => (
                 <div key={agent.name} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
                   <div className="text-sm font-medium text-slate-100">🤖 {agent.name}</div>
                   <div className="text-xs text-slate-400">{agent.role}</div>
@@ -194,7 +173,7 @@ export default function MissionPage() {
               <CardTitle className="text-slate-100 flex items-center gap-2"><Clock3 className="w-5 h-5 text-purple-400" /> 最近进展时间线</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-slate-300">
-              {timeline.map((item, idx) => (
+              {data.timeline.map((item, idx) => (
                 <div key={idx} className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">{item}</div>
               ))}
             </CardContent>
@@ -205,8 +184,9 @@ export default function MissionPage() {
               <CardTitle className="text-slate-100 flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-red-400" /> 当前阻塞</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-slate-300 space-y-2">
-              <div>🔴 中国债券 / 中国宏观当前仍在降级模式。</div>
-              <div>⚠️ 下一阶段必须先设计稳定运行时数据接入，不再直接把高风险调用塞进构建链。</div>
+              {data.blockers.map((item, idx) => (
+                <div key={idx}>🔴 {item}</div>
+              ))}
             </CardContent>
           </Card>
         </div>

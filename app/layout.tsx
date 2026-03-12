@@ -92,6 +92,7 @@ export default function RootLayout({
                 {[
                   { href: "/", label: "首页", icon: "🏠" },
                   { href: "/mission", label: "中枢", icon: "🧭" },
+                  { href: "/macro", label: "宏观", icon: "🌍" },
                   { href: "/assets", label: "资产", icon: "📊" },
                   { href: "/reports", label: "报告", icon: "📑" },
                   { href: "/portfolio", label: "组合", icon: "💼" },

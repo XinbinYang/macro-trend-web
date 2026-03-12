@@ -1,0 +1,100 @@
+{
+  "summary": {
+    "objective": "网页端作战驾驶舱：稳定版恢复 → Mission Control 动态化 → 宏观研究层重建",
+    "phase": "P1 · Mission Control Dynamic",
+    "done": 7,
+    "doing": 3,
+    "blocked": 1,
+    "updatedAt": "2026-03-13T07:05:00+08:00"
+  },
+  "tasks": [
+    {
+      "id": "WEB-001",
+      "title": "恢复网站可访问与可部署",
+      "owner": "main",
+      "module": "frontend",
+      "priority": "P0",
+      "status": "DONE",
+      "note": "首页恢复、构建恢复、线上可访问"
+    },
+    {
+      "id": "WEB-002",
+      "title": "关闭低价值 AI token 消耗",
+      "owner": "main",
+      "module": "frontend",
+      "priority": "P0",
+      "status": "DONE",
+      "note": "新闻 AI 点评/翻译、资产 AI 分析已关闭"
+    },
+    {
+      "id": "OPS-001",
+      "title": "Mission Control 页面动态化",
+      "owner": "main",
+      "module": "ops",
+      "priority": "P1",
+      "status": "DOING",
+      "note": "任务/子代理状态已切换到 API 驱动"
+    },
+    {
+      "id": "MACRO-001",
+      "title": "宏观研究页 /macro 搭建",
+      "owner": "main",
+      "module": "research",
+      "priority": "P1",
+      "status": "DOING",
+      "note": "先落地研究中枢骨架，再接真实数据"
+    },
+    {
+      "id": "DATA-001",
+      "title": "中国宏观数据稳态重建",
+      "owner": "kimi",
+      "module": "data",
+      "priority": "P1",
+      "status": "TODO",
+      "note": "先恢复月度稳态接入，不再破坏构建链"
+    },
+    {
+      "id": "BOND-001",
+      "title": "中国债券数据正式重建",
+      "owner": "minimax",
+      "module": "data",
+      "priority": "P1",
+      "status": "BLOCKED",
+      "note": "需先确定运行时数据服务方案"
+    }
+  ],
+  "agents": [
+    {
+      "name": "GPT-5.4 / main",
+      "role": "总控 / 战略 / 执行调度",
+      "status": "RUNNING",
+      "task": "Mission Control 动态版 + /macro 骨架",
+      "risk": "LOW"
+    },
+    {
+      "name": "MiniMax Highspeed",
+      "role": "前端快速开发 / 热修",
+      "status": "IDLE",
+      "task": "等待下一轮页面实现任务",
+      "risk": "LOW"
+    },
+    {
+      "name": "Kimi 2.5",
+      "role": "研究结构 / 数据接入审计",
+      "status": "IDLE",
+      "task": "等待中国宏观重建方案拆解",
+      "risk": "LOW"
+    }
+  ],
+  "timeline": [
+    "🟢 网站恢复可访问",
+    "🟢 低价值 AI token 消耗已关闭",
+    "🟢 Mission Control MVP 已上线",
+    "🟡 Mission Control 正在切换为动态数据源",
+    "🟡 /macro 宏观研究中枢开始搭建",
+    "🔴 中国债券/中国宏观仍在降级模式"
+  ],
+  "blockers": [
+    "中国债券与中国宏观正式接入仍需稳态运行时数据方案，当前先保持降级展示。"
+  ]
+}
