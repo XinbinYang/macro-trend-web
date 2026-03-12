@@ -307,9 +307,6 @@ export default function DashboardPage() {
   } | null>(null);
   const [cnMacroStatus, setCnMacroStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 
-  // AI 最新点评（展示层）
-  const [latestAI, setLatestAI] = useState<{ title: string; summary: string; impact?: string; suggestion?: string; createdAt?: string } | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -383,39 +380,6 @@ export default function DashboardPage() {
     };
   }, []);
 
-  const fetchLatestAI = async () => {
-    setAiLoading(true);
-    try {
-      const spx = marketData?.data.us?.find(q => q.symbol === "^GSPC");
-      const ndx = marketData?.data.us?.find(q => q.symbol === "^NDX");
-      const dji = marketData?.data.us?.find(q => q.symbol === "^DJI");
-
-      const y2 = marketData?.data.us?.find(q => q.symbol === "US2Y");
-      const y10 = marketData?.data.us?.find(q => q.symbol === "US10Y");
-      const y30 = marketData?.data.us?.find(q => q.symbol === "US30Y");
-
-      const slope = (y10 && y2) ? (y10.price - y2.price) : null;
-
-      const title = "AI 最新点评（Indicative）";
-      const summary = [
-        `股指：${spx ? `${spx.name} ${spx.changePercent.toFixed(2)}%` : "SPX -"} / ${ndx ? `${ndx.name} ${ndx.changePercent.toFixed(2)}%` : "NDX -"} / ${dji ? `${dji.name} ${dji.changePercent.toFixed(2)}%` : "DJI -"}`,
-        `利率：2Y ${y2 ? y2.price.toFixed(2) : "-"}% · 10Y ${y10 ? y10.price.toFixed(2) : "-"}% · 30Y ${y30 ? y30.price.toFixed(2) : "-"}%` + (slope !== null ? ` · 10Y-2Y ${slope.toFixed(2)}%` : ""),
-        `结论：优先盯"曲线斜率 + 科技相对强弱"，它们决定风险偏好与久期方向。`,
-      ].join("\n");
-
-      setLatestAI({ title, summary, createdAt: new Date().toISOString() });
-    } finally {
-      setAiLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    // Load once after first market snapshot arrives
-    if (marketData?.success && !latestAI && !aiLoading) {
-      fetchLatestAI();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [marketData?.timestamp]);
 
   // Fetch strategy NAV from API (truth layer) - replaces random generation
   useEffect(() => {
@@ -725,36 +689,6 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* AI 最新点评 */}
-      <Card className="bg-slate-900/50 border-slate-800">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm flex items-center gap-2 text-slate-100">
-            <Sparkles className="w-4 h-4 text-amber-500" />
-            AI 最新点评
-            <span className="text-[10px] text-slate-500 font-normal">(展示层 Indicative)</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-3 pt-0 text-xs text-slate-300 space-y-2">
-          <div className="whitespace-pre-line leading-relaxed">
-            {aiLoading ? "生成中..." : (latestAI?.summary || "等待行情加载后生成...")}
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="text-[10px] text-slate-500">
-              {latestAI?.createdAt ? `更新时间: ${new Date(latestAI.createdAt).toLocaleString()}` : ""}
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={fetchLatestAI}
-              disabled={aiLoading}
-              className="h-7 text-xs border-slate-700 text-slate-300"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 mr-2 ${aiLoading ? "animate-spin" : ""}`} />
-              刷新点评
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
 
       {/* 数据分层声明 */}
       <Card className="bg-slate-900/50 border-slate-800">
