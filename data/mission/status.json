@@ -2,10 +2,10 @@
   "summary": {
     "objective": "网页端作战驾驶舱：稳定版恢复 → Mission Control 动态化 → 宏观研究层重建",
     "phase": "P1 · Mission Control Dynamic",
-    "done": 7,
-    "doing": 3,
+    "done": 2,
+    "doing": 2,
     "blocked": 1,
-    "updatedAt": "2026-03-13T07:05:00+08:00"
+    "updatedAt": "2026-03-12T23:13:32.930Z"
   },
   "tasks": [
     {
@@ -33,7 +33,7 @@
       "module": "ops",
       "priority": "P1",
       "status": "DOING",
-      "note": "任务/子代理状态已切换到 API 驱动"
+      "note": "Mission Control 已切换到 API + 状态写入器方案"
     },
     {
       "id": "MACRO-001",
@@ -87,6 +87,7 @@
     }
   ],
   "timeline": [
+    "🟡 OPS-001 Mission Control 页面动态化",
     "🟢 网站恢复可访问",
     "🟢 低价值 AI token 消耗已关闭",
     "🟢 Mission Control MVP 已上线",
