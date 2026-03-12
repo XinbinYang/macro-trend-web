@@ -91,9 +91,9 @@ export default function RootLayout({
               <div className="flex items-center justify-around h-14">
                 {[
                   { href: "/", label: "首页", icon: "🏠" },
+                  { href: "/mission", label: "中枢", icon: "🧭" },
                   { href: "/assets", label: "资产", icon: "📊" },
                   { href: "/reports", label: "报告", icon: "📑" },
-                  { href: "/academy", label: "学院", icon: "🎓" },
                   { href: "/portfolio", label: "组合", icon: "💼" },
                 ].map((item, index) => (
                   <a
