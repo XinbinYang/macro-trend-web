@@ -18,6 +18,12 @@ export interface MacroIndicatorsResponse {
   indicators: MacroIndicator[];
   debug?: {
     hasFredKey: boolean;
+    fredKeyLength?: number;
+    fredProbe?: {
+      ok: boolean;
+      status?: number;
+      error?: string;
+    };
   };
 }
 
@@ -27,7 +33,8 @@ function offIndicator(id: string, name: string, unit: string): MacroIndicator {
 
 export async function GET() {
   const updatedAt = new Date().toISOString();
-  const hasFredKey = Boolean(process.env.FRED_API_KEY);
+  const key = process.env.FRED_API_KEY || "";
+  const hasFredKey = Boolean(key);
 
   // If key missing, be explicit OFF (not mock pretending)
   // NOTE: On Vercel, env var updates may need a redeploy to reach the serverless runtime.
@@ -43,7 +50,7 @@ export async function GET() {
     const res: MacroIndicatorsResponse = {
       updatedAt,
       indicators,
-      debug: { hasFredKey },
+      debug: { hasFredKey, fredKeyLength: key.length },
     };
     return NextResponse.json(res, {
       status: 200,
@@ -60,6 +67,24 @@ export async function GET() {
     { id: "us_cpi", name: "US CPI (Index)", unit: "idx", series: FRED_SERIES.CPI },
     { id: "us_unrate", name: "US Unemployment", unit: "%", series: FRED_SERIES.UNEMPLOYMENT },
   ];
+
+  // Quick probe: verify the key works (helps debug "env is set but still OFF")
+  let fredProbe: MacroIndicatorsResponse["debug"]["fredProbe"] | undefined = undefined;
+  try {
+    const probeUrl = new URL("https://api.stlouisfed.org/fred/series/observations");
+    probeUrl.searchParams.set("series_id", FRED_SERIES.UNEMPLOYMENT);
+    probeUrl.searchParams.set("api_key", key);
+    probeUrl.searchParams.set("file_type", "json");
+    probeUrl.searchParams.set("limit", "1");
+    const probeRes = await fetch(probeUrl.toString(), {
+      headers: { "User-Agent": "macro-trend-web" },
+      // do not cache probes
+      cache: "no-store",
+    });
+    fredProbe = { ok: probeRes.ok, status: probeRes.status };
+  } catch (e) {
+    fredProbe = { ok: false, error: (e as Error).message };
+  }
 
   const values = await Promise.all(
     seriesMap.map(async (s) => {
@@ -80,7 +105,7 @@ export async function GET() {
   const res: MacroIndicatorsResponse = {
     updatedAt,
     indicators: values,
-    debug: { hasFredKey },
+    debug: { hasFredKey, fredKeyLength: key.length, fredProbe },
   };
 
   return NextResponse.json(res, {
