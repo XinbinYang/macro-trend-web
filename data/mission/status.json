@@ -5,7 +5,7 @@
     "done": 2,
     "doing": 3,
     "blocked": 0,
-    "updatedAt": "2026-03-12T23:48:34.247Z"
+    "updatedAt": "2026-03-12T23:51:28.041Z"
   },
   "tasks": [
     {
@@ -74,8 +74,8 @@
     {
       "name": "MiniMax Highspeed",
       "role": "前端快速开发 / 热修",
-      "status": "IDLE",
-      "task": "等待下一轮页面实现任务",
+      "status": "RUNNING",
+      "task": "准备接入更真实的子代理状态同步",
       "risk": "LOW"
     },
     {
@@ -87,6 +87,7 @@
     }
   ],
   "timeline": [
+    "🟡 AGENT MiniMax Highspeed -> RUNNING · 准备接入更真实的子代理状态同步",
     "🟡 OPS-001 Mission Control 页面动态化",
     "🟡 BOND-001 中国债券数据正式重建",
     "🟡 MACRO-001 宏观研究页 /macro 搭建",

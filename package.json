@@ -10,7 +10,8 @@
     "build": "node node_modules/next/dist/bin/next build",
     "start": "node node_modules/next/dist/bin/next start",
     "lint": "node node_modules/next/dist/bin/next lint",
-    "mission:update": "tsx scripts/update-mission-status.ts"
+    "mission:update": "tsx scripts/update-mission-status.ts",
+    "mission:agent": "tsx scripts/sync-agent-status.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
