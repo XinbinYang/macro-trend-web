@@ -835,25 +835,32 @@ export default function DashboardPage() {
 
           {/* 收益率曲线（同屏展示：2Y / 5Y / 10Y / 30Y） */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {(marketData?.bond?.china?.yieldCurve || [])
-              .filter(p => ["2Y", "5Y", "10Y", "30Y"].includes(p.maturity))
-              .map((p) => (
-                <Card key={p.maturity} className="bg-slate-900/50 border-slate-800">
-                  <CardContent className="p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="text-xs text-slate-400">{p.maturity} 国债</div>
-                      <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-400 border-blue-500/20">
-                        收盘
-                      </Badge>
-                    </div>
-                    <div className="text-lg font-bold text-slate-50">{p.yield.toFixed(2)}%</div>
-                    <div className={`text-xs font-medium ${p.change < 0 ? "text-green-400" : p.change > 0 ? "text-red-400" : "text-slate-500"}`}>
-                      {p.change > 0 ? "+" : ""}{p.change.toFixed(2)}
-                    </div>
-                    <div className="text-[9px] text-slate-600 mt-1 truncate">SAMPLE</div>
-                  </CardContent>
-                </Card>
-              ))}
+            {(() => {
+              const rawYieldCurve = marketData?.bond?.china?.yieldCurve;
+              const yieldCurve = Array.isArray(rawYieldCurve)
+                ? rawYieldCurve
+                : ((rawYieldCurve as unknown as { yields?: { maturity: string; yield: number; change: number }[] })?.yields || []);
+
+              return yieldCurve
+                .filter(p => ["2Y", "5Y", "10Y", "30Y"].includes(p.maturity))
+                .map((p) => (
+                  <Card key={p.maturity} className="bg-slate-900/50 border-slate-800">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between mb-1">
+                        <div className="text-xs text-slate-400">{p.maturity} 国债</div>
+                        <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-400 border-blue-500/20">
+                          收盘
+                        </Badge>
+                      </div>
+                      <div className="text-lg font-bold text-slate-50">{p.yield.toFixed(2)}%</div>
+                      <div className={`text-xs font-medium ${p.change < 0 ? "text-green-400" : p.change > 0 ? "text-red-400" : "text-slate-500"}`}>
+                        {p.change > 0 ? "+" : ""}{p.change.toFixed(2)}
+                      </div>
+                      <div className="text-[9px] text-slate-600 mt-1 truncate">SAMPLE</div>
+                    </CardContent>
+                  </Card>
+                ));
+            })()}
           </div>
         </div>
 
