@@ -256,7 +256,7 @@ export async function GET() {
         bond: {
           china: {
             futures: bondFutureQuotes,
-            yieldCurve: chinaYieldCurve,
+            yieldCurve: Array.isArray(chinaYieldCurve) ? chinaYieldCurve : ((chinaYieldCurve as { yields?: { maturity: string; yield: number; change: number }[] })?.yields || []),
             source: "AkShare(sample)",
             status: "SAMPLE",
           },
