@@ -38,6 +38,9 @@ interface MissionPayload {
   agents: AgentStatus[];
   timeline: string[];
   blockers: string[];
+  devFeed?: {
+    commits?: Array<{ sha: string; message: string }>;
+  };
 }
 
 function statusBadge(status: string) {
@@ -192,6 +195,24 @@ export default function MissionPage() {
               {data.blockers.map((item, idx) => (
                 <div key={idx}>🔴 {item}</div>
               ))}
+            </CardContent>
+          </Card>
+
+          <Card className="bg-slate-900/50 border-slate-800">
+            <CardHeader>
+              <CardTitle className="text-slate-100 flex items-center gap-2"><Clock3 className="w-5 h-5 text-cyan-400" /> 开发动态</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2 text-sm text-slate-300">
+              {(data.devFeed?.commits || []).length > 0 ? (
+                (data.devFeed?.commits || []).map((commit) => (
+                  <div key={commit.sha} className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">
+                    <div className="text-[11px] text-slate-500">{commit.sha}</div>
+                    <div className="text-xs text-slate-300">{commit.message}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-xs text-slate-500">暂无开发动态</div>
+              )}
             </CardContent>
           </Card>
         </div>

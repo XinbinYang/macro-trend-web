@@ -5,7 +5,7 @@
     "done": 2,
     "doing": 3,
     "blocked": 0,
-    "updatedAt": "2026-03-12T23:45:45.284Z"
+    "updatedAt": "2026-03-12T23:48:34.247Z"
   },
   "tasks": [
     {
@@ -33,7 +33,7 @@
       "module": "ops",
       "priority": "P1",
       "status": "DOING",
-      "note": "Mission Control 已切换到 API + 状态写入器方案"
+      "note": "Mission Control 已接入开发动态 feed"
     },
     {
       "id": "MACRO-001",
@@ -87,6 +87,7 @@
     }
   ],
   "timeline": [
+    "🟡 OPS-001 Mission Control 页面动态化",
     "🟡 BOND-001 中国债券数据正式重建",
     "🟡 MACRO-001 宏观研究页 /macro 搭建",
     "🟡 OPS-001 Mission Control 页面动态化",
