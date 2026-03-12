@@ -285,12 +285,25 @@ export default function DashboardPage() {
   // Expandable state for macro cards
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
-  // Macro indicators (FRED) - evidence source for macro cards
+  // Macro indicators (US/FRED) - evidence source for macro cards
   const [macroIndicators, setMacroIndicators] = useState<{
     updatedAt: string;
     byId: Record<string, { id: string; name: string; unit: string; value: number | null; status: "LIVE" | "OFF"; asOf: string | null; source: string }>;
   } | null>(null);
   const [macroIndicatorsStatus, setMacroIndicatorsStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
+
+  // China macro snapshot (monthly) - AkShare artifact via /api/macro-cn
+  const [cnMacro, setCnMacro] = useState<{
+    region: "CN";
+    status: "LIVE" | "OFF";
+    updatedAt: string;
+    asOf: string | null;
+    series: {
+      cpi_yoy: { value: number | null; asOf: string | null; source: string };
+      unemployment_urban: { value: number | null; asOf: string | null; source: string };
+    };
+  } | null>(null);
+  const [cnMacroStatus, setCnMacroStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 
   // AI 最新点评（展示层）
   const [latestAI, setLatestAI] = useState<{ title: string; summary: string; impact?: string; suggestion?: string; createdAt?: string } | null>(null);
@@ -315,7 +328,7 @@ export default function DashboardPage() {
     // Auto-refresh dashboard snapshot (fast line)
     const interval = setInterval(fetchData, 60_000);
 
-    // Fetch macro indicators from same-origin absolute URL (serverless)
+    // Fetch US macro indicators from same-origin absolute URL (serverless)
     const fetchMacro = async () => {
       try {
         setMacroIndicatorsStatus("LOADING");
@@ -329,18 +342,42 @@ export default function DashboardPage() {
         setMacroIndicators({ updatedAt: res.updatedAt, byId });
         setMacroIndicatorsStatus("LIVE");
       } catch (e) {
-        console.error("[MacroIndicators] fetch failed", e);
+        console.error("[MacroIndicators][US] fetch failed", e);
         setMacroIndicatorsStatus("ERROR");
       }
     };
 
+    // Fetch CN macro snapshot (monthly)
+    const fetchCnMacro = async () => {
+      try {
+        setCnMacroStatus("LOADING");
+        const res = await fetch("/api/macro-cn", { cache: "no-store" });
+        const json = await res.json().catch(() => ({}));
+        if (!json?.success || !json?.data) {
+          setCnMacro(null);
+          setCnMacroStatus("OFF");
+          return;
+        }
+        setCnMacro(json.data);
+        setCnMacroStatus(json.data.status === "LIVE" ? "LIVE" : "OFF");
+      } catch (e) {
+        console.error("[MacroIndicators][CN] fetch failed", e);
+        setCnMacro(null);
+        setCnMacroStatus("ERROR");
+      }
+    };
+
     fetchMacro();
-    // Macro indicators (US) are monthly-ish. Keep refresh daily to reduce noise/cost.
+    fetchCnMacro();
+
+    // Macro indicators are monthly-ish. Keep refresh daily to reduce noise/cost.
     const macroInterval = setInterval(fetchMacro, 24 * 60 * 60_000);
+    const cnMacroInterval = setInterval(fetchCnMacro, 24 * 60 * 60_000);
 
     return () => {
       clearInterval(interval);
       clearInterval(macroInterval);
+      clearInterval(cnMacroInterval);
     };
   }, []);
 
@@ -519,28 +556,60 @@ export default function DashboardPage() {
               const currentBase = regionView === "US" ? dim.us : dim.china;
               const byId = macroIndicators?.byId;
 
-              // Map indicators (US only for now). CN must be explicit OFF until an auditable CN feed is wired.
-              const dimToIndicatorId: Record<string, string> = {
+              // Map indicators
+              // US -> FRED
+              const dimToIndicatorIdUS: Record<string, string> = {
                 growth: "us_unrate",
                 inflation: "us_cpi",
                 policy: "us_fedfunds",
                 liquidity: "us_10y",
               };
 
-              const ind = regionView === "US" && byId ? byId[dimToIndicatorId[dim.id]] : null;
+              // CN -> AkShare monthly snapshot
+              const cnValueMap: Record<string, { label: string; value: number | null; unit: string; asOf: string | null; source: string } | null> = {
+                growth: cnMacro
+                  ? {
+                      label: "中国城镇调查失业率",
+                      value: cnMacro.series.unemployment_urban.value,
+                      unit: "%",
+                      asOf: cnMacro.series.unemployment_urban.asOf,
+                      source: cnMacro.series.unemployment_urban.source,
+                    }
+                  : null,
+                inflation: cnMacro
+                  ? {
+                      label: "中国CPI同比",
+                      value: cnMacro.series.cpi_yoy.value,
+                      unit: "%",
+                      asOf: cnMacro.series.cpi_yoy.asOf,
+                      source: cnMacro.series.cpi_yoy.source,
+                    }
+                  : null,
+                policy: null,
+                liquidity: null,
+              };
+
+              const indUS = regionView === "US" && byId ? byId[dimToIndicatorIdUS[dim.id]] : null;
+              const indCN = regionView === "CN" ? cnValueMap[dim.id] : null;
 
               const current =
                 regionView === "CN"
-                  ? {
-                      status: "OFF",
-                      trend: "neutral" as const,
-                      desc: "CN source: OFF (pending auditable feed)",
-                    }
-                  : ind && ind.status === "LIVE"
+                  ? indCN
                     ? {
-                        status: formatValue(ind.value, ind.unit),
+                        status: formatValue(indCN.value, indCN.unit),
                         trend: "neutral" as const,
-                        desc: `${ind.name}: ${formatValue(ind.value, ind.unit)} · asOf ${ind.asOf || "-"} · ${ind.source}`,
+                        desc: `${indCN.label}: ${formatValue(indCN.value, indCN.unit)} · asOf ${indCN.asOf || "-"} · ${indCN.source}`,
+                      }
+                    : {
+                        status: cnMacroStatus === "OFF" ? "OFF" : "—",
+                        trend: "neutral" as const,
+                        desc: cnMacroStatus === "OFF" ? "CN source: OFF (monthly snapshot missing)" : "CN source: LOADING",
+                      }
+                  : indUS && indUS.status === "LIVE"
+                    ? {
+                        status: formatValue(indUS.value, indUS.unit),
+                        trend: "neutral" as const,
+                        desc: `${indUS.name}: ${formatValue(indUS.value, indUS.unit)} · asOf ${indUS.asOf || "-"} · ${indUS.source}`,
                       }
                     : currentBase;
               const isExpanded = expandedCards[dim.id];
