@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getMultipleQuotes } from "@/lib/api/market-data";
 import { getChinaBondFutures, getChinaBondYieldCurve } from "@/lib/api/akshare-bonds";
 import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
+import { fetchAIndex } from "@/lib/api/eastmoney-api";
 
 // 资产分类配置
 interface AssetConfig {
@@ -37,18 +38,20 @@ const ASSET_CONFIG: AssetConfig[] = [
 ];
 
 // AkShare收盘数据 - A股/港股指数
-// NOTE: 这里目前是“示例/占位数据”。用于页面展示与联调。
-// 等接入真实 AkShare 拉取后再替换；在此之前必须明确标注为 sample。
-const AKSHARE_EOD_DATA = [
-  // 中国主要宽基指数（sample 占位；后续接入真实 AkShare/官方口径数据）
-  { symbol: "000300.SH", name: "沪深300", price: 4602.63, change: 12.5, changePercent: 0.27, region: "CN", source: "AkShare(sample)" },
-  { symbol: "000905.SH", name: "中证500", price: 5847.21, change: -23.4, changePercent: -0.40, region: "CN", source: "AkShare(sample)" },
-  { symbol: "000016.SH", name: "上证50", price: 3123.45, change: 8.7, changePercent: 0.28, region: "CN", source: "AkShare(sample)" },
-  { symbol: "399006.SZ", name: "创业板指", price: 2145.67, change: -5.4, changePercent: -0.25, region: "CN", source: "AkShare(sample)" },
-  { symbol: "000688.SH", name: "科创50", price: 987.65, change: 3.2, changePercent: 0.33, region: "CN", source: "AkShare(sample)" },
+// NOTE: 历史上这里放过写死 sample，占位联调用。为避免误导：
+// - 不再返回写死数值
+// - 未接入时显示 OFF/—
+// 等接入真实 AkShare/官方口径数据后再改回 LIVE。
+const AKSHARE_EOD_DATA: Array<{ symbol: string; name: string; region: "CN" | "HK"; source: string }> = [
+  // 中国主要宽基指数（OFF：等待可审计数据源）
+  { symbol: "000300.SH", name: "沪深300", region: "CN", source: "OFF" },
+  { symbol: "000905.SH", name: "中证500", region: "CN", source: "OFF" },
+  { symbol: "000016.SH", name: "上证50", region: "CN", source: "OFF" },
+  { symbol: "399006.SZ", name: "创业板指", region: "CN", source: "OFF" },
+  { symbol: "000688.SH", name: "科创50", region: "CN", source: "OFF" },
 
-  // 香港
-  { symbol: "HSI", name: "恒生指数", price: 25249.48, change: 156.3, changePercent: 0.62, region: "HK", source: "AkShare(sample)" },
+  // 香港（OFF：等待可审计数据源）
+  { symbol: "HSI", name: "恒生指数", region: "HK", source: "OFF" },
 ];
 
 export interface MarketQuote {
@@ -85,21 +88,62 @@ export async function GET() {
       };
     });
 
-    // 添加AkShare收盘数据 - A股/港股指数
-    const akshareQuotes: MarketQuote[] = AKSHARE_EOD_DATA.map(d => ({
-      symbol: d.symbol,
-      name: d.name,
-      price: d.price,
-      change: d.change,
-      changePercent: d.changePercent,
-      volume: 0,
-      timestamp: new Date().toISOString(),
-      source: d.source,
-      region: d.region as "CN" | "HK",
-      category: "EQUITY",
-      dataType: "EOD",
-      dataSource: "AkShare(sample)",
-    }));
+    // CN/HK 宽基指数：优先接 Eastmoney（免 key，Indicative）；失败则 OFF
+    const akshareQuotes: MarketQuote[] = await Promise.all(
+      AKSHARE_EOD_DATA.map(async (d) => {
+        // Eastmoney 仅支持数字 code；HSI 暂无对应，先 OFF
+        const code = /^\d{6}\.(SH|SZ)$/i.test(d.symbol) ? d.symbol.split(".")[0] : null;
+        if (!code) {
+          return {
+            symbol: d.symbol,
+            name: d.name,
+            price: 0,
+            change: 0,
+            changePercent: 0,
+            volume: 0,
+            timestamp: new Date().toISOString(),
+            source: "OFF",
+            region: d.region,
+            category: "EQUITY",
+            dataType: "EOD",
+            dataSource: "OFF",
+          };
+        }
+
+        const q = await fetchAIndex(code);
+        if (!q) {
+          return {
+            symbol: d.symbol,
+            name: d.name,
+            price: 0,
+            change: 0,
+            changePercent: 0,
+            volume: 0,
+            timestamp: new Date().toISOString(),
+            source: "OFF",
+            region: d.region,
+            category: "EQUITY",
+            dataType: "EOD",
+            dataSource: "OFF",
+          };
+        }
+
+        return {
+          symbol: d.symbol,
+          name: q.name || d.name,
+          price: q.price,
+          change: q.change,
+          changePercent: q.changePercent,
+          volume: 0,
+          timestamp: new Date().toISOString(),
+          source: "Eastmoney",
+          region: d.region,
+          category: "EQUITY",
+          dataType: "EOD",
+          dataSource: "LIVE", // 展示层可用，但不是回测真值
+        };
+      })
+    );
 
     // 获取中国国债期货/收益率曲线数据（当前为 sample，占位联调）
     // + US Treasury Curve（展示层，FRED；无 key 则自动 mock）
@@ -120,7 +164,7 @@ export async function GET() {
       region: "CN",
       category: "BOND",
       dataType: "EOD",
-      dataSource: "AkShare(sample)",
+      dataSource: bf.source?.includes("mock") ? "MOCK" : "SAMPLE",
     }));
 
     // US Treasury curve -> convert to MarketQuote (BOND / US / EOD)
@@ -136,7 +180,7 @@ export async function GET() {
       region: "US",
       category: "BOND",
       dataType: "EOD",
-      dataSource: p.source,
+      dataSource: p.source?.includes("mock") ? "MOCK" : "LIVE",
     }));
 
     const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes, ...usTreasuryCurveQuotes];
@@ -175,6 +219,7 @@ export async function GET() {
           futures: bondFutureQuotes,
           yieldCurve: chinaYieldCurve,
           source: "AkShare(sample)",
+          status: "SAMPLE",
         },
       },
       disclaimer: {

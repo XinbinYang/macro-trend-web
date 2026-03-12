@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { RefreshCw, ArrowUpRight, ArrowDownRight, Sparkles, CandlestickChart, Gauge, Clock, TrendingUp, BookOpen, ChevronDown, ChevronUp, Zap, ZapOff } from "lucide-react";
+import { StatusBadge } from "@/components/status-badge";
 import {
   XAxis,
   YAxis,
@@ -201,16 +202,23 @@ function AssetCard({ quote }: { quote: MarketQuote }) {
           <DataTypeBadge type={quote.dataType} />
         </div>
         <div className="text-lg font-bold text-slate-50">
-          {quote.price.toFixed(quote.price < 10 ? 3 : 2)}
+          {quote.price && quote.price > 0 ? quote.price.toFixed(quote.price < 10 ? 3 : 2) : "—"}
         </div>
         <div className={`flex items-center mt-1 text-xs font-medium ${
           isPositive ? "text-green-400" : "text-red-400"
         }`}>
           {isPositive ? <ArrowUpRight className="w-3.5 h-3.5 mr-0.5" /> : <ArrowDownRight className="w-3.5 h-3.5 mr-0.5" />}
-          {isPositive ? "+" : ""}{quote.changePercent.toFixed(2)}%
+          {quote.price && quote.price > 0 ? `${isPositive ? "+" : ""}${quote.changePercent.toFixed(2)}%` : "—"}
         </div>
         <div className="text-[9px] text-slate-600 mt-1 truncate">
           {quote.dataSource}
+        </div>
+        <div className="mt-1">
+          <StatusBadge
+            status={quote.dataSource === "OFF" ? "OFF" : quote.dataSource === "SAMPLE" ? "SAMPLE" : quote.dataSource === "MOCK" ? "MOCK" : "LIVE"}
+            note={quote.dataType === "REALTIME" ? "RT" : quote.dataType === "EOD" ? "EOD" : "DLY"}
+            title={quote.source}
+          />
         </div>
       </CardContent>
     </Card>
@@ -653,12 +661,23 @@ export default function DashboardPage() {
 
       {/* 数据分层声明 */}
       <Card className="bg-slate-900/50 border-slate-800">
-        <CardContent className="p-3 md:p-4 text-xs text-slate-400 space-y-1">
-          <div>
-            <span className="text-amber-400 font-medium">展示层(Indicative)</span>：实时行情/资讯用于&quot;看盘与监控&quot;，可能来自 Yahoo/Polygon 等第三方源，不作为回测真值。
+        <CardContent className="p-3 md:p-4 text-xs text-slate-400 space-y-2">
+          <div className="flex items-start gap-2">
+            <StatusBadge status="LIVE" note="Indicative" title="可用但不可用于回测/信号的展示层数据" />
+            <div>
+              <span className="text-slate-200 font-medium">展示层(Indicative)</span>：实时行情/资讯用于“看盘与监控”，可能来自 Yahoo/Polygon/FRED/Eastmoney 等第三方源；
+              <span className="text-amber-300 font-medium">不得用于回测真值与策略净值</span>。
+            </div>
           </div>
-          <div>
-            <span className="text-green-400 font-medium">真值层(Backtest/Signal)</span>：策略回测/净值/信号仅使用 Master + 官方结算镜像（Spot/Settle 双轨），可审计可复现。
+          <div className="flex items-start gap-2">
+            <StatusBadge status="LIVE" note="Truth" title="可审计可复现的真值层" />
+            <div>
+              <span className="text-slate-200 font-medium">真值层(Backtest/Signal)</span>：策略回测/净值/信号仅使用 Master + 官方结算镜像（Spot/Settle 双轨），可审计可复现。
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <StatusBadge status="SAMPLE" title="写死占位/联调数据" />
+            <div>任何写死占位数据必须标注 SAMPLE；缺数据则显示 “—”，禁止用旧数值冒充。</div>
           </div>
         </CardContent>
       </Card>
