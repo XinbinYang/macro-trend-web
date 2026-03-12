@@ -335,7 +335,8 @@ export default function DashboardPage() {
     };
 
     fetchMacro();
-    const macroInterval = setInterval(fetchMacro, 5 * 60_000);
+    // Macro indicators (US) are monthly-ish. Keep refresh daily to reduce noise/cost.
+    const macroInterval = setInterval(fetchMacro, 24 * 60 * 60_000);
 
     return () => {
       clearInterval(interval);
