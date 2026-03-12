@@ -2,10 +2,10 @@
   "summary": {
     "objective": "网页端作战驾驶舱：稳定版恢复 → Mission Control 动态化 → 宏观研究层重建",
     "phase": "P1 · Mission Control Dynamic",
-    "done": 2,
-    "doing": 3,
+    "done": 3,
+    "doing": 2,
     "blocked": 0,
-    "updatedAt": "2026-03-12T23:51:28.041Z"
+    "updatedAt": "2026-03-12T23:57:36.510Z"
   },
   "tasks": [
     {
@@ -59,8 +59,8 @@
       "owner": "minimax",
       "module": "data",
       "priority": "P1",
-      "status": "DOING",
-      "note": "中国债券稳态数据已接入 market-data-realtime 链路"
+      "status": "DONE",
+      "note": "中国债券稳态适配器已正式接入首页展示链路"
     }
   ],
   "agents": [
@@ -87,6 +87,7 @@
     }
   ],
   "timeline": [
+    "🟢 BOND-001 中国债券数据正式重建",
     "🟡 AGENT MiniMax Highspeed -> RUNNING · 准备接入更真实的子代理状态同步",
     "🟡 OPS-001 Mission Control 页面动态化",
     "🟡 BOND-001 中国债券数据正式重建",

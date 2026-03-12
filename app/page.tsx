@@ -52,6 +52,7 @@ interface MarketData {
       futures?: MarketQuote[];
       yieldCurve?: { maturity: string; yield: number; change: number }[];
       source?: string;
+      status?: string;
     };
   };
   disclaimer?: {
@@ -810,7 +811,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30">🇨🇳 中国债券</Badge>
             <span className="text-xs text-slate-500">
-              国债期货主力 + 收益率曲线 · SAMPLE（占位联调，非实时/非回测真值）
+              国债期货主力 + 收益率曲线 · 稳态适配器（Eastmoney/AkShare/Seed 自动降级）
             </span>
           </div>
 
@@ -849,14 +850,14 @@ export default function DashboardPage() {
                       <div className="flex items-center justify-between mb-1">
                         <div className="text-xs text-slate-400">{p.maturity} 国债</div>
                         <Badge variant="outline" className="text-[9px] bg-blue-500/10 text-blue-400 border-blue-500/20">
-                          收盘
+                          {marketData?.bond?.china?.status === "LIVE" ? "实时/延迟" : marketData?.bond?.china?.status === "STALE" ? "陈旧" : "收盘"}
                         </Badge>
                       </div>
                       <div className="text-lg font-bold text-slate-50">{p.yield.toFixed(2)}%</div>
                       <div className={`text-xs font-medium ${p.change < 0 ? "text-green-400" : p.change > 0 ? "text-red-400" : "text-slate-500"}`}>
                         {p.change > 0 ? "+" : ""}{p.change.toFixed(2)}
                       </div>
-                      <div className="text-[9px] text-slate-600 mt-1 truncate">SAMPLE</div>
+                      <div className="text-[9px] text-slate-600 mt-1 truncate">{marketData?.bond?.china?.status || "SAMPLE"}</div>
                     </CardContent>
                   </Card>
                 ));
