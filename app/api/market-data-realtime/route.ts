@@ -241,30 +241,39 @@ export async function GET() {
       return acc;
     }, {} as Record<string, number>);
 
-    return NextResponse.json({
-      success: true,
-      sources,
-      dataTypes,
-      timestamp: new Date().toISOString(),
-      data: {
-        us: usAssets,
-        china: cnAssets,
-        hongkong: hkAssets,
-        global: globalAssets,
-      },
-      bond: {
-        china: {
-          futures: bondFutureQuotes,
-          yieldCurve: chinaYieldCurve,
-          source: "AkShare(sample)",
-          status: "SAMPLE",
+    return NextResponse.json(
+      {
+        success: true,
+        sources,
+        dataTypes,
+        timestamp: new Date().toISOString(),
+        data: {
+          us: usAssets,
+          china: cnAssets,
+          hongkong: hkAssets,
+          global: globalAssets,
+        },
+        bond: {
+          china: {
+            futures: bondFutureQuotes,
+            yieldCurve: chinaYieldCurve,
+            source: "AkShare(sample)",
+            status: "SAMPLE",
+          },
+        },
+        disclaimer: {
+          indicative: "Real-time/展示层数据仅供参考(Indicative)，不用于回测真值与策略净值。",
+          truth: "策略回测/净值/信号必须来自 Master + 官方结算镜像(Spot/Settle 双轨)。",
         },
       },
-      disclaimer: {
-        indicative: "Real-time/展示层数据仅供参考(Indicative)，不用于回测真值与策略净值。",
-        truth: "策略回测/净值/信号必须来自 Master + 官方结算镜像(Spot/Settle 双轨)。",
-      },
-    });
+      {
+        status: 200,
+        headers: {
+          // Prevent browser/proxy caching for realtime dashboard
+          "Cache-Control": "no-store",
+        },
+      }
+    );
   } catch (error) {
     console.error("[API] Market data error:", error);
     return NextResponse.json({

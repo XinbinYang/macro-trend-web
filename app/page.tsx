@@ -312,6 +312,9 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchData();
 
+    // Auto-refresh dashboard snapshot (fast line)
+    const interval = setInterval(fetchData, 60_000);
+
     // Fetch macro indicators from same-origin absolute URL (serverless)
     const fetchMacro = async () => {
       try {
@@ -332,6 +335,12 @@ export default function DashboardPage() {
     };
 
     fetchMacro();
+    const macroInterval = setInterval(fetchMacro, 5 * 60_000);
+
+    return () => {
+      clearInterval(interval);
+      clearInterval(macroInterval);
+    };
   }, []);
 
   const fetchLatestAI = async () => {
