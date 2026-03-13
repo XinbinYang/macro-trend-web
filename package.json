@@ -15,7 +15,8 @@
     "mission:write": "tsx scripts/mission-write.ts",
     "mission:event": "tsx scripts/mission-event.ts",
     "mission:log": "tsx scripts/mission-log.ts",
-    "agent:heartbeat": "tsx scripts/agent-heartbeat.ts"
+    "agent:heartbeat": "tsx scripts/agent-heartbeat.ts",
+    "agent:heartbeat:loop": "tsx scripts/agent-heartbeat-loop.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
