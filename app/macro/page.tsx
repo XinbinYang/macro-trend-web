@@ -522,8 +522,9 @@ export default function MacroPage() {
               <div className="text-lg font-mono text-slate-200">{usById?.us_ism_pmi?.value?.toFixed(1) || "—"}</div>
             </div>
             <div className="text-center p-2 bg-slate-950/50 rounded">
-              <div className="text-xs text-slate-500">美国 CPI</div>
-              <div className="text-lg font-mono text-slate-200">{usById?.us_cpi?.value?.toFixed(1) || "—"}</div>
+              <div className="text-xs text-slate-500">美国 CPI YoY</div>
+              <div className="text-lg font-mono text-slate-200">{usById?.us_cpi_yoy?.value?.toFixed(1) || "—"}%</div>
+              <div className="text-[10px] text-slate-600 mt-1">Index: {usById?.us_cpi?.value?.toFixed(1) || "—"}</div>
             </div>
             <div className="text-center p-2 bg-slate-950/50 rounded">
               <div className="text-xs text-slate-500">中国 PMI</div>
@@ -619,7 +620,7 @@ export default function MacroPage() {
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[
               { title: "增长 Growth", us: usById?.us_ism_pmi ? formatValue(usById.us_ism_pmi.value, "idx") : "—", cn: cn?.series?.pmi_mfg ? formatValue(cn.series.pmi_mfg.value, "idx") : "—", icon: TrendingUp, usLabel: "ISM", cnLabel: "PMI" },
-              { title: "通胀 Inflation", us: usById?.us_cpi ? formatValue(usById.us_cpi.value, "idx") : "—", cn: cn?.series?.cpi_yoy ? formatValue(cn.series.cpi_yoy.value, "%") : "—", icon: Activity, usLabel: "CPI", cnLabel: "CPI" },
+              { title: "通胀 Inflation", us: usById?.us_cpi_yoy ? formatValue(usById.us_cpi_yoy.value, "%") : "—", cn: cn?.series?.cpi_yoy ? formatValue(cn.series.cpi_yoy.value, "%") : "—", icon: Activity, usLabel: "CPI YoY", cnLabel: "CPI" },
               { title: "政策 Policy", us: usById?.us_fedfunds ? formatValue(usById.us_fedfunds.value, "%") : "—", cn: cn?.series?.lpr_1y ? formatValue(cn.series.lpr_1y.value, "%") : "—", icon: Target, usLabel: "Fed", cnLabel: "LPR" },
               { title: "流动性 Liquidity", us: usById?.us_10y ? formatValue(usById.us_10y.value, "%") : "—", cn: cn?.series?.m2_yoy ? formatValue(cn.series.m2_yoy.value, "%") : "—", icon: Globe, usLabel: "10Y", cnLabel: "M2" },
             ].map((item) => (
@@ -760,9 +761,9 @@ export default function MacroPage() {
                         dimension: "通胀 Inflation", 
                         us: usCnComparison?.inflation?.us || { status: "disinflation", trend: "declining", level: "moderate" },
                         cn: usCnComparison?.inflation?.cn || { status: "low_inflation", trend: "stable_low", level: "below_target" },
-                        usValue: usById?.us_cpi?.value,
+                        usValue: usById?.us_cpi_yoy?.value,
                         cnValue: cn?.series?.cpi_yoy?.value,
-                        usLabel: "CPI",
+                        usLabel: "CPI YoY",
                         cnLabel: "CPI",
                         analysis: "美高中低"
                       },
