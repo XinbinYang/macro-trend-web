@@ -1,95 +1,69 @@
 {
-  "updatedAt": "2026-03-13T13:00:00+08:00",
+  "updatedAt": "2026-03-13T13:05:00+08:00",
   "items": [
     {
-      "name": "US ISM Manufacturing PMI",
+      "name": "US 10Y Yield",
       "region": "US",
-      "category": "增长 Growth",
-      "why": "制造业 PMI 是经济增长的领先指标，<50 意味着收缩。",
-      "current": "等待数据",
-      "watch": "若 <48 确认衰退风险，应对策略：减配权益，增配防御",
+      "category": "Rates",
+      "current": "4.15%",
+      "why": "决定久期资产与全球风险偏好定价锚。",
+      "watch": "若长端重新失锚，需要警惕权益估值与黄金交易逻辑再定价。",
       "threshold": {
-        "bullish": "> 52",
-        "neutral": "48-52",
-        "bearish": "< 48"
-      }
-    },
-    {
-      "name": "US CPI YoY",
-      "region": "US",
-      "category": "通胀 Inflation",
-      "why": "CPI 是美联储政策决策的核心锚点，直接影响降息预期。",
-      "current": "等待数据",
-      "watch": "若 >4% 或 Core >3.5% 持续，通胀交易逻辑回归",
-      "threshold": {
-        "bullish": "< 2.5%",
-        "neutral": "2.5-3.5%",
-        "bearish": "> 4%"
-      }
-    },
-    {
-      "name": "US 10Y Treasury Yield",
-      "region": "US",
-      "category": "流动性 Liquidity",
-      "why": "长端收益率是全球风险资产定价的锚，影响股/债/金/外汇。",
-      "current": "等待数据",
-      "watch": "若 >4.5% 重新失锚，权益估值承压，尤其成长股",
-      "threshold": {
-        "bullish": "< 3.5%",
-        "neutral": "3.5-4.2%",
+        "bullish": "< 4.0%",
+        "neutral": "4.0% - 4.5%",
         "bearish": "> 4.5%"
       }
     },
     {
-      "name": "Fed Funds Rate Path",
+      "name": "Fed Funds Path",
       "region": "US",
-      "category": "政策 Policy",
-      "why": "美联储政策利率决定全球流动性条件与美元走势。",
-      "current": "等待数据",
-      "watch": "若降息预期大幅回撤（<2次），风险资产波动率抬升",
+      "category": "Policy",
+      "current": "3.64%",
+      "why": "决定流动性方向与美元条件收紧/放松。",
+      "watch": "若降息预期大幅回撤，风险资产波动可能抬升。",
       "threshold": {
-        "bullish": "> 3次降息",
-        "neutral": "2次降息",
-        "bearish": "0-1次降息"
+        "bullish": "明确降息通道",
+        "neutral": "高位停留",
+        "bearish": "重新定价更高利率"
       }
     },
     {
-      "name": "CN Social Financing YoY",
+      "name": "CN Credit / Social Financing",
       "region": "CN",
-      "category": "增长 Growth",
-      "why": "社融是信用扩张的代理变量，对内需和商品需求有领先意义。",
-      "current": "等待数据",
-      "watch": "若 <9% 确认信用扩张不足，中国资产反弹质量需打折",
+      "category": "Credit",
+      "current": "0.2097 万亿",
+      "why": "中国信用脉冲对内需、商品链与风险偏好有领先意义。",
+      "watch": "若社融修复不持续，则中国资产反弹质量需打折。",
       "threshold": {
-        "bullish": "> 11%",
-        "neutral": "9-11%",
+        "bullish": "> 10% 同比扩张",
+        "neutral": "9% - 10%",
         "bearish": "< 9%"
       }
     },
     {
-      "name": "CN LPR 1Y",
+      "name": "CN LPR / Policy Bias",
       "region": "CN",
-      "category": "政策 Policy",
-      "why": "贷款市场报价利率是中国政策边际宽松力度的核心指标。",
-      "current": "等待数据",
-      "watch": "若 LPR 下调但信用不扩张，传导到需求需更长时间",
+      "category": "Policy",
+      "current": "3.0%",
+      "why": "决定中国政策边际宽松力度与稳增长节奏。",
+      "watch": "若政策宽松不扩散到信用和需求，市场传导会偏弱。",
       "threshold": {
-        "bullish": "下调 > 10bp",
-        "neutral": "不变",
-        "bearish": "上调"
+        "bullish": "继续宽松",
+        "neutral": "维持现状",
+        "bearish": "边际转紧"
       }
     },
     {
-      "name": "Gold / USD",
+      "name": "Gold vs Real Yield",
       "region": "Global",
-      "category": "避险 Risk",
+      "category": "Cross-Asset",
+      "current": "Gold 强 / Real Yield 高位",
       "why": "黄金是尾部风险、通胀预期与实际利率博弈的核心映射。",
-      "current": "等待数据",
-      "watch": "若实际利率抬升而黄金不跌，避险逻辑强化",
+      "watch": "若实际利率抬升而黄金不跌，往往意味着避险逻辑强化。",
       "threshold": {
-        "bullish": "> 2200",
-        "neutral": "2000-2200",
-        "bearish": "< 2000"
+        "bullish": "金价强于实际利率压制",
+        "neutral": "同步波动",
+        "bearish": "真实利率压制黄金"
       }
     }
   ]

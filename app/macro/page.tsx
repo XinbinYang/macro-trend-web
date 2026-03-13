@@ -18,6 +18,12 @@ import {
 import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
 
+interface CounterSignal {
+  condition: string;
+  implication: string;
+  action: string;
+}
+
 interface RegimeData {
   region: string;
   status: string;
@@ -26,7 +32,8 @@ interface RegimeData {
     name: string;
     confidence: number;
     driver: string;
-    counterSignals: string[];
+    counterSignals: CounterSignal[];
+    thresholds?: Record<string, number>;
   };
 }
 
@@ -41,6 +48,13 @@ interface MonitorItem {
   region: string;
   why: string;
   watch: string;
+  category?: string;
+  threshold?: {
+    bullish?: string;
+    neutral?: string;
+    bearish?: string;
+  };
+  current?: string;
 }
 
 // 中国债券数据类型
@@ -266,11 +280,21 @@ export default function MacroPage() {
             <span>📊 置信度：{regime?.regime?.confidence ?? 50}%</span>
           </div>
           <div>🧭 核心驱动：{regime?.regime?.driver || "数据源恢复中，暂按中性基线显示"}</div>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <div className="text-slate-400">⚠️ 反证条件：</div>
-            {(regime?.regime?.counterSignals || ["等待更多数据验证", "中美主轴仍在恢复", "流动性链条仍需观察"]).map((item) => (
-              <div key={item} className="text-xs text-slate-400">• {item}</div>
-            ))}
+            {(regime?.regime?.counterSignals || []).length > 0 ? (
+              (regime?.regime?.counterSignals || []).map((item) => (
+                <div key={item.condition} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3 text-xs space-y-1">
+                  <div className="text-slate-200">📌 条件：{item.condition}</div>
+                  <div className="text-slate-400">🧭 含义：{item.implication}</div>
+                  <div className="text-amber-300">🎯 动作：{item.action}</div>
+                </div>
+              ))
+            ) : (
+              ["等待更多数据验证", "中美主轴仍在恢复", "流动性链条仍需观察"].map((item) => (
+                <div key={item} className="text-xs text-slate-400">• {item}</div>
+              ))
+            )}
           </div>
         </CardContent>
       </Card>
@@ -490,10 +514,19 @@ export default function MacroPage() {
             <div key={item.name} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
               <div className="flex items-center gap-2 flex-wrap">
                 <Badge className="bg-slate-800 text-slate-200 border border-slate-700">{item.region}</Badge>
+                {item.category ? <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-300">{item.category}</Badge> : null}
                 <span className="text-sm font-medium text-slate-100">{item.name}</span>
               </div>
+              {item.current ? <div className="text-xs text-cyan-300 mt-2">📊 当前：{item.current}</div> : null}
               <div className="text-xs text-slate-400 mt-2">📌 {item.why}</div>
               <div className="text-xs text-amber-300 mt-1">⚠️ {item.watch}</div>
+              {item.threshold ? (
+                <div className="mt-2 grid gap-1 text-[11px] text-slate-500">
+                  {item.threshold.bullish ? <div>🟢 bullish: {item.threshold.bullish}</div> : null}
+                  {item.threshold.neutral ? <div>⚪ neutral: {item.threshold.neutral}</div> : null}
+                  {item.threshold.bearish ? <div>🔴 bearish: {item.threshold.bearish}</div> : null}
+                </div>
+              ) : null}
             </div>
           )) : (
             <div className="text-xs text-slate-500">暂无监控变量</div>
