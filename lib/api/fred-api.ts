@@ -17,8 +17,10 @@ export const FRED_SERIES = {
   TREASURY_3M: "TB3MS",            // 3-Month Treasury
   
   // Inflation
-  CPI: "CPIAUCSL",                 // Consumer Price Index
-  CORE_CPI: "CPILFESL",            // Core CPI
+  CPI: "CPIAUCSL",                 // Consumer Price Index (Index Level)
+  CPI_YOY: "CPIAUCSL",             // CPI YoY (computed client-side from CPI index)
+  CORE_CPI: "CPILFESL",            // Core CPI (Index Level)
+  CORE_CPI_YOY: "CPILFESL",        // Core CPI YoY (computed)
   PCE: "PCEPI",                    // PCE Price Index
   
   // Economic Activity
@@ -120,6 +122,18 @@ export async function getFredChange(
   const changePercent = previous !== 0 ? (change / previous) * 100 : 0;
 
   return { current, previous, change, changePercent };
+}
+
+// Compute YoY% from an index series (monthly series typical for CPI)
+export async function getFredYoY(seriesId: string): Promise<{ current: number; previous: number; yoy: number; asOf: string } | null> {
+  // ask for 13 points to cover 12 months back
+  const data = await fetchFredWithFallback(seriesId, 13);
+  if (!data || data.length < 13) return null;
+  const curr = data[data.length - 1];
+  const prev = data[data.length - 13];
+  if (!prev || prev.value === 0) return null;
+  const yoy = ((curr.value - prev.value) / prev.value) * 100;
+  return { current: curr.value, previous: prev.value, yoy, asOf: curr.date };
 }
 
 // Yield curve analysis
