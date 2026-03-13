@@ -289,7 +289,7 @@ export default function DashboardPage() {
   // Macro indicators (US/FRED) - evidence source for macro cards
   const [macroIndicators, setMacroIndicators] = useState<{
     updatedAt: string;
-    byId: Record<string, { id: string; name: string; unit: string; value: number | null; status: "LIVE" | "OFF"; asOf: string | null; source: string }>;
+    byId: Record<string, { id: string; name: string; unit: string; value: number | null; status: string; asOf: string | null; source?: string; updatedAt?: string; quality_tag?: "Truth" | "Indicative"; is_stale?: boolean }>;
   } | null>(null);
   const [macroIndicatorsStatus, setMacroIndicatorsStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 

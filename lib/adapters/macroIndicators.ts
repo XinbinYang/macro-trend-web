@@ -3,21 +3,20 @@ import { z } from "zod";
 const MacroIndicatorSchema = z.object({
   id: z.string(),
   name: z.string(),
-  unit: z.string(),
+  unit: z.enum(["%", "idx", "level"]).or(z.string()),
   value: z.number().nullable(),
-  status: z.enum(["LIVE", "OFF"]),
+  status: z.enum(["LIVE", "STALE", "OFF"]).or(z.string()),
   asOf: z.string().nullable(),
-  source: z.enum(["FRED", "OFF"]),
+  updatedAt: z.string().optional(),
+  source: z.string().optional(),
+  quality_tag: z.enum(["Truth", "Indicative"]).optional(),
+  is_stale: z.boolean().optional(),
 });
 
 const MacroIndicatorsResponseSchema = z.object({
   updatedAt: z.string(),
   indicators: z.array(MacroIndicatorSchema),
-  debug: z
-    .object({
-      hasFredKey: z.boolean(),
-    })
-    .optional(),
+  debug: z.record(z.string(), z.any()).optional(),
 });
 
 export type MacroIndicator = z.infer<typeof MacroIndicatorSchema>;
