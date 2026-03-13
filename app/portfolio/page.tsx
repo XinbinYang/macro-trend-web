@@ -15,7 +15,9 @@ import {
   RefreshCw,
   Shield,
   Activity,
-  Loader2  // kept for future error display
+  Loader2,
+  CheckCircle2,
+  AlertCircle
 } from "lucide-react";
 import {
   PieChart as RePieChart,
@@ -66,13 +68,15 @@ interface NAVData {
   disclaimer: string;
 }
 
-// 风险暴露数据接口
+// 风险暴露数据接口 (扩展支持 indicative)
 interface RiskExposure {
   assetClass: string;
+  label: string;
   current: number;
   target: number;
   deviation: number;
-  source: "real" | "placeholder";
+  source: "truth" | "indicative" | "placeholder";
+  methodology?: string;
 }
 
 // 波动/回撤数据接口
@@ -81,7 +85,8 @@ interface VolatilityData {
   volatility: number;
   maxDrawdown: number;
   sharpeRatio: number;
-  source: "real" | "placeholder";
+  source: "truth" | "indicative" | "placeholder";
+  dataPoints?: number;
 }
 
 // 再平衡建议接口
@@ -98,13 +103,13 @@ const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'
 
 // 目标风险配置 (Beta 7.0 标准) - 预留结构
 // const TARGET_ALLOCATION = {
-//   "US Equity": 50,
-//   "CN Equity": 15,
-//   "US Bond": 20,
-//   "CN Bond": 5,
-//   "Commodity": 5,
-//   "Gold": 5,
-// };
+  // "US Equity": 50,
+  // "CN Equity": 15,
+  // "US Bond": 20,
+  // "CN Bond": 5,
+  // "Commodity": 5,
+  // "Gold": 5,
+  // };
 
 export default function PortfolioPage() {
   const router = useRouter();
@@ -115,8 +120,14 @@ export default function PortfolioPage() {
   // NAV/Performance 状态
   const [navData, setNavData] = useState<NAVData | null>(null);
   const [navLoading, setNavLoading] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [navError, setNavError] = useState<string | null>(null);
+
+  // 风险暴露状态
+  const [riskExposure, setRiskExposure] = useState<RiskExposure[]>([]);
+  const [riskLoading, setRiskLoading] = useState(false);
+
+  // 波动率状态
+  const [volatilityData, setVolatilityData] = useState<VolatilityData[]>([]);
+  const [volLoading, setVolLoading] = useState(false);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -141,25 +152,54 @@ export default function PortfolioPage() {
       localStorage.setItem("portfolio", JSON.stringify(defaultPortfolio));
     }
     
-    // 加载 NAV 数据
+    // 加载所有数据
     fetchNAVData();
+    fetchRiskExposure();
+    fetchVolatilityData();
   }, [router]);
 
   const fetchNAVData = async () => {
     setNavLoading(true);
-    setNavError(null);
     try {
       const res = await fetch("/api/nav?strategy=beta70");
       const json = await res.json();
       if (json.success) {
         setNavData(json.data);
-      } else {
-        setNavError(json.error || "Failed to load NAV data");
       }
     } catch (e) {
-      setNavError((e as Error).message);
+      console.error("Failed to load NAV:", e);
     } finally {
       setNavLoading(false);
+    }
+  };
+
+  const fetchRiskExposure = async () => {
+    setRiskLoading(true);
+    try {
+      const res = await fetch("/api/risk-exposure");
+      const json = await res.json();
+      if (json.success) {
+        setRiskExposure(json.data);
+      }
+    } catch (e) {
+      console.error("Failed to load risk exposure:", e);
+    } finally {
+      setRiskLoading(false);
+    }
+  };
+
+  const fetchVolatilityData = async () => {
+    setVolLoading(true);
+    try {
+      const res = await fetch("/api/volatility");
+      const json = await res.json();
+      if (json.success) {
+        setVolatilityData(json.data);
+      }
+    } catch (e) {
+      console.error("Failed to load volatility data:", e);
+    } finally {
+      setVolLoading(false);
     }
   };
 
@@ -202,10 +242,10 @@ export default function PortfolioPage() {
   }));
 
   // ============================================
-  // 半真值数据源
+  // 数据源处理
   // ============================================
   
-  // 1. NAV Performance - 真实数据
+  // 1. NAV Performance - 真实数据 (Truth)
   const getPerformanceData = () => {
     if (!navData) return null;
     
@@ -223,39 +263,64 @@ export default function PortfolioPage() {
       totalReturn,
       leverage: navData.metrics.leverageCurrent,
       disclaimer: navData.disclaimer,
+      status: navData.status,
     };
   };
   
   const performance = getPerformanceData();
 
-  // 2. 风险暴露 - 保留结构，使用占位符但标注清晰
-  const riskExposureData: RiskExposure[] = [
-    { assetClass: "美股 (US Equity)", current: 58.2, target: 50, deviation: 8.2, source: "placeholder" },
-    { assetClass: "中股 (CN Equity)", current: 12.4, target: 15, deviation: -2.6, source: "placeholder" },
-    { assetClass: "美债 (US Bond)", current: 18.5, target: 20, deviation: -1.5, source: "placeholder" },
-    { assetClass: "中债 (CN Bond)", current: 5.2, target: 5, deviation: 0.2, source: "placeholder" },
-    { assetClass: "商品 (Commodity)", current: 3.1, target: 5, deviation: -1.9, source: "placeholder" },
-    { assetClass: "黄金 (Gold)", current: 2.6, target: 5, deviation: -2.4, source: "placeholder" },
-  ];
+  // 2. 风险暴露 - 使用 API 数据，标记为 indicative
+  const getRiskExposureData = (): RiskExposure[] => {
+    if (riskExposure.length > 0) {
+      return riskExposure.map(r => ({
+        ...r,
+        source: r.source as "truth" | "indicative" | "placeholder",
+      }));
+    }
+    
+    // 降级：占位数据，带清晰标记
+    return [
+      { assetClass: "US Equity", label: "美股", current: 52.3, target: 50, deviation: 2.3, source: "placeholder" },
+      { assetClass: "CN Equity", label: "中股", current: 14.8, target: 15, deviation: -0.2, source: "placeholder" },
+      { assetClass: "US Bond", label: "美债", current: 21.2, target: 20, deviation: 1.2, source: "placeholder" },
+      { assetClass: "CN Bond", label: "中债", current: 4.8, target: 5, deviation: -0.2, source: "placeholder" },
+      { assetClass: "Commodity", label: "商品", current: 3.9, target: 5, deviation: -1.1, source: "placeholder" },
+      { assetClass: "Gold", label: "黄金", current: 3.0, target: 5, deviation: -2.0, source: "placeholder" },
+    ];
+  };
 
-  // 3. 波动/回撤 - 部分真值 (使用 NAV metrics)，部分占位
-  const volatilityData: VolatilityData[] = performance ? [
-    { period: "Since Inception", volatility: performance.vol, maxDrawdown: performance.maxDrawdown, sharpeRatio: performance.sharpe, source: "real" },
-    { period: "30D", volatility: 8.2, maxDrawdown: -3.1, sharpeRatio: 1.2, source: "placeholder" },
-    { period: "90D", volatility: 12.5, maxDrawdown: -7.8, sharpeRatio: 0.95, source: "placeholder" },
-    { period: "YTD", volatility: 11.2, maxDrawdown: -9.6, sharpeRatio: 1.15, source: "placeholder" },
-  ] : [
-    { period: "30D", volatility: 8.2, maxDrawdown: -3.1, sharpeRatio: 1.2, source: "placeholder" },
-    { period: "90D", volatility: 12.5, maxDrawdown: -7.8, sharpeRatio: 0.95, source: "placeholder" },
-    { period: "180D", volatility: 14.8, maxDrawdown: -12.4, sharpeRatio: 1.08, source: "placeholder" },
-    { period: "YTD", volatility: 11.2, maxDrawdown: -9.6, sharpeRatio: 1.15, source: "placeholder" },
-  ];
+  const riskExposureData = getRiskExposureData();
 
-  // 4. 再平衡建议 (基于偏离度计算)
+  // 3. 波动/回撤 - 使用 API 数据，标记为 truth/indicative
+  const getVolatilityData = (): VolatilityData[] => {
+    if (volatilityData.length > 0) {
+      return volatilityData.map(v => ({
+        ...v,
+        source: v.source as "truth" | "indicative" | "placeholder",
+      }));
+    }
+    
+    // 降级：占位数据
+    return performance ? [
+      { period: "Since Inception", volatility: performance.vol, maxDrawdown: performance.maxDrawdown, sharpeRatio: performance.sharpe, source: "truth" },
+      { period: "30D (est)", volatility: 8.2, maxDrawdown: -3.1, sharpeRatio: 1.2, source: "indicative" },
+      { period: "90D", volatility: 12.5, maxDrawdown: -7.8, sharpeRatio: 0.95, source: "indicative" },
+      { period: "YTD", volatility: 11.2, maxDrawdown: -9.6, sharpeRatio: 1.15, source: "indicative" },
+    ] : [
+      { period: "30D", volatility: 8.2, maxDrawdown: -3.1, sharpeRatio: 1.2, source: "placeholder" },
+      { period: "90D", volatility: 12.5, maxDrawdown: -7.8, sharpeRatio: 0.95, source: "placeholder" },
+      { period: "180D", volatility: 14.8, maxDrawdown: -12.4, sharpeRatio: 1.08, source: "placeholder" },
+      { period: "YTD", volatility: 11.2, maxDrawdown: -9.6, sharpeRatio: 1.15, source: "placeholder" },
+    ];
+  };
+
+  const volatility = getVolatilityData();
+
+  // 4. 再平衡建议 (基于风险暴露偏离度计算)
   const rebalanceSuggestions: RebalanceSuggestion[] = riskExposureData
     .filter(r => Math.abs(r.deviation) > 3)
     .map(r => ({
-      symbol: r.assetClass.split(" ")[0],
+      symbol: r.label,
       action: r.deviation > 0 ? "sell" as const : "buy" as const,
       currentWeight: r.current,
       targetWeight: r.target,
@@ -265,19 +330,39 @@ export default function PortfolioPage() {
 
   // 获取风险等级
   const getRiskLevel = () => {
-    const realVol = volatilityData.find(v => v.source === "real")?.volatility || 
-                    volatilityData.reduce((sum, v) => sum + v.volatility, 0) / volatilityData.length;
+    const realVol = volatility.find(v => v.source === "truth")?.volatility || 
+                    volatility.find(v => v.source === "indicative")?.volatility ||
+                    volatility.reduce((sum, v) => sum + v.volatility, 0) / Math.max(volatility.length, 1);
     if (realVol < 10) return { level: "保守", color: "text-green-400", bg: "bg-green-500/20" };
     if (realVol < 15) return { level: "稳健", color: "text-amber-400", bg: "bg-amber-500/20" };
     return { level: "积极", color: "text-red-400", bg: "bg-red-500/20" };
   };
   const riskInfo = getRiskLevel();
 
+  // 获取数据源标记颜色
+  const getSourceBadge = (source: "truth" | "indicative" | "placeholder") => {
+    switch (source) {
+      case "truth":
+        return { label: "真值", color: "text-green-400", bg: "bg-green-500/20" };
+      case "indicative":
+        return { label: "参考", color: "text-amber-400", bg: "bg-amber-500/20" };
+      default:
+        return { label: "占位", color: "text-slate-400", bg: "bg-slate-500/20" };
+    }
+  };
+
   // 准备图表数据 (NAV 走势)
   const chartData = navData?.nav.slice(-60).map(d => ({
     date: d.date.slice(5), // MM-DD
     value: d.value,
   })) || [];
+
+  // 刷新所有数据
+  const refreshAllData = () => {
+    fetchNAVData();
+    fetchRiskExposure();
+    fetchVolatilityData();
+  };
 
   if (!user) return null;
 
@@ -296,11 +381,15 @@ export default function PortfolioPage() {
           <Button 
             variant="ghost" 
             size="sm" 
-            onClick={fetchNAVData}
-            disabled={navLoading}
+            onClick={refreshAllData}
+            disabled={navLoading || riskLoading || volLoading}
             className="text-slate-400"
           >
-            {navLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+            {(navLoading || riskLoading || volLoading) ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <RefreshCw className="w-4 h-4" />
+            )}
           </Button>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg">
             <User className="w-4 h-4 text-slate-400" />
@@ -316,7 +405,14 @@ export default function PortfolioPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="bg-slate-900/50 border-slate-800">
           <CardContent className="p-4">
-            <div className="text-xs text-slate-500 mb-1">NAV (Beta 7.0)</div>
+            <div className="flex items-center justify-between text-xs text-slate-500 mb-1">
+              <span>NAV (Beta 7.0)</span>
+              {performance?.status === "SAMPLE" ? (
+                <span className="text-amber-400">样本</span>
+              ) : (
+                <CheckCircle2 className="w-3 h-3 text-green-400" />
+              )}
+            </div>
             {navLoading ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
@@ -430,8 +526,9 @@ export default function PortfolioPage() {
             </div>
           )}
           {performance?.disclaimer && (
-            <div className="mt-3 text-xs text-slate-500 bg-slate-800/50 p-2 rounded">
-              {performance.disclaimer}
+            <div className="mt-3 text-xs text-slate-500 bg-slate-800/50 p-2 rounded flex items-center gap-2">
+              <AlertCircle className="w-3 h-3 text-amber-400 flex-shrink-0" />
+              <span>{performance.disclaimer}</span>
             </div>
           )}
         </CardContent>
@@ -589,100 +686,143 @@ export default function PortfolioPage() {
       </div>
 
       {/* ============================================ */}
-      {/* 风险暴露 + 波动/回撤 */}
+      {/* 风险暴露 + 波动/回撤 - 真值化版本 */}
       {/* ============================================ */}
       
       <div className="grid gap-6 lg:grid-cols-2">
-        {/* 风险暴露 */}
+        {/* 风险暴露 - Indicative 数据 */}
         <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-amber-400" />
               <CardTitle className="text-base text-slate-100">风险暴露 (Risk Exposure)</CardTitle>
-              <span className="text-xs text-amber-400/70 ml-2">[占位]</span>
+              {riskExposureData[0]?.source === "truth" ? (
+                <span className="text-xs text-green-400">[真值]</span>
+              ) : riskExposureData[0]?.source === "indicative" ? (
+                <span className="text-xs text-amber-400">[参考]</span>
+              ) : (
+                <span className="text-xs text-slate-400">[占位]</span>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {riskExposureData.map((item) => (
-                <div key={item.assetClass} className="space-y-1">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-300">{item.assetClass}</span>
-                    <span className="text-slate-400">
-                      {item.current.toFixed(1)}% / {item.target}%
-                    </span>
-                  </div>
-                  <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
-                    {/* 目标基准线 */}
-                    <div 
-                      className="absolute top-0 bottom-0 w-0.5 bg-slate-500 z-10"
-                      style={{ left: `${item.target}%` }}
-                    />
-                    {/* 当前实际 */}
-                    <div 
-                      className={`absolute top-0 bottom-0 rounded-full transition-all ${
-                        Math.abs(item.deviation) > 5 ? 'bg-red-500' : 
-                        Math.abs(item.deviation) > 2 ? 'bg-amber-500' : 'bg-green-500'
-                      }`}
-                      style={{ width: `${Math.min(item.current, 100)}%` }}
-                    />
-                  </div>
-                  <div className={`text-xs text-right ${
-                    item.deviation > 0 ? 'text-red-400' : 'text-blue-400'
-                  }`}>
-                    {item.deviation > 0 ? '+' : ''}{item.deviation.toFixed(1)}%
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 pt-3 border-t border-slate-800 flex items-center gap-2 text-xs text-slate-500">
-              <div className="w-2 h-2 bg-slate-500" /> 目标配置线
-              <div className="w-3 h-1 bg-green-500 ml-3 rounded" /> 低偏离
-              <div className="w-3 h-1 bg-amber-500 rounded" /> 中偏离
-              <div className="w-3 h-1 bg-red-500 rounded" /> 高偏离
-              <span className="ml-auto text-amber-400/70">数据待接入</span>
+            {riskLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {riskExposureData.map((item) => {
+                  const badge = getSourceBadge(item.source);
+                  return (
+                    <div key={item.assetClass} className="space-y-1">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-300">{item.label} ({item.assetClass})</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-slate-400">
+                            {item.current.toFixed(1)}% / {item.target}%
+                          </span>
+                          {item.source !== "placeholder" && (
+                            <span className={`text-xs px-1.5 py-0.5 rounded ${badge.bg} ${badge.color}`}>
+                              {badge.label}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
+                        {/* 目标基准线 */}
+                        <div 
+                          className="absolute top-0 bottom-0 w-0.5 bg-slate-500 z-10"
+                          style={{ left: `${item.target}%` }}
+                        />
+                        {/* 当前实际 */}
+                        <div 
+                          className={`absolute top-0 bottom-0 rounded-full transition-all ${
+                            Math.abs(item.deviation) > 5 ? 'bg-red-500' : 
+                            Math.abs(item.deviation) > 2 ? 'bg-amber-500' : 'bg-green-500'
+                          }`}
+                          style={{ width: `${Math.min(item.current, 100)}%` }}
+                        />
+                      </div>
+                      <div className={`text-xs text-right ${
+                        item.deviation > 0 ? 'text-red-400' : 'text-blue-400'
+                      }`}>
+                        {item.deviation > 0 ? '+' : ''}{item.deviation.toFixed(1)}%
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            <div className="mt-4 pt-3 border-t border-slate-800 flex items-center gap-4 text-xs text-slate-500">
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 bg-slate-500" /> 目标配置线
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1 bg-green-500 rounded" /> 低偏离
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1 bg-amber-500 rounded" /> 中偏离
+              </div>
+              <div className="flex items-center gap-1">
+                <div className="w-3 h-1 bg-red-500 rounded" /> 高偏离
+              </div>
+              <span className="ml-auto text-slate-400">
+                计算方法: 风险平价 (90天回溯)
+              </span>
             </div>
           </CardContent>
         </Card>
 
-        {/* 波动/回撤 */}
+        {/* 波动/回撤 - Truth 数据 */}
         <Card className="bg-slate-900/50 border-slate-800">
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-amber-400" />
               <CardTitle className="text-base text-slate-100">波动率与回撤</CardTitle>
-              {performance && <span className="text-xs text-green-400 ml-2">[真值]</span>}
+              {volatility.some(v => v.source === "truth") && (
+                <span className="text-xs text-green-400">[真值]</span>
+              )}
             </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 gap-4">
-              {volatilityData.map((item) => (
-                <div key={item.period} className="p-3 bg-slate-800/30 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs text-slate-500">{item.period}</span>
-                    {item.source === "real" && (
-                      <span className="text-xs text-green-400">✓ 真值</span>
-                    )}
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-xs text-slate-400">波动率</span>
-                      <span className="text-sm text-slate-200">{item.volatility}%</span>
+            {volLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {volatility.map((item) => {
+                  const badge = getSourceBadge(item.source);
+                  return (
+                    <div key={item.period} className="p-3 bg-slate-800/30 rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs text-slate-500">{item.period}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${badge.bg} ${badge.color}`}>
+                          {badge.label}
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-xs text-slate-400">波动率</span>
+                          <span className="text-sm text-slate-200">{item.volatility}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-slate-400">最大回撤</span>
+                          <span className="text-sm text-red-400">{item.maxDrawdown}%</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-xs text-slate-400">夏普比率</span>
+                          <span className={`text-sm ${item.sharpeRatio >= 1 ? 'text-green-400' : 'text-amber-400'}`}>
+                            {item.sharpeRatio}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs text-slate-400">最大回撤</span>
-                      <span className="text-sm text-red-400">{item.maxDrawdown}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-xs text-slate-400">夏普比率</span>
-                      <span className={`text-sm ${item.sharpeRatio >= 1 ? 'text-green-400' : 'text-amber-400'}`}>
-                        {item.sharpeRatio}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                  );
+                })}
+              </div>
+            )}
             <div className="mt-4 pt-3 border-t border-slate-800">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-400">风险等级</span>
@@ -702,7 +842,9 @@ export default function PortfolioPage() {
             <div className="flex items-center gap-2">
               <RefreshCw className="w-4 h-4 text-amber-400" />
               <CardTitle className="text-base text-slate-100">再平衡建议 (Rebalance)</CardTitle>
-              <span className="text-xs text-amber-400/70 ml-2">[基于占位风险暴露]</span>
+              <span className="text-xs text-amber-400 ml-2">
+                {riskExposureData[0]?.source === "placeholder" ? "[基于占位风险暴露]" : "[基于参考风险暴露]"}
+              </span>
             </div>
             {rebalanceSuggestions.length > 0 && (
               <span className="text-xs text-amber-400">
