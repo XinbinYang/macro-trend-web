@@ -272,15 +272,15 @@ export default function DashboardPage() {
   // US/CN toggle for macro overview
   const [regionView, setRegionView] = useState<"US" | "CN">("US");
 
-  // Macro regime strip state (static for now - can be connected to API later)
-  const [macroRegime] = useState<{
+  // Macro regime strip state (computed)
+  const [macroRegime, setMacroRegime] = useState<{ // eslint-disable-line @typescript-eslint/no-unused-vars
     status: "Risk-ON" | "Risk-OFF" | "Neutral";
     confidence: number;
     driver: string;
   }>({
     status: "Neutral",
     confidence: 50,
-    driver: "数据源恢复中，暂按中性基线显示"
+    driver: "加载中…"
   });
 
   // Expandable state for macro cards
@@ -294,7 +294,7 @@ export default function DashboardPage() {
   const [macroIndicatorsStatus, setMacroIndicatorsStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 
   // China macro snapshot (monthly) - AkShare artifact via /api/macro-cn
-  const [cnMacro, setCnMacro] = useState<{
+  const [cnMacro, setCnMacro] = useState<{ // eslint-disable-line @typescript-eslint/no-unused-vars
     region: "CN";
     status: "LIVE" | "OFF";
     updatedAt: string;
@@ -306,7 +306,7 @@ export default function DashboardPage() {
       m2_yoy?: { value: number | null; asOf: string | null; source: string };
     };
   } | null>(null);
-  const [cnMacroStatus, setCnMacroStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
+  const [cnMacroStatus, setCnMacroStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING"); // eslint-disable-line @typescript-eslint/no-unused-vars
 
 
   const fetchData = async () => {
@@ -347,37 +347,38 @@ export default function DashboardPage() {
       }
     };
 
-    // Fetch CN macro snapshot (monthly)
-    const fetchCnMacro = async () => {
-      try {
-        setCnMacroStatus("LOADING");
-        const res = await fetch("/api/macro-cn", { cache: "no-store" });
-        const json = await res.json().catch(() => ({}));
-        if (!json?.success || !json?.data) {
-          setCnMacro(null);
-          setCnMacroStatus("OFF");
-          return;
-        }
-        setCnMacro(json.data);
-        setCnMacroStatus(json.data.status === "LIVE" ? "LIVE" : "OFF");
-      } catch (e) {
-        console.error("[MacroIndicators][CN] fetch failed", e);
-        setCnMacro(null);
-        setCnMacroStatus("ERROR");
-      }
-    };
+    // Fetch CN macro snapshot (monthly) - deprecated (CN macro now comes from /api/macro-indicators)
+    // const fetchCnMacro = async () => {};
+    void setCnMacro;
+    void setCnMacroStatus;
 
     fetchMacro();
-    fetchCnMacro();
+    // fetchCnMacro(); // deprecated: CN macro now comes from /api/macro-indicators
 
     // Macro indicators are monthly-ish. Keep refresh daily to reduce noise/cost.
     const macroInterval = setInterval(fetchMacro, 24 * 60 * 60_000);
-    const cnMacroInterval = setInterval(fetchCnMacro, 24 * 60 * 60_000);
+
+    // Fetch computed macro state (regime + dimensions)
+    const fetchMacroState = async () => {
+      try {
+        const res = await fetch('/api/macro-state', { cache: 'no-store' });
+        const json = await res.json().catch(() => ({}));
+        if (json?.success && json?.regime) {
+          setMacroRegime({
+            status: json.regime.name,
+            confidence: json.regime.confidence,
+            driver: json.regime.driver,
+          });
+        }
+      } catch {}
+    };
+    fetchMacroState();
+    const stateInterval = setInterval(fetchMacroState, 60_000);
 
     return () => {
       clearInterval(interval);
       clearInterval(macroInterval);
-      clearInterval(cnMacroInterval);
+      clearInterval(stateInterval);
     };
   }, []);
 
@@ -524,77 +525,47 @@ export default function DashboardPage() {
               const byId = macroIndicators?.byId;
 
               // Map indicators
-              // US -> FRED
+              // US -> Supabase-backed macro indicators
               const dimToIndicatorIdUS: Record<string, string> = {
-                growth: "us_unrate",
-                inflation: "us_cpi",
-                policy: "us_fedfunds",
-                liquidity: "us_10y",
+                growth: "us_ism_pmi",
+                inflation: "us_cpi_yoy",
+                policy: "us_policy_rate",
+                liquidity: "us_10y_yield",
               };
 
-              // CN -> AkShare monthly snapshot
-              const cnValueMap: Record<string, { label: string; value: number | null; unit: string; asOf: string | null; source: string } | null> = {
-                growth: cnMacro
-                  ? {
-                      label: "中国城镇调查失业率",
-                      value: cnMacro.series.unemployment_urban.value,
-                      unit: "%",
-                      asOf: cnMacro.series.unemployment_urban.asOf,
-                      source: cnMacro.series.unemployment_urban.source,
-                    }
-                  : null,
-                inflation: cnMacro
-                  ? {
-                      label: "中国CPI同比",
-                      value: cnMacro.series.cpi_yoy.value,
-                      unit: "%",
-                      asOf: cnMacro.series.cpi_yoy.asOf,
-                      source: cnMacro.series.cpi_yoy.source,
-                    }
-                  : null,
-                policy: cnMacro && cnMacro.series.lpr_1y
-                  ? {
-                      label: "中国LPR(1Y)",
-                      value: cnMacro.series.lpr_1y.value,
-                      unit: "%",
-                      asOf: cnMacro.series.lpr_1y.asOf,
-                      source: cnMacro.series.lpr_1y.source,
-                    }
-                  : null,
-                liquidity: cnMacro && cnMacro.series.m2_yoy
-                  ? {
-                      label: "中国M2同比",
-                      value: cnMacro.series.m2_yoy.value,
-                      unit: "%",
-                      asOf: cnMacro.series.m2_yoy.asOf,
-                      source: cnMacro.series.m2_yoy.source,
-                    }
-                  : null,
+              // CN -> Supabase-backed macro indicators (via /api/macro-indicators)
+              const dimToIndicatorIdCN: Record<string, string> = {
+                growth: "cn_pmi_mfg",
+                inflation: "cn_cpi_yoy",
+                policy: "cn_lpr_1y",
+                liquidity: "cn_m2_yoy",
               };
 
               const indUS = regionView === "US" && byId ? byId[dimToIndicatorIdUS[dim.id]] : null;
-              const indCN = regionView === "CN" ? cnValueMap[dim.id] : null;
+              const indCN = regionView === "CN" && byId ? byId[dimToIndicatorIdCN[dim.id]] : null;
 
               const current =
                 regionView === "CN"
-                  ? indCN
+                  ? indCN && indCN.status !== "OFF"
                     ? {
                         status: formatValue(indCN.value, indCN.unit),
                         trend: "neutral" as const,
-                        desc: `${indCN.label}: ${formatValue(indCN.value, indCN.unit)} · asOf ${indCN.asOf || "-"} · ${indCN.source}`,
+                        desc: `${indCN.name}: ${formatValue(indCN.value, indCN.unit)} · asOf ${indCN.asOf || "-"} · ${indCN.source || "supabase"}`,
                       }
                     : {
-                        status: cnMacroStatus === "OFF" ? "OFF" : "—",
+                        status: macroIndicatorsStatus === "OFF" ? "OFF" : "—",
                         trend: "neutral" as const,
-                        desc: cnMacroStatus === "OFF" ? "CN source: OFF (monthly snapshot missing)" : "CN source: LOADING",
+                        desc: macroIndicatorsStatus === "OFF" ? "CN source: OFF" : "CN source: LOADING",
                       }
-                  : indUS && indUS.status === "LIVE"
+                  : indUS && indUS.status !== "OFF"
                     ? {
                         status: formatValue(indUS.value, indUS.unit),
                         trend: "neutral" as const,
-                        desc: `${indUS.name}: ${formatValue(indUS.value, indUS.unit)} · asOf ${indUS.asOf || "-"} · ${indUS.source}`,
+                        desc: `${indUS.name}: ${formatValue(indUS.value, indUS.unit)} · asOf ${indUS.asOf || "-"} · ${indUS.source || "supabase"}`,
                       }
                     : currentBase;
+
+              // (migrated to Supabase-backed macro indicators above)
               const isExpanded = expandedCards[dim.id];
               return (
                 <div
