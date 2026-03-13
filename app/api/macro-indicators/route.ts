@@ -1,144 +1,183 @@
 import { NextResponse } from "next/server";
-import { FRED_SERIES, getLatestFredValue, getFredYoY } from "@/lib/api/fred-api";
+import { createClient } from "@supabase/supabase-js";
 
-export type MacroIndicatorStatus = "LIVE" | "OFF";
+export type MacroIndicatorStatus = "LIVE" | "STALE" | "OFF";
 
-export interface MacroIndicator {
+type QualityTag = "Truth" | "Indicative";
+
+type Indicator = {
   id: string;
   name: string;
   value: number | null;
-  unit: string;
+  unit: "%" | "idx" | "level";
   status: MacroIndicatorStatus;
   asOf: string | null;
-  source: "FRED" | "OFF";
-}
-
-export interface MacroIndicatorsResponse {
   updatedAt: string;
-  indicators: MacroIndicator[];
-  debug?: {
-    hasFredKey: boolean;
-    fredKeyLength?: number;
-    fredProbe?: {
-      ok: boolean;
-      status?: number;
-      error?: string;
-    };
-  };
+  source: string;
+  quality_tag: QualityTag;
+  is_stale: boolean;
+};
+
+type SupabaseMacroUS = {
+  date: string;
+  cpi_yoy: string | null;
+  core_cpi_yoy: string | null;
+  ism_manufacturing: string | null;
+  unemployment_rate: string | null;
+  fed_funds_rate: string | null;
+  yield_10y: string | null;
+  yield_2y: string | null;
+  source: string | null;
+  updated_at: string | null;
+};
+
+type SupabaseMacroCN = {
+  date: string;
+  cpi_yoy: string | null;
+  pmi: string | null;
+  m2_yoy: number | null;
+  unemployment: string | null;
+  lpr_1y: string | null;
+  source: string | null;
+  updated_at: string | null;
+};
+
+function getSupabaseAdmin() {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key);
 }
 
-function offIndicator(id: string, name: string, unit: string): MacroIndicator {
-  return { id, name, unit, value: null, status: "OFF", asOf: null, source: "OFF" };
+function monthKey(isoDate: string) {
+  return isoDate.slice(0, 7); // YYYY-MM
+}
+
+function monthsDiff(a: string, b: string) {
+  // a,b are YYYY-MM
+  const [ay, am] = a.split("-").map(Number);
+  const [by, bm] = b.split("-").map(Number);
+  return (ay - by) * 12 + (am - bm);
+}
+
+function isMacroMonthlyStale(asOf: string | null) {
+  if (!asOf) return true;
+  // Allow 1-month delay (release lag). stale if older than last month.
+  const now = new Date();
+  const cur = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}`;
+  const as = monthKey(asOf);
+  return monthsDiff(cur, as) > 1;
+}
+
+function toNum(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  const s = String(v).trim();
+  if (!s) return null;
+  if (s === "0" || s === "0.0") return null;
+  const n = Number(s);
+  return Number.isFinite(n) ? n : null;
+}
+
+function qualityTagFromSource(source: string): QualityTag {
+  const s = source.toLowerCase();
+  if (s.includes("master")) return "Truth";
+  if (s.includes("akshare")) return "Truth";
+  // uploaded_file is not part of strict truth layer; treat as indicative display.
+  return "Indicative";
+}
+
+function makeIndicator(
+  id: string,
+  name: string,
+  unit: Indicator["unit"],
+  value: number | null,
+  asOf: string | null,
+  updatedAt: string,
+  source: string
+): Indicator {
+  const stale = isMacroMonthlyStale(asOf);
+  const status: MacroIndicatorStatus = value === null ? "OFF" : stale ? "STALE" : "LIVE";
+  return {
+    id,
+    name,
+    unit,
+    value,
+    asOf,
+    updatedAt,
+    source,
+    quality_tag: qualityTagFromSource(source),
+    is_stale: stale,
+    status,
+  };
 }
 
 export async function GET() {
   const updatedAt = new Date().toISOString();
-  const key = process.env.FRED_API_KEY || "";
-  const hasFredKey = Boolean(key);
+  const supabase = getSupabaseAdmin();
 
-  // If key missing, be explicit OFF (not mock pretending)
-  // NOTE: On Vercel, env var updates may need a redeploy to reach the serverless runtime.
-  if (!hasFredKey) {
-    const indicators: MacroIndicator[] = [
-      offIndicator("us_ism_pmi", "US ISM PMI", "idx"),
-      offIndicator("us_fedfunds", "US Fed Funds", "%"),
-      offIndicator("us_2y", "US 2Y", "%"),
-      offIndicator("us_10y", "US 10Y", "%"),
-      offIndicator("us_cpi_yoy", "US CPI YoY", "%"),
-      offIndicator("us_core_cpi_yoy", "US Core CPI YoY", "%"),
-      offIndicator("us_cpi", "US CPI (Index)", "idx"),
-      offIndicator("us_unrate", "US Unemployment", "%"),
+  if (!supabase) {
+    // Explicit OFF if not configured
+    const indicators: Indicator[] = [
+      makeIndicator("us_ism_pmi", "US ISM PMI", "idx", null, null, updatedAt, "OFF"),
+      makeIndicator("us_cpi_yoy", "US CPI YoY", "%", null, null, updatedAt, "OFF"),
+      makeIndicator("cn_pmi_mfg", "CN PMI (Mfg)", "idx", null, null, updatedAt, "OFF"),
+      makeIndicator("cn_cpi_yoy", "CN CPI YoY", "%", null, null, updatedAt, "OFF"),
     ];
 
-    const res: MacroIndicatorsResponse = {
+    return NextResponse.json(
+      { updatedAt, indicators, debug: { supabaseConfigured: false } },
+      { status: 200, headers: { "Cache-Control": "no-store" } }
+    );
+  }
+
+  // Latest rows
+  const usRes = await supabase.from("macro_us").select("*").order("date", { ascending: false }).limit(1);
+  const cnRes = await supabase.from("macro_cn").select("*").order("date", { ascending: false }).limit(1);
+
+  const us = (usRes.data?.[0] as SupabaseMacroUS | undefined) || undefined;
+  const cn = (cnRes.data?.[0] as SupabaseMacroCN | undefined) || undefined;
+
+  const usAsOf = us?.date ? us.date.slice(0, 10) : null;
+  const cnAsOf = cn?.date ? cn.date.slice(0, 10) : null;
+
+  const indicators: Indicator[] = [
+    // Growth
+    makeIndicator("us_ism_pmi", "US ISM PMI", "idx", toNum(us?.ism_manufacturing), usAsOf, updatedAt, us?.source || "supabase"),
+    makeIndicator("cn_pmi_mfg", "CN PMI (Mfg)", "idx", toNum(cn?.pmi), cnAsOf, updatedAt, cn?.source || "supabase"),
+
+    // Inflation
+    makeIndicator("us_cpi_yoy", "US CPI YoY", "%", toNum(us?.cpi_yoy), usAsOf, updatedAt, us?.source || "supabase"),
+    makeIndicator("us_core_cpi_yoy", "US Core CPI YoY", "%", toNum(us?.core_cpi_yoy), usAsOf, updatedAt, us?.source || "supabase"),
+    makeIndicator("cn_cpi_yoy", "CN CPI YoY", "%", toNum(cn?.cpi_yoy), cnAsOf, updatedAt, cn?.source || "supabase"),
+
+    // Policy
+    makeIndicator("us_policy_rate", "US Policy Rate", "%", toNum(us?.fed_funds_rate), usAsOf, updatedAt, us?.source || "supabase"),
+    makeIndicator("cn_lpr_1y", "CN LPR 1Y", "%", toNum(cn?.lpr_1y), cnAsOf, updatedAt, cn?.source || "supabase"),
+
+    // Liquidity / Rates
+    makeIndicator("us_10y_yield", "US 10Y", "%", toNum(us?.yield_10y), usAsOf, updatedAt, us?.source || "supabase"),
+    makeIndicator("us_2y_yield", "US 2Y", "%", toNum(us?.yield_2y), usAsOf, updatedAt, us?.source || "supabase"),
+    makeIndicator("cn_m2_yoy", "CN M2 YoY", "%", toNum(cn?.m2_yoy), cnAsOf, updatedAt, cn?.source || "supabase"),
+    makeIndicator("cn_unemployment", "CN Unemployment", "%", toNum(cn?.unemployment), cnAsOf, updatedAt, cn?.source || "supabase"),
+    makeIndicator("us_unemployment", "US Unemployment", "%", toNum(us?.unemployment_rate), usAsOf, updatedAt, us?.source || "supabase"),
+  ];
+
+  return NextResponse.json(
+    {
       updatedAt,
       indicators,
-      debug: { hasFredKey, fredKeyLength: key.length },
-    };
-    return NextResponse.json(res, {
+      debug: {
+        supabaseConfigured: true,
+        usError: usRes.error?.message,
+        cnError: cnRes.error?.message,
+      },
+    },
+    {
       status: 200,
       headers: {
         "Cache-Control": "no-store",
       },
-    });
-  }
-
-  const seriesMap: Array<{ id: string; name: string; unit: string; series: string; transform?: "yoy" }> = [
-    { id: "us_ism_pmi", name: "US ISM PMI", unit: "idx", series: FRED_SERIES.ISM_PMI },
-    { id: "us_fedfunds", name: "US Fed Funds", unit: "%", series: FRED_SERIES.FED_FUNDS },
-    { id: "us_2y", name: "US 2Y", unit: "%", series: FRED_SERIES.TREASURY_2Y },
-    { id: "us_10y", name: "US 10Y", unit: "%", series: FRED_SERIES.TREASURY_10Y },
-
-    // Inflation: expose YoY% directly to avoid front-end mislabeling index level
-    { id: "us_cpi_yoy", name: "US CPI YoY", unit: "%", series: FRED_SERIES.CPI, transform: "yoy" },
-    { id: "us_core_cpi_yoy", name: "US Core CPI YoY", unit: "%", series: FRED_SERIES.CORE_CPI, transform: "yoy" },
-
-    // Still keep index level available for reference
-    { id: "us_cpi", name: "US CPI (Index)", unit: "idx", series: FRED_SERIES.CPI },
-
-    { id: "us_unrate", name: "US Unemployment", unit: "%", series: FRED_SERIES.UNEMPLOYMENT },
-  ];
-
-  // Quick probe: verify the key works (helps debug "env is set but still OFF")
-  type FredProbe = { ok: boolean; status?: number; error?: string };
-  let fredProbe: FredProbe | undefined = undefined;
-  try {
-    const probeUrl = new URL("https://api.stlouisfed.org/fred/series/observations");
-    probeUrl.searchParams.set("series_id", FRED_SERIES.UNEMPLOYMENT);
-    probeUrl.searchParams.set("api_key", key);
-    probeUrl.searchParams.set("file_type", "json");
-    probeUrl.searchParams.set("limit", "1");
-    const probeRes = await fetch(probeUrl.toString(), {
-      headers: { "User-Agent": "macro-trend-web" },
-      // do not cache probes
-      cache: "no-store",
-    });
-    fredProbe = { ok: probeRes.ok, status: probeRes.status };
-  } catch (e) {
-    fredProbe = { ok: false, error: (e as Error).message };
-  }
-
-  const values = await Promise.all(
-    seriesMap.map(async (s) => {
-      if (s.transform === "yoy") {
-        const yoy = await getFredYoY(s.series);
-        if (!yoy) return offIndicator(s.id, s.name, s.unit);
-        return {
-          id: s.id,
-          name: s.name,
-          unit: s.unit,
-          value: yoy.yoy,
-          asOf: yoy.asOf,
-          status: "LIVE" as const,
-          source: "FRED" as const,
-        };
-      }
-
-      const latest = await getLatestFredValue(s.series);
-      if (!latest) return offIndicator(s.id, s.name, s.unit);
-      return {
-        id: s.id,
-        name: s.name,
-        unit: s.unit,
-        value: latest.value,
-        asOf: latest.date,
-        status: "LIVE" as const,
-        source: "FRED" as const,
-      };
-    })
+    }
   );
-
-  const res: MacroIndicatorsResponse = {
-    updatedAt,
-    indicators: values,
-    debug: { hasFredKey, fredKeyLength: key.length, fredProbe },
-  };
-
-  return NextResponse.json(res, {
-    status: 200,
-    headers: {
-      // daily data, but keep page snappy
-      "Cache-Control": "public, max-age=60",
-    },
-  });
 }
