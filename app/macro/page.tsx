@@ -536,31 +536,41 @@ export default function MacroPage() {
               </div>
             ) : portfolioExposure && (
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-                {portfolioExposure.map((item) => (
-                  <div 
-                    key={item.assetClass}
-                    className={`p-3 rounded-lg border ${
-                      Math.abs(item.deviation) > 3 
-                        ? item.deviation > 0 
-                          ? "bg-red-950/20 border-red-800/40" 
-                          : "bg-blue-950/20 border-blue-800/40"
-                        : "bg-slate-950/50 border-slate-800"
-                    }`}
-                  >
-                    <div className="text-xs text-slate-500 mb-1">{item.label}</div>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-sm font-medium text-slate-200">{item.weight.toFixed(1)}%</div>
-                        <div className="text-[10px] text-slate-500">目标 {item.targetWeight}%</div>
-                      </div>
-                      <div className={`text-xs font-mono ${
-                        item.deviation > 0 ? "text-red-400" : item.deviation < 0 ? "text-blue-400" : "text-slate-400"
-                      }`}>
-                        {item.deviation > 0 ? "+" : ""}{item.deviation.toFixed(1)}%
+                {portfolioExposure.map((item) => {
+                  // Be tolerant to legacy fields (current/target) to avoid client-side crashes
+                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                  const legacy = item as any;
+                  const wRaw = typeof item.weight === "number" ? item.weight : legacy.current;
+                  const tRaw = typeof item.targetWeight === "number" ? item.targetWeight : legacy.target;
+                  const wNum = typeof wRaw === "number" ? wRaw : Number(wRaw);
+                  const tNum = typeof tRaw === "number" ? tRaw : Number(tRaw);
+
+                  return (
+                    <div 
+                      key={item.assetClass}
+                      className={`p-3 rounded-lg border ${
+                        Math.abs(item.deviation) > 3 
+                          ? item.deviation > 0 
+                            ? "bg-red-950/20 border-red-800/40" 
+                            : "bg-blue-950/20 border-blue-800/40"
+                          : "bg-slate-950/50 border-slate-800"
+                      }`}
+                    >
+                      <div className="text-xs text-slate-500 mb-1">{item.label}</div>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="text-sm font-medium text-slate-200">{Number.isFinite(wNum) ? wNum.toFixed(1) : "—"}%</div>
+                          <div className="text-[10px] text-slate-500">目标 {Number.isFinite(tNum) ? tNum : "—"}%</div>
+                        </div>
+                        <div className={`text-xs font-mono ${
+                          item.deviation > 0 ? "text-red-400" : item.deviation < 0 ? "text-blue-400" : "text-slate-400"
+                        }`}>
+                          {item.deviation > 0 ? "+" : ""}{item.deviation.toFixed(1)}%
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </CardContent>
