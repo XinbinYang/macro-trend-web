@@ -29,6 +29,9 @@ export interface MissionAgent {
   sessionId?: string;
   currentTaskId?: string;
   lastHeartbeatAt?: string;
+  currentAction?: string;
+  startedAt?: string;
+  completedAt?: string;
 }
 
 export interface MissionData {
@@ -97,16 +100,39 @@ export function updateTask(data: MissionData, id: string, status: TaskStatus, no
   return task;
 }
 
-export function updateAgent(data: MissionData, name: string, status: AgentRunStatus, taskText?: string, risk?: string, sessionId?: string, currentTaskId?: string) {
+export function updateAgent(data: MissionData, name: string, status: AgentRunStatus, taskText?: string, risk?: string, sessionId?: string, currentTaskId?: string, currentAction?: string) {
   const agent = data.agents.find((a) => a.name === name);
   if (!agent) throw new Error(`Agent not found: ${name}`);
+  
+  const prevStatus = agent.status;
   agent.status = status;
   if (typeof taskText === "string" && taskText.trim()) agent.task = taskText.trim();
   if (typeof risk === "string" && risk.trim()) agent.risk = risk.trim();
   if (typeof sessionId === "string" && sessionId.trim()) agent.sessionId = sessionId.trim();
   if (typeof currentTaskId === "string" && currentTaskId.trim()) agent.currentTaskId = currentTaskId.trim();
+  if (typeof currentAction === "string" && currentAction.trim()) agent.currentAction = currentAction.trim();
+  
+  // Auto-set timestamps based on status transitions
+  if (status === "RUNNING" && prevStatus !== "RUNNING") {
+    agent.startedAt = new Date().toISOString();
+  }
+  if (status === "DONE" || status === "IDLE") {
+    agent.completedAt = new Date().toISOString();
+  }
+  
   agent.lastHeartbeatAt = new Date().toISOString();
-  appendTimeline(data, `${emojiForAgent(status)} AGENT ${name} -> ${status}${taskText ? ` · ${taskText}` : ""}`);
+  
+  // Enhanced timeline logging with more context
+  let details = "";
+  if (sessionId || currentTaskId || currentAction) {
+    const parts = [];
+    if (sessionId) parts.push(`session:${sessionId.slice(0, 8)}`);
+    if (currentTaskId) parts.push(`task:${currentTaskId}`);
+    if (currentAction) parts.push(`action:${currentAction}`);
+    details = ` [${parts.join(" ")}]`;
+  }
+  
+  appendTimeline(data, `${emojiForAgent(status)} AGENT ${name} -> ${status}${taskText ? ` · ${taskText}` : ""}${details}`);
   return agent;
 }
 

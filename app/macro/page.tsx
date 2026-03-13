@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { BarChart3, ShieldAlert, Target, History, Radar, TrendingUp, TrendingDown, Minus, Activity } from "lucide-react";
+import { 
+  BarChart3, 
+  ShieldAlert, 
+  Target, 
+  History, 
+  Radar, 
+  TrendingUp, 
+  TrendingDown, 
+  Minus, 
+  Activity
+} from "lucide-react";
 import {
   LineChart,
   Line,
@@ -18,10 +28,14 @@ import {
 import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
 
+// ==================== 类型定义 ====================
+
 interface CounterSignal {
   condition: string;
   implication: string;
   action: string;
+  linkedMonitor?: string;
+  triggerType?: string;
 }
 
 interface RegimeData {
@@ -49,15 +63,17 @@ interface MonitorItem {
   why: string;
   watch: string;
   category?: string;
+  current?: string;
   threshold?: {
     bullish?: string;
     neutral?: string;
     bearish?: string;
   };
-  current?: string;
+  linkedSignals?: string[];
+  dataSource?: string;
+  updateFrequency?: string;
 }
 
-// 中国债券数据类型
 interface BondFutureQuote {
   symbol: string;
   name: string;
@@ -84,18 +100,20 @@ interface CnBondData {
   status: "LIVE" | "DELAYED" | "STALE" | "OFF";
 }
 
+// ==================== 组件 ====================
+
 export default function MacroPage() {
+  // 数据状态
   const [usById, setUsById] = useState<Record<string, { value: number | null; asOf: string | null; source: string }> | null>(null);
   const [cn, setCn] = useState<CnMacroSnapshot | null>(null);
   const [cnFreshness, setCnFreshness] = useState<string | null>(null);
   const [regime, setRegime] = useState<RegimeData | null>(null);
   const [history, setHistory] = useState<RegimeHistoryItem[]>([]);
   const [monitorItems, setMonitorItems] = useState<MonitorItem[]>([]);
-  
-  // 中国债券数据状态
   const [cnBondData, setCnBondData] = useState<CnBondData | null>(null);
   const [cnBondLoading, setCnBondLoading] = useState(true);
 
+  // 数据获取
   useEffect(() => {
     const run = async () => {
       try {
@@ -134,7 +152,7 @@ export default function MacroPage() {
     run();
   }, []);
 
-  // 获取中国债券数据
+  // 中国债券数据获取
   useEffect(() => {
     const fetchCnBond = async () => {
       try {
@@ -157,10 +175,29 @@ export default function MacroPage() {
     };
 
     fetchCnBond();
-    // 每5分钟刷新一次债券数据
     const interval = setInterval(fetchCnBond, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
+
+
+  const regions = [
+    {
+      title: "🇺🇸 美国主轴",
+      bullets: [
+        `ISM: ${usById?.us_ism_pmi ? formatValue(usById.us_ism_pmi.value, "idx") : "—"}`,
+        `Fed: ${usById?.us_fedfunds ? formatValue(usById.us_fedfunds.value, "%") : "—"}`,
+        `10Y: ${usById?.us_10y ? formatValue(usById.us_10y.value, "%") : "—"}`,
+      ],
+    },
+    {
+      title: "🇨🇳 中国主轴",
+      bullets: [
+        `PMI: ${cn?.series?.pmi_mfg ? formatValue(cn.series.pmi_mfg.value, "idx") : "—"}`,
+        `LPR: ${cn?.series?.lpr_1y ? formatValue(cn.series.lpr_1y.value, "%") : "—"}`,
+        `社融: ${cn?.series?.social_financing?.value != null ? cn.series.social_financing.value.toFixed(4) + " 万亿" : "—"}`,
+      ],
+    },
+  ];
 
   const dimensions = [
     {
@@ -193,40 +230,17 @@ export default function MacroPage() {
     },
   ];
 
-  const regions = [
-    {
-      title: "🇺🇸 美国主轴",
-      bullets: [
-        `ISM: ${usById?.us_ism_pmi ? formatValue(usById.us_ism_pmi.value, "idx") : "—"}`,
-        `Fed: ${usById?.us_fedfunds ? formatValue(usById.us_fedfunds.value, "%") : "—"}`,
-        `10Y: ${usById?.us_10y ? formatValue(usById.us_10y.value, "%") : "—"}`,
-      ],
-    },
-    {
-      title: "🇨🇳 中国主轴",
-      bullets: [
-        `PMI: ${cn?.series?.pmi_mfg ? formatValue(cn.series.pmi_mfg.value, "idx") : "—"}`,
-        `LPR: ${cn?.series?.lpr_1y ? formatValue(cn.series.lpr_1y.value, "%") : "—"}`,
-        `社融: ${cn?.series?.social_financing?.value != null ? cn.series.social_financing.value.toFixed(4) + " 万亿" : "—"}`,
-      ],
-    },
-  ];
-
-  // 债券期货映射到期限
+  // 债券期货映射
   const futureToMaturity: Record<string, string> = {
-    "TS": "2Y",
-    "TF": "5Y", 
-    "T": "10Y",
-    "TL": "30Y",
+    "TS": "2Y", "TF": "5Y", "T": "10Y", "TL": "30Y",
   };
 
-  // 获取债券期货的期限标签
   const getMaturityLabel = (symbol: string): string => {
     const prefix = symbol.replace(/\d+$/, "");
     return futureToMaturity[prefix] || "—";
   };
 
-  // 流动性解释文本生成
+  // 流动性解释
   const getLiquidityInterpretation = (): { title: string; content: string; trend: "up" | "down" | "neutral" } => {
     const futures = cnBondData?.futures || [];
     const tFuture = futures.find(f => f.symbol.startsWith("T") && !f.symbol.startsWith("TS") && !f.symbol.startsWith("TL"));
@@ -241,7 +255,7 @@ export default function MacroPage() {
     }
 
     const curveSteepness = tlFuture.price - tFuture.price;
-    const isSteepening = curveSteepness > 4.0; // 30Y-10Y价差大于4元为陡峭
+    const isSteepening = curveSteepness > 4.0;
     
     if (isSteepening) {
       return {

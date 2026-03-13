@@ -30,6 +30,9 @@ interface AgentStatus {
   sessionId?: string;
   currentTaskId?: string;
   lastHeartbeatAt?: string;
+  currentAction?: string;
+  startedAt?: string;
+  completedAt?: string;
 }
 
 interface MissionPayload {
@@ -126,6 +129,18 @@ export default function MissionPage() {
         <CardContent className="space-y-4 text-sm text-slate-300">
           <div><span className="text-slate-500">🎯 当前总目标：</span> {data.summary.objective}</div>
           <div><span className="text-slate-500">📍 当前阶段：</span> {data.summary.phase}</div>
+          <div className="mt-3 p-3 rounded-lg bg-slate-950/60 border border-slate-800">
+            <div className="flex items-center justify-between text-xs text-slate-400 mb-2">
+              <span>任务进度</span>
+              <span>{data.summary.done} / {data.tasks.length}</span>
+            </div>
+            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500"
+                style={{ width: `${(data.summary.done / data.tasks.length) * 100}%` }}
+              />
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🟢 已完成</div><div className="text-xl font-bold">{data.summary.done}</div></div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🟡 进行中</div><div className="text-xl font-bold">{data.summary.doing}</div></div>
@@ -162,9 +177,18 @@ export default function MissionPage() {
                 </div>
                 <div className="text-xs text-slate-400">{task.note}</div>
                 <div className="flex items-center gap-3 flex-wrap text-[11px] text-slate-500">
-                  {task.startedAt ? <span>⏱️ started: {new Date(task.startedAt).toLocaleString("zh-CN")}</span> : null}
-                  {task.completedAt ? <span>✅ done: {new Date(task.completedAt).toLocaleString("zh-CN")}</span> : null}
                   {task.dependsOn?.length ? <span>🔗 depends: {task.dependsOn.join(", ")}</span> : null}
+                  {task.startedAt ? <span>🚀 started: {new Date(task.startedAt).toLocaleString("zh-CN")}</span> : null}
+                  {task.completedAt ? <span>✅ done: {new Date(task.completedAt).toLocaleString("zh-CN")}</span> : null}
+                  {task.estimatedHours ? <span>⏱️ est: {task.estimatedHours}h</span> : null}
+                  {/* Show duration for completed tasks */}
+                  {task.status === "DONE" && task.startedAt && task.completedAt ? (
+                    <span>⏳ dur: {Math.round((new Date(task.completedAt).getTime() - new Date(task.startedAt).getTime()) / 60000)}min</span>
+                  ) : null}
+                  {/* Show elapsed time for DOING tasks */}
+                  {task.status === "DOING" && task.startedAt ? (
+                    <span className="text-amber-400">⏳ elapsed: {Math.round((Date.now() - new Date(task.startedAt).getTime()) / 60000)}min</span>
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -179,19 +203,35 @@ export default function MissionPage() {
             <CardContent className="space-y-3">
               {data.agents.map((agent) => (
                 <div key={agent.name} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
-                  <div className="text-sm font-medium text-slate-100">🤖 {agent.name}</div>
-                  <div className="text-xs text-slate-400">{agent.role}</div>
-                  <div className="text-xs text-slate-300">当前任务：{agent.task}</div>
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-medium text-slate-100">🤖 {agent.name}</div>
                     <Badge className={agent.status === "RUNNING" ? "bg-amber-500/15 text-amber-400 border-amber-500/30" : agent.status === "DONE" ? "bg-green-500/15 text-green-400 border-green-500/30" : agent.status === "BLOCKED" ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-slate-500/15 text-slate-300 border-slate-500/30"}>
                       {agent.status === "RUNNING" ? "🟡 RUNNING" : agent.status === "DONE" ? "🟢 DONE" : agent.status === "BLOCKED" ? "🔴 BLOCKED" : "⚪ IDLE"}
                     </Badge>
+                  </div>
+                  <div className="text-xs text-slate-400">{agent.role}</div>
+                  <div className="rounded-lg bg-slate-900/60 px-3 py-2 space-y-1">
+                    <div className="text-xs text-slate-500">当前任务</div>
+                    <div className="text-xs text-slate-200">{agent.task}</div>
+                    {agent.currentAction && agent.status === "RUNNING" && (
+                      <div className="mt-2 pt-2 border-t border-slate-700">
+                        <div className="text-xs text-slate-500 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                          正在执行
+                        </div>
+                        <div className="text-xs text-amber-300 font-mono mt-1">{agent.currentAction}</div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs border-slate-700 text-slate-300">风险：{agent.risk}</Badge>
                   </div>
                   <div className="flex items-center gap-3 flex-wrap text-[11px] text-slate-500">
+                    {agent.startedAt ? <span>🚀 started: {new Date(agent.startedAt).toLocaleString("zh-CN")}</span> : null}
+                    {agent.completedAt ? <span>✅ done: {new Date(agent.completedAt).toLocaleString("zh-CN")}</span> : null}
                     {agent.currentTaskId ? <span>🧩 task: {agent.currentTaskId}</span> : null}
-                    {agent.sessionId ? <span>🆔 session: {agent.sessionId}</span> : null}
-                    {agent.lastHeartbeatAt ? <span>💓 heartbeat: {new Date(agent.lastHeartbeatAt).toLocaleString("zh-CN")}</span> : null}
+                    {agent.sessionId ? <span>🆔 session: {agent.sessionId.slice(0, 12)}...</span> : null}
+                    {agent.lastHeartbeatAt ? <span>💓 {Math.floor((Date.now() - new Date(agent.lastHeartbeatAt).getTime()) / 1000)}s ago</span> : null}
                   </div>
                 </div>
               ))}
@@ -203,9 +243,44 @@ export default function MissionPage() {
               <CardTitle className="text-slate-100 flex items-center gap-2"><Clock3 className="w-5 h-5 text-purple-400" /> 最近进展时间线</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm text-slate-300">
-              {data.timeline.map((item, idx) => (
-                <div key={idx} className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2">{item}</div>
-              ))}
+              {data.timeline.map((item, idx) => {
+                const eventType = item.match(/^([🏛️🎯🚀✅🟡🔴⚙️📍📝])/)?.[1] || "";
+                const typeLabels: Record<string, string> = {
+                  "🏛️": "阶段", "🎯": "目标", "🚀": "启动", "✅": "完成", "🟡": "进行", "🔴": "阻塞", "⚙️": "工作流", "📍": "检查点", "📝": "日志"
+                };
+                const typeLabel = typeLabels[eventType] || "系统";
+                
+                // Extract embedded metadata like [depends:...] [dur:...] [session:...]
+                const metadataMatch = item.match(/(\[[^\]]+\])/g);
+                const metadata = metadataMatch || [];
+                const cleanMessage = item.replace(/(\[[^\]]+\])/g, "").trim();
+                
+                return (
+                  <div key={idx} className="rounded-lg border border-slate-800 bg-slate-950/60 px-3 py-2 flex flex-col gap-1">
+                    <div className="flex items-start gap-2">
+                      <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-500 shrink-0 mt-0.5">{typeLabel}</Badge>
+                      <span className="text-xs text-slate-300">{cleanMessage}</span>
+                    </div>
+                    {metadata.length > 0 && (
+                      <div className="flex flex-wrap gap-1 ml-8">
+                        {metadata.map((m, mi) => {
+                          const colorClass = m.includes("depends") ? "text-blue-400 bg-blue-950/30" 
+                            : m.includes("dur") ? "text-green-400 bg-green-950/30"
+                            : m.includes("session") ? "text-purple-400 bg-purple-950/30"
+                            : m.includes("task") ? "text-amber-400 bg-amber-950/30"
+                            : m.includes("started") ? "text-cyan-400 bg-cyan-950/30"
+                            : "text-slate-500 bg-slate-900/60";
+                          return (
+                            <span key={mi} className={`text-[10px] px-1.5 py-0.5 rounded ${colorClass}`}>
+                              {m.replace(/[\[\]]/g, "")}
+                            </span>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </CardContent>
           </Card>
 

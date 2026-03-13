@@ -14,7 +14,16 @@ export async function POST(request: Request) {
     }
 
     if (action === "agent") {
-      updateAgent(data, body?.name as string, body?.status, body?.task, body?.risk);
+      updateAgent(
+        data, 
+        body?.name as string, 
+        body?.status, 
+        body?.task, 
+        body?.risk,
+        body?.sessionId,
+        body?.currentTaskId,
+        body?.currentAction
+      );
       saveMission(data);
       return NextResponse.json({ success: true, data });
     }

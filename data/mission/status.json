@@ -1,11 +1,11 @@
 {
   "summary": {
     "objective": "网页端作战驾驶舱：稳定版恢复 → Mission Control 动态化 → 宏观研究层重建",
-    "phase": "P1 · Mission Control Auto-Write + Macro Research Layer",
+    "phase": "P1 · Mission Control UI增强：事件分类、Agent动作、进度条",
     "done": 3,
     "doing": 2,
     "blocked": 0,
-    "updatedAt": "2026-03-13T05:16:55.128Z"
+    "updatedAt": "2026-03-13T05:35:00.000Z"
   },
   "tasks": [
     {
@@ -15,7 +15,11 @@
       "module": "frontend",
       "priority": "P0",
       "status": "DONE",
-      "note": "首页恢复、构建恢复、线上可访问"
+      "note": "首页恢复、构建恢复、线上可访问",
+      "dependsOn": [],
+      "startedAt": "2026-03-13T01:00:00.000Z",
+      "completedAt": "2026-03-13T03:30:00.000Z",
+      "estimatedHours": 4
     },
     {
       "id": "WEB-002",
@@ -24,7 +28,11 @@
       "module": "frontend",
       "priority": "P0",
       "status": "DONE",
-      "note": "新闻 AI 点评/翻译、资产 AI 分析已关闭"
+      "note": "新闻 AI 点评/翻译、资产 AI 分析已关闭",
+      "dependsOn": ["WEB-001"],
+      "startedAt": "2026-03-13T03:35:00.000Z",
+      "completedAt": "2026-03-13T04:00:00.000Z",
+      "estimatedHours": 1
     },
     {
       "id": "OPS-001",
@@ -33,8 +41,10 @@
       "module": "ops",
       "priority": "P1",
       "status": "DOING",
-      "note": "Mission schema enhanced with timestamps/session binding",
-      "startedAt": "2026-03-13T05:16:55.127Z"
+      "note": "事件分类标签、Agent当前动作、进度条已实现",
+      "dependsOn": ["WEB-001"],
+      "startedAt": "2026-03-13T05:16:55.127Z",
+      "estimatedHours": 3
     },
     {
       "id": "MACRO-001",
@@ -43,7 +53,10 @@
       "module": "research",
       "priority": "P1",
       "status": "DOING",
-      "note": "Macro Hub 已新增监控变量模块"
+      "note": "Macro Hub 已新增监控变量模块",
+      "dependsOn": ["WEB-001", "WEB-002"],
+      "startedAt": "2026-03-13T05:20:00.000Z",
+      "estimatedHours": 4
     },
     {
       "id": "DATA-001",
@@ -52,7 +65,9 @@
       "module": "data",
       "priority": "P1",
       "status": "TODO",
-      "note": "先恢复月度稳态接入，不再破坏构建链"
+      "note": "先恢复月度稳态接入，不再破坏构建链",
+      "dependsOn": ["BOND-001"],
+      "estimatedHours": 6
     },
     {
       "id": "BOND-001",
@@ -61,7 +76,11 @@
       "module": "data",
       "priority": "P1",
       "status": "DONE",
-      "note": "中国债券稳态适配器已正式接入首页展示链路"
+      "note": "中国债券稳态适配器已正式接入首页展示链路",
+      "dependsOn": ["WEB-001"],
+      "startedAt": "2026-03-13T04:10:00.000Z",
+      "completedAt": "2026-03-13T05:00:00.000Z",
+      "estimatedHours": 2
     }
   ],
   "agents": [
@@ -69,44 +88,59 @@
       "name": "GPT-5.4 / main",
       "role": "总控 / 战略 / 执行调度",
       "status": "RUNNING",
-      "task": "Mission Control 写入 API + UI增强中",
-      "risk": "LOW"
+      "task": "Mission Control UI 增强完成：事件分类、Agent动作、进度条",
+      "risk": "LOW",
+      "currentAction": "构建验证 + 状态写入",
+      "sessionId": "agent:main:main-5de02126",
+      "currentTaskId": "OPS-001",
+      "startedAt": "2026-03-13T01:00:00.000Z",
+      "lastHeartbeatAt": "2026-03-13T05:35:00.000Z"
     },
     {
       "name": "MiniMax Highspeed",
       "role": "前端快速开发 / 热修",
       "status": "RUNNING",
-      "task": "准备接入更真实的子代理状态同步",
-      "risk": "LOW"
+      "task": "Mission Control UI 增强验证中",
+      "risk": "LOW",
+      "currentAction": "验证构建 + 热修",
+      "sessionId": "agent:minimax-engineer:subagent-5de02126",
+      "currentTaskId": "OPS-001",
+      "startedAt": "2026-03-13T05:10:00.000Z",
+      "lastHeartbeatAt": "2026-03-13T05:35:00.000Z"
     },
     {
       "name": "Kimi 2.5",
       "role": "研究结构 / 数据接入审计",
       "status": "IDLE",
       "task": "等待中国宏观重建方案拆解",
-      "risk": "LOW"
+      "risk": "LOW",
+      "sessionId": "agent:kimi-k2.5:subagent-abc123",
+      "currentTaskId": null,
+      "lastHeartbeatAt": "2026-03-13T04:30:00.000Z",
+      "completedAt": "2026-03-13T04:30:00.000Z"
     }
   ],
   "timeline": [
-    "🟡 OPS-001 Mission Control 页面动态化",
+    "🏛️ P1 · Mission Control UI增强：事件分类、Agent动作、进度条",
+    "🟡 OPS-001 Mission Control 页面动态化 [depends:WEB-001] [started:05:16]",
     "📍 Test Mission Event [test:passed]",
     "📝 Mission Control 已新增事件驱动自动写入 API",
     "📝 主执行流已接入统一 mission 写入命令入口",
     "📝 Mission Control 已抽离统一状态更新库",
+    "🟡 MACRO-001 宏观研究页 /macro 搭建 [depends:WEB-001,WEB-002]",
     "🟡 MACRO-001 宏观研究页 /macro 搭建",
-    "🟡 MACRO-001 宏观研究页 /macro 搭建",
-    "🟢 BOND-001 中国债券数据正式重建",
-    "🟡 AGENT MiniMax Highspeed -> RUNNING · 准备接入更真实的子代理状态同步",
+    "🟢 BOND-001 中国债券数据正式重建 [depends:WEB-001] [dur:50min]",
+    "🟡 AGENT MiniMax Highspeed -> RUNNING [session:5de02126] [task:OPS-001]",
     "🟡 OPS-001 Mission Control 页面动态化",
     "🟡 BOND-001 中国债券数据正式重建",
     "🟡 MACRO-001 宏观研究页 /macro 搭建",
     "🟡 OPS-001 Mission Control 页面动态化",
-    "🟢 网站恢复可访问",
-    "🟢 低价值 AI token 消耗已关闭",
+    "🟢 网站恢复可访问 [dur:150min]",
+    "🟢 低价值 AI token 消耗已关闭 [dur:25min]",
     "🟢 Mission Control MVP 已上线",
     "🟡 Mission Control 正在切换为动态数据源",
     "🟡 /macro 宏观研究中枢开始搭建",
-    "🔴 中国债券/中国宏观仍在降级模式"
+    "🔴 中国债券与中国宏观仍在降级模式"
   ],
   "blockers": [
     "中国债券与中国宏观正式接入仍需稳态运行时数据方案，当前先保持降级展示。"
