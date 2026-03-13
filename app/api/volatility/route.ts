@@ -70,14 +70,44 @@ export async function GET() {
     }
 
     // 计算各周期指标
+    // YTD 单独处理，先计算其他周期
     const periods = [
       { name: "Since Inception", days: 0 }, // 全量
       { name: "1Y", days: 365 },
-      { name: "YTD", days: -1 }, // 特殊处理
       { name: "6M", days: 180 },
       { name: "3M", days: 90 },
       { name: "1M", days: 30 },
     ];
+
+    // YTD 单独计算
+    const latestDate = new Date(nav[nav.length - 1].date);
+    const yearStart = new Date(latestDate.getFullYear(), 0, 1);
+    const ytdNav = nav.filter((n: {date: string, value: number}) => new Date(n.date) >= yearStart);
+    
+    let ytdResult: null | {
+      period: string;
+      volatility: number;
+      maxDrawdown: number;
+      sharpeRatio: number;
+      dataPoints: number;
+      source: "truth";
+      methodology: string;
+    } = null;
+    if (ytdNav.length >= 2) {
+      const ytdValues = ytdNav.map((n: {date: string, value: number}) => n.value);
+      const ytdReturns = computeReturns(ytdValues);
+      if (ytdReturns.length >= 1) {
+        ytdResult = {
+          period: "YTD",
+          volatility: Math.round(computeVolatility(ytdReturns) * 100) / 100,
+          maxDrawdown: -Math.round(computeMaxDrawdown(ytdValues) * 100) / 100,
+          sharpeRatio: Math.round(computeSharpe(ytdReturns) * 100) / 100,
+          dataPoints: ytdNav.length,
+          source: "truth" as const,
+          methodology: "Computed from YTD NAV data",
+        };
+      }
+    }
 
     const results = periods.map(period => {
       let periodNav: Array<{date: string, value: number}>;
@@ -110,7 +140,9 @@ export async function GET() {
       
       // Since Inception 是完整历史数据，标记为 truth
       // 有完整月度数据支撑的周期也标记为 truth
-      const isTruth = period.name === "Since Inception" || period.name === "1Y" || period.name === "YTD";
+      // Since Inception 是完整历史数据，标记为 truth
+      // 有完整月度数据支撑的周期也标记为 truth (YTD 单独处理)
+      const isTruth = period.name === "Since Inception" || period.name === "1Y";
       
       return {
         period: period.name,
@@ -140,6 +172,11 @@ export async function GET() {
         source: "indicative",
         methodology: "Estimated from recent monthly returns (limited data)",
       });
+    }
+
+    // 添加 YTD 结果到数组
+    if (ytdResult) {
+      results.push(ytdResult);
     }
 
     return NextResponse.json({
