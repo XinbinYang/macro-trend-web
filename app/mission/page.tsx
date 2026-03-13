@@ -46,13 +46,36 @@ interface MissionPayload {
   blockers: string[];
 }
 
-// Owner ↔ Agent alias mapping
+// Owner ↔ Agent alias mapping (used for task highlight/filter)
 const OWNER_AGENT_MAP: Record<string, string[]> = {
-  "main": ["GPT-5.4", "main"],
+  "main": ["GPT-5.4", "main", "GPT-5.4 / main"],
   "minimax": ["MiniMax", "minimax"],
-  "system": ["System"],
+  "system": ["System", "system"],
   "kimi": ["Kimi", "kimi"],
 };
+
+// Agent display name mapping (show CN names on UI)
+const AGENT_CN: Record<string, string> = {
+  "Data-Nexus-Agent": "数据工程师",
+  "Macro-Oracle-Agent": "经济学家",
+  "Alpha-Hunter-Agent": "量化研究员",
+  "Portfolio-Synthesizer-Agent": "投资经理",
+  "minimax-engineer": "系统工程师",
+  "main": "AI宏观作手",
+  "GPT-5.4 / main": "AI宏观作手",
+};
+
+// Allowlist to hide terminal test noise in mission UI
+const AGENT_ALLOWLIST = new Set<string>(Object.keys(AGENT_CN));
+
+function normalizeAgentName(agent: string): string {
+  return agent?.trim() || "";
+}
+
+function displayAgentName(agent: string): string {
+  const key = normalizeAgentName(agent);
+  return AGENT_CN[key] ? `${AGENT_CN[key]} · ${key}` : key;
+}
 
 // STALE threshold in seconds
 const STALE_THRESHOLD = 120;
@@ -127,7 +150,7 @@ function LiveAgentCard({ agent, onClick, isSelected }: { agent: LiveAgentStatus;
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${visual.dot}`} />
-          <div className="text-sm font-medium text-slate-100">🤖 {agent.agent}</div>
+          <div className="text-sm font-medium text-slate-100">🤖 {displayAgentName(agent.agent)}</div>
         </div>
         <Badge className={visual.badge}>{visual.label}</Badge>
       </div>
@@ -320,7 +343,12 @@ export default function MissionPage() {
       .from("agent_status")
       .select("agent,status,step,progress,output,updated_at")
       .order("updated_at", { ascending: false });
-    if (!error && data) setLiveAgents(data as LiveAgentStatus[]);
+    if (!error && data) {
+      const rows = (data as LiveAgentStatus[])
+        .map((x) => ({ ...x, agent: normalizeAgentName(x.agent) }))
+        .filter((x) => AGENT_ALLOWLIST.has(x.agent));
+      setLiveAgents(rows);
+    }
   };
 
   useEffect(() => {
@@ -380,16 +408,23 @@ export default function MissionPage() {
   };
 
   const liveSummary = useMemo(() => {
-    const counts = { running: 0, done: 0, idle: 0, error: 0 };
+    const counts = { running: 0, done: 0, idle: 0, error: 0, stale: 0 };
+    const now = Date.now();
     liveAgents.forEach((a) => {
       const s = (a.status || "").toLowerCase();
       if (s === "running") counts.running += 1;
       else if (s === "done") counts.done += 1;
       else if (s === "error" || s === "blocked") counts.error += 1;
       else counts.idle += 1;
+
+      const updated = new Date(a.updated_at).getTime();
+      const secondsAgo = Math.floor((now - updated) / 1000);
+      if (secondsAgo > STALE_THRESHOLD) counts.stale += 1;
     });
     return counts;
   }, [liveAgents]);
+
+  // selectedOwner is used to highlight tasks owned by the clicked agent
 
   // Calculate stale agents count
   const staleAgentsCount = useMemo(() => {
