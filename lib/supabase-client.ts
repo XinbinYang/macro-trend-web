@@ -1,11 +1,13 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xmdvozykqwolmfaycgyz.supabase.co';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJodHRwczovL3htZHZvenlrcXdvbG1mYXljZ3l6LnN1cGFiYXNlLmNvL2F1dGgvdjEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc3MzEyMzU0NiwiZXhwIjoyMDg4Njk5NTQ2fQ.84pCwyOwVK2d0bjH7l0JK8F9U8q7nF5NFF1z7MW1s0U';
+const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xmdvozykqwolmfaycgyz.supabase.co';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 export function getSupabaseClient(): SupabaseClient {
-  return createClient(supabaseUrl, supabaseAnonKey);
+  // Prefer service role on server to avoid anon-key drift / RLS issues
+  const key = supabaseServiceKey || supabaseAnonKey;
+  return createClient(supabaseUrl, key);
 }
 
 export function getSupabaseAdmin(): SupabaseClient | null {
