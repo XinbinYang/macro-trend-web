@@ -77,6 +77,19 @@ function displayAgentName(agent: string): string {
   return AGENT_CN[key] ? `${AGENT_CN[key]} · ${key}` : key;
 }
 
+// Task owner display mapping (keep raw key for filtering/audit)
+const OWNER_CN: Record<string, string> = {
+  main: "AI宏观作手",
+  minimax: "系统工程师",
+  system: "系统自动",
+  kimi: "数据工程师",
+};
+
+function displayOwner(owner: string): string {
+  const key = (owner || "").trim();
+  return OWNER_CN[key] ? `${OWNER_CN[key]} · ${key}` : key;
+}
+
 // STALE threshold in seconds
 const STALE_THRESHOLD = 120;
 
@@ -239,7 +252,7 @@ function TaskCard({
       
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
-          👤 {task.owner}
+          👤 {displayOwner(task.owner)}
         </span>
         <span className="text-xs text-slate-500">
           📦 {task.module}
