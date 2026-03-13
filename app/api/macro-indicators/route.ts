@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
+// Force this API route to run dynamically on every request (avoid Next static optimization)
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export type MacroIndicatorStatus = "LIVE" | "STALE" | "OFF";
 
 type QualityTag = "Truth" | "Indicative";

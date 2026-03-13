@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { getSupabaseClient } from "@/lib/supabase-client";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 function monthsBetween(from: string, to = new Date().toISOString().slice(0, 7)) {
   const [fy, fm] = from.split("-").map(Number);
   const [ty, tm] = to.split("-").map(Number);
