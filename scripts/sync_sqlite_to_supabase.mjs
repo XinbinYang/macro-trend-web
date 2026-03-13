@@ -66,6 +66,12 @@ async function syncMacro(db) {
   console.log('OK macro_us rows=', macroUs.length, 'macro_cn rows=', macroCn.length);
 }
 
+async function deleteRecentYears(supabase, table, cutoffDate) {
+  // Safety: only delete a bounded recent window.
+  const { error } = await supabase.from(table).delete().gte('date', cutoffDate);
+  if (error) throw new Error(`[${table}] delete error: ${error.message}`);
+}
+
 async function syncAssetsRecentYears(db, years = 3) {
   console.log(`Sync assets (recent ${years}y): equity/bond/commodity/fx`);
 
@@ -78,8 +84,13 @@ async function syncAssetsRecentYears(db, years = 3) {
   const cmdy = await all(db, 'select * from assets_commodity where date >= ? order by date', [cutoffDate]);
   const fx = await all(db, 'select * from assets_fx where date >= ? order by date', [cutoffDate]);
 
-  // First-time bulk load: insert only (avoid requiring unique constraints)
-  // NOTE: This will allow duplicates if re-run; later we can add unique constraints and switch to upsert.
+  // Idempotent refresh: delete recent window first, then insert.
+  console.log(`Refreshing window since ${cutoffDate} (delete→insert)`);
+  await deleteRecentYears(supabase, 'assets_equity', cutoffDate);
+  await deleteRecentYears(supabase, 'assets_bond', cutoffDate);
+  await deleteRecentYears(supabase, 'assets_commodity', cutoffDate);
+  await deleteRecentYears(supabase, 'assets_fx', cutoffDate);
+
   await insertBatched(supabase, 'assets_equity', equity);
   await insertBatched(supabase, 'assets_bond', bond);
   await insertBatched(supabase, 'assets_commodity', cmdy);
