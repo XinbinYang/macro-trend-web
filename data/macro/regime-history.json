@@ -1,20 +1,75 @@
 {
-  "updatedAt": "2026-03-13T07:59:00+08:00",
+  "updatedAt": "2026-03-13T14:00:00+08:00",
   "history": [
     {
-      "period": "2022 通胀冲击期",
+      "period": "2022-2023 通胀冲击期",
       "tag": "Inflation Shock",
-      "summary": "高通胀压制权益估值，利率与美元主导风险资产表现。"
+      "summary": "高通胀压制权益估值，利率与美元主导风险资产表现。美联储激进加息，10Y美债一度突破5%。",
+      "keyEvents": ["Fed加息周期", "俄乌冲突", "能源危机"],
+      "assetPerformance": {
+        "equity": "承压",
+        "bond": "大幅回撤",
+        "commodity": "能源强势",
+        "gold": "震荡"
+      },
+      "counterSignalsTriggered": ["US CPI > 4%", "US 10Y > 4.5%"],
+      "lessons": "通胀超预期时，久期资产首当其冲，需缩短久期、增配实物资产。"
     },
     {
       "period": "2019 宽松交易期",
       "tag": "Liquidity Pivot",
-      "summary": "政策转向与流动性改善推动股债双强，久期资产受益明显。"
+      "summary": "政策转向与流动性改善推动股债双强，久期资产受益明显。美联储三次降息，市场流动性充裕。",
+      "keyEvents": ["Fed预防式降息", "中美贸易摩擦缓和", "全球央行宽松"],
+      "assetPerformance": {
+        "equity": "强势",
+        "bond": "上涨",
+        "commodity": "温和",
+        "gold": "突破1500"
+      },
+      "counterSignalsTriggered": [],
+      "lessons": "流动性拐点确认后，应果断拉长久期、增配风险资产。"
     },
     {
-      "period": "2020 危机后重启期",
+      "period": "2020-2021 危机后重启期",
       "tag": "Reflation",
-      "summary": "增长修复 + 流动性极宽松，商品与权益弹性较强。"
+      "summary": "增长修复 + 流动性极宽松，商品与权益弹性较强。疫情后财政货币双宽松，通胀开始抬头。",
+      "keyEvents": ["疫情冲击", "全球大宽松", "供应链瓶颈"],
+      "assetPerformance": {
+        "equity": "V型反弹",
+        "bond": "先涨后跌",
+        "commodity": "大幅上涨",
+        "gold": "创新高"
+      },
+      "counterSignalsTriggered": ["US ISM PMI < 48 (2020Q2)"],
+      "lessons": "危机初期流动性为王，复苏期转向增长驱动，需动态调整。"
+    },
+    {
+      "period": "2015-2016 中国供给侧改革",
+      "tag": "CN Supply Reform",
+      "summary": "中国供给侧改革推动大宗商品反弹，人民币汇率波动加剧，资本外流压力上升。",
+      "keyEvents": ["811汇改", "供给侧改革", "美联储加息"],
+      "assetPerformance": {
+        "equity": "震荡分化",
+        "bond": "宽松支撑",
+        "commodity": "黑色系暴涨",
+        "gold": "避险需求"
+      },
+      "counterSignalsTriggered": ["CN 社融存量同比 < 9%"],
+      "lessons": "政策驱动型行情中，需紧密跟踪政策执行力度与传导效果。"
+    },
+    {
+      "period": "2008-2009 金融危机",
+      "tag": "Global Crisis",
+      "summary": "全球金融危机引发系统性风险，随后大规模刺激推动快速反弹。雷曼破产触发全球流动性冻结。",
+      "keyEvents": ["雷曼破产", "全球QE", "四万亿刺激"],
+      "assetPerformance": {
+        "equity": "暴跌后反弹",
+        "bond": "避险上涨",
+        "commodity": "崩盘后修复",
+        "gold": "避险需求"
+      },
+      "counterSignalsTriggered": ["US ISM PMI < 48", "利差倒挂"],
+      "lessons": "系统性风险中现金为王，政策底出现后需果断转向。"
     }
   ]
 }

@@ -1,31 +1,59 @@
 {
-  "region": "US",
+  "region": "Global",
   "status": "LIVE",
-  "updatedAt": "2026-03-13T13:00:00+08:00",
+  "updatedAt": "2026-03-13T14:00:00+08:00",
   "regime": {
     "name": "Neutral",
-    "confidence": 50,
-    "driver": "数据源恢复中，暂按中性基线显示",
+    "confidence": 55,
+    "driver": "中美宏观周期错位，美国软着陆预期 vs 中国弱复苏",
     "counterSignals": [
       {
         "condition": "US ISM PMI < 48",
         "implication": "制造业收缩确认，衰退风险上升",
-        "action": "减配权益，增配防御"
+        "action": "减配权益，增配防御",
+        "linkedMonitor": "US ISM Manufacturing",
+        "triggerType": "threshold_cross",
+        "severity": "high"
       },
       {
         "condition": "US CPI > 4% 或 Core CPI > 3.5%",
         "implication": "通胀黏性超预期，降息路径受阻",
-        "action": "久期中性或偏短"
+        "action": "久期中性或偏短",
+        "linkedMonitor": "US CPI YoY",
+        "triggerType": "threshold_cross",
+        "severity": "high"
       },
       {
         "condition": "US 10Y > 4.5% 或利差倒挂消失",
         "implication": "定价锚重新失锚，权益承压",
-        "action": "减配成长股"
+        "action": "减配成长股",
+        "linkedMonitor": "US 10Y Yield",
+        "triggerType": "threshold_cross",
+        "severity": "medium"
       },
       {
         "condition": "CN 社融存量同比 < 9%",
         "implication": "信用扩张不足，内需复苏低于预期",
-        "action": "减配中国相关资产"
+        "action": "减配中国相关资产",
+        "linkedMonitor": "CN Credit / Social Financing",
+        "triggerType": "threshold_cross",
+        "severity": "high"
+      },
+      {
+        "condition": "CN PMI < 49 连续3个月",
+        "implication": "经济持续收缩，政策刺激预期升温",
+        "action": "关注政策对冲机会",
+        "linkedMonitor": "CN PMI Manufacturing",
+        "triggerType": "persistence",
+        "severity": "medium"
+      },
+      {
+        "condition": "Gold vs Real Yield 背离",
+        "implication": "避险逻辑强化或通胀预期抬头",
+        "action": "增配黄金与实物资产",
+        "linkedMonitor": "Gold vs Real Yield",
+        "triggerType": "divergence",
+        "severity": "medium"
       }
     ],
     "thresholds": {
@@ -37,8 +65,28 @@
       "us_10y_warning": 4.2,
       "cn_social_financing_critical": 9.0,
       "cn_social_financing_warning": 10.0,
+      "cn_pmi_critical": 49.0,
+      "cn_pmi_warning": 50.5,
       "gold_critical": 2200,
       "gold_warning": 2100
+    },
+    "us_cn_comparison": {
+      "growth": {
+        "us": { "status": "soft_landing", "trend": "stable", "level": "moderate" },
+        "cn": { "status": "weak_recovery", "trend": "improving_slowly", "level": "below_potential" }
+      },
+      "inflation": {
+        "us": { "status": "disinflation", "trend": "declining", "level": "moderate" },
+        "cn": { "status": "low_inflation", "trend": "stable_low", "level": "below_target" }
+      },
+      "policy": {
+        "us": { "status": "restrictive", "trend": "easing_expected", "level": "tight" },
+        "cn": { "status": "accommodative", "trend": "easing", "level": "loose" }
+      },
+      "liquidity": {
+        "us": { "status": "tightening", "trend": "stable", "level": "neutral_tight" },
+        "cn": { "status": "easing", "trend": "easing", "level": "neutral_loose" }
+      }
     }
   }
 }

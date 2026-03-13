@@ -1,5 +1,5 @@
 {
-  "updatedAt": "2026-03-13T13:05:00+08:00",
+  "updatedAt": "2026-03-13T14:00:00+08:00",
   "items": [
     {
       "name": "US 10Y Yield",
@@ -12,7 +12,11 @@
         "bullish": "< 4.0%",
         "neutral": "4.0% - 4.5%",
         "bearish": "> 4.5%"
-      }
+      },
+      "linkedSignals": ["US 10Y > 4.5% 或利差倒挂消失"],
+      "linkedHistory": ["2022-2023 通胀冲击期"],
+      "dataSource": "US Treasury",
+      "updateFrequency": "实时"
     },
     {
       "name": "Fed Funds Path",
@@ -25,7 +29,45 @@
         "bullish": "明确降息通道",
         "neutral": "高位停留",
         "bearish": "重新定价更高利率"
-      }
+      },
+      "linkedSignals": ["US CPI > 4% 或 Core CPI > 3.5%"],
+      "linkedHistory": ["2019 宽松交易期", "2022-2023 通胀冲击期"],
+      "dataSource": "CME FedWatch",
+      "updateFrequency": "每日"
+    },
+    {
+      "name": "US ISM Manufacturing",
+      "region": "US",
+      "category": "Growth",
+      "current": "50.3",
+      "why": "美国制造业PMI是经济周期定位的核心先行指标。",
+      "watch": "若跌破48，衰退风险显著上升，需调整权益敞口。",
+      "threshold": {
+        "bullish": "> 52",
+        "neutral": "48 - 52",
+        "bearish": "< 48"
+      },
+      "linkedSignals": ["US ISM PMI < 48"],
+      "linkedHistory": ["2020-2021 危机后重启期", "2008-2009 金融危机"],
+      "dataSource": "ISM/IBD",
+      "updateFrequency": "月度"
+    },
+    {
+      "name": "US CPI YoY",
+      "region": "US",
+      "category": "Inflation",
+      "current": "2.8%",
+      "why": "通胀路径决定美联储政策空间与真实利率水平。",
+      "watch": "若核心CPI反弹至3.5%以上，降息预期将大幅回撤。",
+      "threshold": {
+        "bullish": "< 2.5%",
+        "neutral": "2.5% - 3.5%",
+        "bearish": "> 3.5%"
+      },
+      "linkedSignals": ["US CPI > 4% 或 Core CPI > 3.5%"],
+      "linkedHistory": ["2022-2023 通胀冲击期"],
+      "dataSource": "BLS",
+      "updateFrequency": "月度"
     },
     {
       "name": "CN Credit / Social Financing",
@@ -38,7 +80,11 @@
         "bullish": "> 10% 同比扩张",
         "neutral": "9% - 10%",
         "bearish": "< 9%"
-      }
+      },
+      "linkedSignals": ["CN 社融存量同比 < 9%"],
+      "linkedHistory": ["2015-2016 中国供给侧改革"],
+      "dataSource": "PBoC",
+      "updateFrequency": "月度"
     },
     {
       "name": "CN LPR / Policy Bias",
@@ -51,7 +97,28 @@
         "bullish": "继续宽松",
         "neutral": "维持现状",
         "bearish": "边际转紧"
-      }
+      },
+      "linkedSignals": ["CN 社融存量同比 < 9%"],
+      "linkedHistory": ["2020-2021 危机后重启期", "2015-2016 中国供给侧改革"],
+      "dataSource": "PBoC",
+      "updateFrequency": "月度"
+    },
+    {
+      "name": "CN PMI Manufacturing",
+      "region": "CN",
+      "category": "Growth",
+      "current": "49.0",
+      "why": "中国制造业PMI反映内需外需综合景气度。",
+      "watch": "若持续低于50，经济仍在收缩区间，政策刺激预期升温。",
+      "threshold": {
+        "bullish": "> 50.5",
+        "neutral": "49.0 - 50.5",
+        "bearish": "< 49.0"
+      },
+      "linkedSignals": ["CN 社融存量同比 < 9%"],
+      "linkedHistory": ["2020-2021 危机后重启期"],
+      "dataSource": "NBS",
+      "updateFrequency": "月度"
     },
     {
       "name": "Gold vs Real Yield",
@@ -64,7 +131,79 @@
         "bullish": "金价强于实际利率压制",
         "neutral": "同步波动",
         "bearish": "真实利率压制黄金"
-      }
+      },
+      "linkedSignals": ["US 10Y > 4.5% 或利差倒挂消失"],
+      "linkedHistory": ["2022-2023 通胀冲击期", "2020-2021 危机后重启期"],
+      "dataSource": "Bloomberg/Comex",
+      "updateFrequency": "实时"
+    },
+    {
+      "name": "US Yield Curve (10Y-2Y)",
+      "region": "US",
+      "category": "Rates",
+      "current": "+35bp",
+      "why": "收益率曲线斜率反映市场对经济前景与货币政策路径的预期。",
+      "watch": "若重新倒挂，预示衰退风险上升，需警惕风险资产回调。",
+      "threshold": {
+        "bullish": "> +50bp",
+        "neutral": "0 - +50bp",
+        "bearish": "< 0 (倒挂)"
+      },
+      "linkedSignals": ["US 10Y > 4.5% 或利差倒挂消失"],
+      "linkedHistory": ["2008-2009 金融危机", "2019 宽松交易期"],
+      "dataSource": "US Treasury",
+      "updateFrequency": "实时"
+    },
+    {
+      "name": "CN Liquidity Spread (DR007-OMO)",
+      "region": "CN",
+      "category": "Liquidity",
+      "current": "+15bp",
+      "why": "银行间流动性松紧程度，反映央行态度与资金供需。",
+      "watch": "若持续高于+30bp，流动性收紧，对债市偏空。",
+      "threshold": {
+        "bullish": "< +10bp",
+        "neutral": "+10bp - +30bp",
+        "bearish": "> +30bp"
+      },
+      "linkedSignals": [],
+      "linkedHistory": ["2015-2016 中国供给侧改革"],
+      "dataSource": "CFETS",
+      "updateFrequency": "实时"
+    },
+    {
+      "name": "CN Bond Futures Curve",
+      "region": "CN",
+      "category": "Rates",
+      "current": "TL-T 价差: 4.2元",
+      "why": "国债期货期限利差反映市场对长端利率的预期与久期偏好。",
+      "watch": "若价差收窄，可能预示长端利率下行预期或配置需求增强。",
+      "threshold": {
+        "bullish": "价差 > 4.5元",
+        "neutral": "3.5 - 4.5元",
+        "bearish": "< 3.5元"
+      },
+      "linkedSignals": ["CN 社融存量同比 < 9%"],
+      "linkedHistory": ["2020-2021 危机后重启期"],
+      "dataSource": "CFFEX",
+      "updateFrequency": "实时"
+    },
+    {
+      "name": "CN Property / Credit Stress",
+      "region": "CN",
+      "category": "Credit",
+      "current": "高债务风险",
+      "why": "房地产债务风险是信用周期与金融体系稳定的核心变量。",
+      "watch": "若风险向金融机构传导，需警惕信用紧缩与资产抛售。",
+      "threshold": {
+        "bullish": "风险缓释",
+        "neutral": "风险可控",
+        "bearish": "风险扩散"
+      },
+      "linkedSignals": ["CN 社融存量同比 < 9%"],
+      "linkedHistory": ["2015-2016 中国供给侧改革"],
+      "dataSource": "Wind/PBoC",
+      "updateFrequency": "月度"
     }
   ]
 }

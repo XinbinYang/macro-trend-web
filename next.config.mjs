@@ -1,6 +1,13 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // 确保没有 api 键
+  // Disable static export to fix build issues
+  output: 'standalone',
+  // Ensure trailing slashes for consistency
+  trailingSlash: true,
+  // Disable image optimization for static builds
+  images: {
+    unoptimized: true,
+  },
 };
 
 export default nextConfig;
