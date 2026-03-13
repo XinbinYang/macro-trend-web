@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, ShieldAlert, Target } from "lucide-react";
+import { BarChart3, ShieldAlert, Target, History } from "lucide-react";
 import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
 
@@ -19,11 +19,18 @@ interface RegimeData {
   };
 }
 
+interface RegimeHistoryItem {
+  period: string;
+  tag: string;
+  summary: string;
+}
+
 export default function MacroPage() {
   const [usById, setUsById] = useState<Record<string, { value: number | null; asOf: string | null; source: string }> | null>(null);
   const [cn, setCn] = useState<CnMacroSnapshot | null>(null);
   const [cnFreshness, setCnFreshness] = useState<string | null>(null);
   const [regime, setRegime] = useState<RegimeData | null>(null);
+  const [history, setHistory] = useState<RegimeHistoryItem[]>([]);
 
   useEffect(() => {
     const run = async () => {
@@ -45,6 +52,12 @@ export default function MacroPage() {
         const res = await fetch("/api/macro-regime", { cache: "no-store" });
         const json = await res.json();
         if (json?.success && json?.data) setRegime(json.data);
+      } catch {}
+
+      try {
+        const res = await fetch("/api/macro-history", { cache: "no-store" });
+        const json = await res.json();
+        if (json?.success && json?.data?.history) setHistory(json.data.history);
       } catch {}
     };
 
@@ -170,6 +183,25 @@ export default function MacroPage() {
           </Card>
         ))}
       </div>
+
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader>
+          <CardTitle className="text-slate-100 flex items-center gap-2"><History className="w-5 h-5 text-cyan-400" /> 历史映射 / Historical Mapping</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-slate-300">
+          {history.length > 0 ? history.map((item) => (
+            <div key={item.period} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-slate-800 text-slate-200 border border-slate-700">{item.tag}</Badge>
+                <span className="text-sm font-medium text-slate-100">{item.period}</span>
+              </div>
+              <div className="text-xs text-slate-400 mt-2">{item.summary}</div>
+            </div>
+          )) : (
+            <div className="text-xs text-slate-500">暂无历史映射数据</div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
