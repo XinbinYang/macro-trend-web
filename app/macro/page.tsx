@@ -182,13 +182,17 @@ export default function MacroPage() {
   const [cnBondData, setCnBondData] = useState<CnBondData | null>(null);
   const [cnBondLoading, setCnBondLoading] = useState(true);
   // 三大中枢联动：组合偏离数据
+  // NOTE: /api/risk-exposure returns { weight, targetWeight, deviation, ... }
   const [portfolioExposure, setPortfolioExposure] = useState<Array<{
     assetClass: string;
     label: string;
-    current: number;
-    target: number;
+    weight: number;
+    targetWeight: number;
     deviation: number;
     source: string;
+    riskContribution?: number;
+    targetRiskContribution?: number;
+    riskDeviation?: number;
   }> | null>(null);
   const [exposureLoading, setExposureLoading] = useState(false);
   const [selectedMonitor, setSelectedMonitor] = useState<string | null>(null);
@@ -546,8 +550,8 @@ export default function MacroPage() {
                     <div className="text-xs text-slate-500 mb-1">{item.label}</div>
                     <div className="flex items-center justify-between">
                       <div>
-                        <div className="text-sm font-medium text-slate-200">{item.current.toFixed(1)}%</div>
-                        <div className="text-[10px] text-slate-500">目标 {item.target}%</div>
+                        <div className="text-sm font-medium text-slate-200">{item.weight.toFixed(1)}%</div>
+                        <div className="text-[10px] text-slate-500">目标 {item.targetWeight}%</div>
                       </div>
                       <div className={`text-xs font-mono ${
                         item.deviation > 0 ? "text-red-400" : item.deviation < 0 ? "text-blue-400" : "text-slate-400"
