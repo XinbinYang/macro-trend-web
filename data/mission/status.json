@@ -5,7 +5,7 @@
     "done": 3,
     "doing": 2,
     "blocked": 0,
-    "updatedAt": "2026-03-13T00:01:17.133Z"
+    "updatedAt": "2026-03-13T00:12:25.697Z"
   },
   "tasks": [
     {
@@ -42,7 +42,7 @@
       "module": "research",
       "priority": "P1",
       "status": "DOING",
-      "note": "Macro Hub 已新增历史映射模块"
+      "note": "Macro Hub 已新增监控变量模块"
     },
     {
       "id": "DATA-001",
@@ -87,6 +87,7 @@
     }
   ],
   "timeline": [
+    "🟡 MACRO-001 宏观研究页 /macro 搭建",
     "🟡 MACRO-001 宏观研究页 /macro 搭建",
     "🟢 BOND-001 中国债券数据正式重建",
     "🟡 AGENT MiniMax Highspeed -> RUNNING · 准备接入更真实的子代理状态同步",

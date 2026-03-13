@@ -1,0 +1,35 @@
+{
+  "updatedAt": "2026-03-13T08:11:00+08:00",
+  "items": [
+    {
+      "name": "US 10Y Yield",
+      "region": "US",
+      "why": "决定久期资产与全球风险偏好定价锚。",
+      "watch": "若长端重新失锚，需要警惕权益估值与黄金交易逻辑再定价。"
+    },
+    {
+      "name": "Fed Funds Path",
+      "region": "US",
+      "why": "决定流动性方向与美元条件收紧/放松。",
+      "watch": "若降息预期大幅回撤，风险资产波动可能抬升。"
+    },
+    {
+      "name": "CN Credit / Social Financing",
+      "region": "CN",
+      "why": "中国信用脉冲对内需、商品链与风险偏好有领先意义。",
+      "watch": "若社融修复不持续，则中国资产反弹质量需打折。"
+    },
+    {
+      "name": "CN LPR / Policy Bias",
+      "region": "CN",
+      "why": "决定中国政策边际宽松力度与稳增长节奏。",
+      "watch": "若政策宽松不扩散到信用和需求，市场传导会偏弱。"
+    },
+    {
+      "name": "Gold vs Real Yield",
+      "region": "Global",
+      "why": "黄金是尾部风险、通胀预期与实际利率博弈的核心映射。",
+      "watch": "若实际利率抬升而黄金不跌，往往意味着避险逻辑强化。"
+    }
+  ]
+}

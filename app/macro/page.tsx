@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { BarChart3, ShieldAlert, Target, History } from "lucide-react";
+import { BarChart3, ShieldAlert, Target, History, Radar } from "lucide-react";
 import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
 
@@ -25,12 +25,20 @@ interface RegimeHistoryItem {
   summary: string;
 }
 
+interface MonitorItem {
+  name: string;
+  region: string;
+  why: string;
+  watch: string;
+}
+
 export default function MacroPage() {
   const [usById, setUsById] = useState<Record<string, { value: number | null; asOf: string | null; source: string }> | null>(null);
   const [cn, setCn] = useState<CnMacroSnapshot | null>(null);
   const [cnFreshness, setCnFreshness] = useState<string | null>(null);
   const [regime, setRegime] = useState<RegimeData | null>(null);
   const [history, setHistory] = useState<RegimeHistoryItem[]>([]);
+  const [monitorItems, setMonitorItems] = useState<MonitorItem[]>([]);
 
   useEffect(() => {
     const run = async () => {
@@ -58,6 +66,12 @@ export default function MacroPage() {
         const res = await fetch("/api/macro-history", { cache: "no-store" });
         const json = await res.json();
         if (json?.success && json?.data?.history) setHistory(json.data.history);
+      } catch {}
+
+      try {
+        const res = await fetch("/api/macro-monitor", { cache: "no-store" });
+        const json = await res.json();
+        if (json?.success && json?.data?.items) setMonitorItems(json.data.items);
       } catch {}
     };
 
@@ -199,6 +213,26 @@ export default function MacroPage() {
             </div>
           )) : (
             <div className="text-xs text-slate-500">暂无历史映射数据</div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader>
+          <CardTitle className="text-slate-100 flex items-center gap-2"><Radar className="w-5 h-5 text-emerald-400" /> 监控变量 / Monitor Variables</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-slate-300">
+          {monitorItems.length > 0 ? monitorItems.map((item) => (
+            <div key={item.name} className="rounded-lg border border-slate-800 bg-slate-950/60 p-3">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Badge className="bg-slate-800 text-slate-200 border border-slate-700">{item.region}</Badge>
+                <span className="text-sm font-medium text-slate-100">{item.name}</span>
+              </div>
+              <div className="text-xs text-slate-400 mt-2">📌 {item.why}</div>
+              <div className="text-xs text-amber-300 mt-1">⚠️ {item.watch}</div>
+            </div>
+          )) : (
+            <div className="text-xs text-slate-500">暂无监控变量</div>
           )}
         </CardContent>
       </Card>
