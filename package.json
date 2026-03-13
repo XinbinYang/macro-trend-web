@@ -11,7 +11,8 @@
     "start": "node node_modules/next/dist/bin/next start",
     "lint": "node node_modules/next/dist/bin/next lint",
     "mission:update": "tsx scripts/update-mission-status.ts",
-    "mission:agent": "tsx scripts/sync-agent-status.ts"
+    "mission:agent": "tsx scripts/sync-agent-status.ts",
+    "mission:write": "tsx scripts/mission-write.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",

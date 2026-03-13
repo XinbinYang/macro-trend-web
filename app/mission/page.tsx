@@ -125,6 +125,11 @@ export default function MissionPage() {
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">🔴 阻塞</div><div className="text-xl font-bold">{data.summary.blocked}</div></div>
             <div className="rounded-lg border border-slate-800 bg-slate-950/60 p-3"><div className="text-slate-500 text-xs">⏱️ 更新时间</div><div className="text-sm font-medium">{new Date(data.summary.updatedAt).toLocaleString("zh-CN")}</div></div>
           </div>
+
+          <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2">
+            <div className="text-xs text-slate-500">📍 当前阶段</div>
+            <div className="text-sm font-medium text-slate-100">{data.summary.phase}</div>
+          </div>
         </CardContent>
       </Card>
 
@@ -193,7 +198,7 @@ export default function MissionPage() {
             </CardHeader>
             <CardContent className="text-sm text-slate-300 space-y-2">
               {data.blockers.map((item, idx) => (
-                <div key={idx}>🔴 {item}</div>
+                <div key={idx} className="rounded-lg border border-red-900/40 bg-red-950/20 px-3 py-2">🔴 {item}</div>
               ))}
             </CardContent>
           </Card>

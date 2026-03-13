@@ -1,11 +1,11 @@
 {
   "summary": {
     "objective": "网页端作战驾驶舱：稳定版恢复 → Mission Control 动态化 → 宏观研究层重建",
-    "phase": "P1 · Mission Control Dynamic",
+    "phase": "P1 · Mission Control Auto-Write + Macro Research Layer"
     "done": 3,
     "doing": 2,
     "blocked": 0,
-    "updatedAt": "2026-03-13T00:17:56.096Z"
+    "updatedAt": "2026-03-13T00:24:59.626Z"
   },
   "tasks": [
     {
@@ -87,6 +87,7 @@
     }
   ],
   "timeline": [
+    "📝 主执行流已接入统一 mission 写入命令入口",
     "📝 Mission Control 已抽离统一状态更新库",
     "🟡 MACRO-001 宏观研究页 /macro 搭建",
     "🟡 MACRO-001 宏观研究页 /macro 搭建",
