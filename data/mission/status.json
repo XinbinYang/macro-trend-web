@@ -5,7 +5,7 @@
     "done": 3,
     "doing": 2,
     "blocked": 0,
-    "updatedAt": "2026-03-13T01:00:21.017Z"
+    "updatedAt": "2026-03-13T05:06:09.444Z"
   },
   "tasks": [
     {
@@ -87,6 +87,7 @@
     }
   ],
   "timeline": [
+    "📍 Test Mission Event [test:passed]",
     "📝 Mission Control 已新增事件驱动自动写入 API",
     "📝 主执行流已接入统一 mission 写入命令入口",
     "📝 Mission Control 已抽离统一状态更新库",
