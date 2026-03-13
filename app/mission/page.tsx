@@ -530,30 +530,39 @@ export default function MissionPage() {
       </div>
 
       {/* Live Agents with Clickable Cards */}
-      {liveAgents.length > 0 && (
-        <Card className="bg-slate-900/50 border-slate-800">
-          <CardHeader>
-            <CardTitle className="text-slate-100 flex items-center gap-2">
-              <Bot className="w-5 h-5 text-emerald-400" /> 
-              🤖 Agent Status Live
-              <span className="text-xs text-slate-500 font-normal ml-2">(点击 Agent 卡片筛选其负责的任务)</span>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {liveAgents.map((agent) => {
-              const owner = getOwnerFromAgent(agent.agent);
-              return (
-                <LiveAgentCard 
-                  key={agent.agent} 
-                  agent={agent} 
-                  onClick={() => handleAgentClick(agent)}
-                  isSelected={owner === selectedOwner}
-                />
-              );
-            })}
-          </CardContent>
-        </Card>
-      )}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader>
+          <CardTitle className="text-slate-100 flex items-center gap-2">
+            <Bot className="w-5 h-5 text-emerald-400" /> 
+            🤖 Agent Status Live
+            <span className="text-xs text-slate-500 font-normal ml-2">(点击 Agent 卡片筛选其负责的任务)</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {liveAgents.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {liveAgents.map((agent) => {
+                const owner = getOwnerFromAgent(agent.agent);
+                return (
+                  <LiveAgentCard 
+                    key={agent.agent} 
+                    agent={agent} 
+                    onClick={() => handleAgentClick(agent)}
+                    isSelected={owner === selectedOwner}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/50 p-6 text-slate-400 text-sm">
+              💤 暂无活跃 Agent（等待任务启动/上报）
+              <div className="text-xs text-slate-500 mt-2">
+                提示：当 Agent 写入 agent_status 后，这里会自动出现卡片并实时更新。
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {data.blockers.length > 0 && (
         <Card className="bg-red-950/20 border-red-800/50">
