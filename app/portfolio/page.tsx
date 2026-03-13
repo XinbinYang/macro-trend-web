@@ -17,8 +17,29 @@ import {
   Activity,
   Loader2,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Globe,
+  Zap
 } from "lucide-react";
+
+// 宏观状态接口
+interface MacroRegimeData {
+  region: string;
+  status: string;
+  updatedAt: string;
+  regime: {
+    name: string;
+    confidence: number;
+    driver: string;
+    counterSignals: Array<{
+      condition: string;
+      implication: string;
+      action: string;
+      severity?: "high" | "medium" | "low";
+      triggered?: boolean;
+    }>;
+  };
+}
 import {
   PieChart as RePieChart,
   Pie,
@@ -130,6 +151,10 @@ export default function PortfolioPage() {
   const [volatilityData, setVolatilityData] = useState<VolatilityData[]>([]);
   const [volLoading, setVolLoading] = useState(false);
 
+  // 宏观状态 (三大中枢联动)
+  const [macroRegime, setMacroRegime] = useState<MacroRegimeData | null>(null);
+  const [macroLoading, setMacroLoading] = useState(false);
+
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
@@ -157,6 +182,7 @@ export default function PortfolioPage() {
     fetchNAVData();
     fetchRiskExposure();
     fetchVolatilityData();
+    fetchMacroRegime();
   }, [router]);
 
   const fetchNAVData = async () => {
@@ -201,6 +227,22 @@ export default function PortfolioPage() {
       console.error("Failed to load volatility data:", e);
     } finally {
       setVolLoading(false);
+    }
+  };
+
+  // 三大中枢联动：获取宏观状态
+  const fetchMacroRegime = async () => {
+    setMacroLoading(true);
+    try {
+      const res = await fetch("/api/macro-regime");
+      const json = await res.json();
+      if (json.success) {
+        setMacroRegime(json.data);
+      }
+    } catch (e) {
+      console.error("Failed to load macro regime:", e);
+    } finally {
+      setMacroLoading(false);
     }
   };
 
@@ -391,6 +433,7 @@ export default function PortfolioPage() {
     fetchNAVData();
     fetchRiskExposure();
     fetchVolatilityData();
+    fetchMacroRegime();
   };
 
   if (!user) return null;
@@ -411,10 +454,10 @@ export default function PortfolioPage() {
             variant="ghost" 
             size="sm" 
             onClick={refreshAllData}
-            disabled={navLoading || riskLoading || volLoading}
+            disabled={navLoading || riskLoading || volLoading || macroLoading}
             className="text-slate-400"
           >
-            {(navLoading || riskLoading || volLoading) ? (
+            {(navLoading || riskLoading || volLoading || macroLoading) ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
               <RefreshCw className="w-4 h-4" />
@@ -429,6 +472,56 @@ export default function PortfolioPage() {
           </Button>
         </div>
       </div>
+
+      {/* 三大中枢联动：宏观上下文横幅 */}
+      {macroRegime && (
+        <Card className="bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-slate-700">
+          <CardContent className="p-4">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
+                <Globe className="w-5 h-5 text-amber-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-slate-200">当前宏观状态</span>
+                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                    macroRegime.regime.name === "Neutral" ? "bg-amber-500/20 text-amber-400" :
+                    macroRegime.regime.name === "Bullish" ? "bg-green-500/20 text-green-400" :
+                    macroRegime.regime.name === "Bearish" ? "bg-red-500/20 text-red-400" :
+                    "bg-slate-500/20 text-slate-400"
+                  }`}>
+                    {macroRegime.regime.name}
+                  </span>
+                  <span className="px-2 py-0.5 rounded text-xs bg-blue-500/20 text-blue-400">
+                    置信度 {macroRegime.regime.confidence}%
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mb-2">{macroRegime.regime.driver}</p>
+                {macroRegime.regime.counterSignals && macroRegime.regime.counterSignals.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {macroRegime.regime.counterSignals.slice(0, 3).map((signal, idx) => (
+                      <div 
+                        key={idx}
+                        className={`px-2 py-1 rounded text-[10px] flex items-center gap-1 ${
+                          signal.severity === "high" ? "bg-red-500/10 text-red-400 border border-red-500/30" :
+                          signal.severity === "medium" ? "bg-amber-500/10 text-amber-400 border border-amber-500/30" :
+                          "bg-slate-500/10 text-slate-400 border border-slate-500/30"
+                        }`}
+                      >
+                        <Zap className="w-3 h-3" />
+                        <span className="max-w-[150px] truncate">{signal.condition}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="text-[10px] text-slate-500">
+                更新: {new Date(macroRegime.updatedAt).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* NAV Performance 统计卡片 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

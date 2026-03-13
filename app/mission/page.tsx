@@ -19,6 +19,8 @@ interface MissionTask {
   startedAt?: string;
   completedAt?: string;
   estimatedHours?: number;
+  // 三大中枢联动：任务来源标签
+  source?: "Macro" | "Portfolio Drift" | "Monitor Trigger" | "Manual" | "System";
 }
 
 interface AgentStatus {
@@ -335,7 +337,20 @@ export default function MissionPage() {
                   <div key={task.id} className="rounded-xl border border-amber-500/30 bg-amber-950/20 p-4 space-y-2">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                       <div>
-                        <div className="text-xs text-amber-400/70">{task.id} · {task.module} · {task.priority}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-amber-400/70">{task.id} · {task.module} · {task.priority}</span>
+                          {/* 三大中枢联动：来源标签 */}
+                          {task.source && (
+                            <Badge className={`text-[10px] px-1.5 py-0 ${
+                              task.source === "Macro" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" :
+                              task.source === "Portfolio Drift" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" :
+                              task.source === "Monitor Trigger" ? "bg-red-500/20 text-red-400 border-red-500/30" :
+                              "bg-slate-500/20 text-slate-400 border-slate-500/30"
+                            }`}>
+                              {task.source}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-sm font-medium text-slate-100">{task.title}</div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -370,7 +385,20 @@ export default function MissionPage() {
                   <div key={task.id} className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-2 opacity-70">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                       <div>
-                        <div className="text-xs text-slate-500">{task.id} · {task.module} · {task.priority}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-slate-500">{task.id} · {task.module} · {task.priority}</span>
+                          {/* 三大中枢联动：来源标签 */}
+                          {task.source && (
+                            <Badge className={`text-[10px] px-1.5 py-0 ${
+                              task.source === "Macro" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" :
+                              task.source === "Portfolio Drift" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" :
+                              task.source === "Monitor Trigger" ? "bg-red-500/20 text-red-400 border-red-500/30" :
+                              "bg-slate-500/20 text-slate-400 border-slate-500/30"
+                            }`}>
+                              {task.source}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-sm font-medium text-slate-300">{task.title}</div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
@@ -424,7 +452,20 @@ export default function MissionPage() {
                   <div key={task.id} className="rounded-xl border border-emerald-500/20 bg-emerald-950/10 p-3 space-y-1 opacity-60">
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
                       <div>
-                        <div className="text-xs text-emerald-500/70">{task.id}</div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs text-emerald-500/70">{task.id}</span>
+                          {/* 三大中枢联动：来源标签 */}
+                          {task.source && (
+                            <Badge className={`text-[10px] px-1.5 py-0 ${
+                              task.source === "Macro" ? "bg-blue-500/20 text-blue-400 border-blue-500/30" :
+                              task.source === "Portfolio Drift" ? "bg-emerald-500/20 text-emerald-400 border-emerald-500/30" :
+                              task.source === "Monitor Trigger" ? "bg-red-500/20 text-red-400 border-red-500/30" :
+                              "bg-slate-500/20 text-slate-400 border-slate-500/30"
+                            }`}>
+                              {task.source}
+                            </Badge>
+                          )}
+                        </div>
                         <div className="text-sm text-slate-400">{task.title}</div>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">

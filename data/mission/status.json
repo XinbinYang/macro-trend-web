@@ -19,7 +19,8 @@
       "dependsOn": [],
       "startedAt": "2026-03-13T01:00:00.000Z",
       "completedAt": "2026-03-13T03:30:00.000Z",
-      "estimatedHours": 4
+      "estimatedHours": 4,
+      "source": "Manual"
     },
     {
       "id": "WEB-002",
@@ -34,7 +35,8 @@
       ],
       "startedAt": "2026-03-13T03:35:00.000Z",
       "completedAt": "2026-03-13T04:00:00.000Z",
-      "estimatedHours": 1
+      "estimatedHours": 1,
+      "source": "Manual"
     },
     {
       "id": "OPS-001",
@@ -48,7 +50,8 @@
         "WEB-001"
       ],
       "startedAt": "2026-03-13T05:40:00.000Z",
-      "estimatedHours": 2
+      "estimatedHours": 2,
+      "source": "System"
     },
     {
       "id": "MACRO-001",
@@ -63,7 +66,8 @@
         "WEB-002"
       ],
       "startedAt": "2026-03-13T05:20:00.000Z",
-      "estimatedHours": 4
+      "estimatedHours": 4,
+      "source": "Macro"
     },
     {
       "id": "DATA-001",
@@ -76,7 +80,8 @@
       "dependsOn": [
         "BOND-001"
       ],
-      "estimatedHours": 6
+      "estimatedHours": 6,
+      "source": "Macro"
     },
     {
       "id": "BOND-001",
@@ -91,7 +96,8 @@
       ],
       "startedAt": "2026-03-13T04:10:00.000Z",
       "completedAt": "2026-03-13T05:00:00.000Z",
-      "estimatedHours": 2
+      "estimatedHours": 2,
+      "source": "Macro"
     }
   ],
   "agents": [

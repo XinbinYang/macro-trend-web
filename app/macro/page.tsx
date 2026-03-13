@@ -9,7 +9,7 @@ import {
   BarChart3, Target, History, Radar, TrendingUp, TrendingDown, 
   Minus, Activity, Globe, Flag, AlertTriangle, 
   ChevronRight, TrendingDown as TrendingDownIcon,
-  Zap, Shield, Scale
+  Zap, Shield, Scale, Wallet
 } from "lucide-react";
 import {
   LineChart,
@@ -173,6 +173,16 @@ export default function MacroPage() {
   const [monitorItems, setMonitorItems] = useState<MonitorItem[]>([]);
   const [cnBondData, setCnBondData] = useState<CnBondData | null>(null);
   const [cnBondLoading, setCnBondLoading] = useState(true);
+  // 三大中枢联动：组合偏离数据
+  const [portfolioExposure, setPortfolioExposure] = useState<Array<{
+    assetClass: string;
+    label: string;
+    current: number;
+    target: number;
+    deviation: number;
+    source: string;
+  }> | null>(null);
+  const [exposureLoading, setExposureLoading] = useState(false);
   const [selectedMonitor, setSelectedMonitor] = useState<string | null>(null);
   const [selectedHistory, setSelectedHistory] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("overview");
@@ -207,6 +217,20 @@ export default function MacroPage() {
         const json = await res.json();
         if (json?.success && json?.data?.items) setMonitorItems(json.data.items);
       } catch {}
+
+      // 三大中枢联动：获取组合偏离数据
+      try {
+        setExposureLoading(true);
+        const expRes = await fetch("/api/risk-exposure", { cache: "no-store" });
+        const expJson = await expRes.json();
+        if (expJson?.success && expJson?.data) {
+          setPortfolioExposure(expJson.data);
+        }
+      } catch (e) {
+        console.error("[MacroHub] Failed to fetch portfolio exposure:", e);
+      } finally {
+        setExposureLoading(false);
+      }
     };
     run();
   }, []);
@@ -413,6 +437,63 @@ export default function MacroPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* 三大中枢联动：组合偏离概览卡 */}
+      {(portfolioExposure && portfolioExposure.length > 0) || exposureLoading ? (
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader className="pb-3">
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-slate-100 flex items-center gap-2">
+                <Wallet className="w-5 h-5 text-emerald-500" /> 
+                组合偏离概览 / Portfolio Drift
+              </CardTitle>
+              <Badge variant="outline" className="text-xs border-slate-700">
+                {exposureLoading ? "加载中..." : "基于风险暴露计算"}
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {exposureLoading ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div key={i} className="p-3 rounded-lg border bg-slate-950/50 border-slate-800 animate-pulse">
+                    <div className="h-3 w-12 bg-slate-800 rounded mb-2"></div>
+                    <div className="h-4 w-16 bg-slate-800 rounded"></div>
+                  </div>
+                ))}
+              </div>
+            ) : portfolioExposure && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                {portfolioExposure.map((item) => (
+                  <div 
+                    key={item.assetClass}
+                    className={`p-3 rounded-lg border ${
+                      Math.abs(item.deviation) > 3 
+                        ? item.deviation > 0 
+                          ? "bg-red-950/20 border-red-800/40" 
+                          : "bg-blue-950/20 border-blue-800/40"
+                        : "bg-slate-950/50 border-slate-800"
+                    }`}
+                  >
+                    <div className="text-xs text-slate-500 mb-1">{item.label}</div>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium text-slate-200">{item.current.toFixed(1)}%</div>
+                        <div className="text-[10px] text-slate-500">目标 {item.target}%</div>
+                      </div>
+                      <div className={`text-xs font-mono ${
+                        item.deviation > 0 ? "text-red-400" : item.deviation < 0 ? "text-blue-400" : "text-slate-400"
+                      }`}>
+                        {item.deviation > 0 ? "+" : ""}{item.deviation.toFixed(1)}%
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      ) : null}
 
       {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
