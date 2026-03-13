@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Bot, Flag, RefreshCw, Target, Workflow, Zap } from "lucide-react";
+import { AlertTriangle, Bot, Flag, RefreshCw, Target, Workflow, Zap, Clock, CheckCircle2, Circle, PlayCircle, Ban } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type TaskStatus = "TODO" | "DOING" | "DONE" | "BLOCKED";
@@ -46,6 +46,17 @@ interface MissionPayload {
   blockers: string[];
 }
 
+// Owner ↔ Agent alias mapping
+const OWNER_AGENT_MAP: Record<string, string[]> = {
+  "main": ["GPT-5.4", "main"],
+  "minimax": ["MiniMax", "minimax"],
+  "system": ["System"],
+  "kimi": ["Kimi", "kimi"],
+};
+
+// STALE threshold in seconds
+const STALE_THRESHOLD = 120;
+
 function agentVisual(status: string) {
   const s = status.toLowerCase();
   if (s === "running") return { dot: "bg-green-400 animate-pulse", badge: "bg-green-500/15 text-green-400 border-green-500/30", label: "RUNNING" };
@@ -74,13 +85,45 @@ function useTypewriter(text: string) {
   return display;
 }
 
-function LiveAgentCard({ agent }: { agent: LiveAgentStatus }) {
+function FreshnessBadge({ updatedAt }: { updatedAt: string }) {
+  const [secondsAgo, setSecondsAgo] = useState(0);
+  
+  useEffect(() => {
+    const update = () => {
+      const updated = new Date(updatedAt).getTime();
+      const now = Date.now();
+      setSecondsAgo(Math.floor((now - updated) / 1000));
+    };
+    update();
+    const timer = setInterval(update, 1000);
+    return () => clearInterval(timer);
+  }, [updatedAt]);
+
+  const isStale = secondsAgo > STALE_THRESHOLD;
+  
+  return (
+    <span className={`inline-flex items-center gap-1 text-xs ${isStale ? "text-red-400 font-bold" : "text-slate-500"}`}>
+      <Clock className="w-3 h-3" />
+      🕒 {secondsAgo}s ago
+      {isStale && <span className="ml-1 px-1.5 py-0.5 bg-red-500/20 border border-red-500/40 rounded text-[10px]">STALE</span>}
+    </span>
+  );
+}
+
+function LiveAgentCard({ agent, onClick, isSelected }: { agent: LiveAgentStatus; onClick?: () => void; isSelected?: boolean }) {
   const visual = agentVisual(agent.status || "idle");
   const typedOutput = useTypewriter(agent.output || "");
   const progress = typeof agent.progress === "number" ? Math.max(0, Math.min(100, agent.progress)) : 0;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-3">
+    <div 
+      onClick={onClick}
+      className={`rounded-xl border p-4 space-y-3 cursor-pointer transition-all duration-200 ${
+        isSelected 
+          ? "border-amber-500/50 bg-amber-950/20" 
+          : "border-slate-800 bg-slate-950/60 hover:border-slate-600"
+      }`}
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <span className={`w-3 h-3 rounded-full ${visual.dot}`} />
@@ -109,7 +152,148 @@ function LiveAgentCard({ agent }: { agent: LiveAgentStatus }) {
         <div className="min-h-[64px] rounded-lg bg-slate-900/80 px-3 py-2 text-xs text-slate-300 whitespace-pre-wrap font-mono">{typedOutput || "—"}</div>
       </div>
 
-      <div className="text-[11px] text-slate-500">updated_at: {new Date(agent.updated_at).toLocaleString("zh-CN")}</div>
+      <div className="flex items-center justify-between">
+        <FreshnessBadge updatedAt={agent.updated_at} />
+      </div>
+    </div>
+  );
+}
+
+function TaskCard({ 
+  task, 
+  allTasks, 
+  isHighlighted,
+  onClick 
+}: { 
+  task: MissionTask; 
+  allTasks: MissionTask[];
+  isHighlighted?: boolean;
+  onClick?: () => void;
+}) {
+  const statusStyles: Record<TaskStatus, string> = {
+    TODO: "border-slate-700 bg-slate-900/40",
+    DOING: "border-amber-500 bg-amber-950/20 animate-pulse-border",
+    DONE: "border-emerald-600 bg-emerald-950/10",
+    BLOCKED: "border-red-500 bg-red-950/20 animate-breathe-red",
+  };
+
+  const statusIcons: Record<TaskStatus, React.ReactNode> = {
+    TODO: <Circle className="w-4 h-4 text-slate-500" />,
+    DOING: <PlayCircle className="w-4 h-4 text-amber-500" />,
+    DONE: <CheckCircle2 className="w-4 h-4 text-emerald-500" />,
+    BLOCKED: <Ban className="w-4 h-4 text-red-500" />,
+  };
+
+  const priorityColors: Record<string, string> = {
+    P0: "text-red-400 bg-red-500/15",
+    P1: "text-amber-400 bg-amber-500/15",
+    P2: "text-blue-400 bg-blue-500/15",
+  };
+
+  // Find dependent tasks
+  const dependsOnTasks = task.dependsOn?.map(depId => allTasks.find(t => t.id === depId)).filter(Boolean) as MissionTask[] | undefined;
+
+  return (
+    <div 
+      onClick={onClick}
+      className={`rounded-lg border p-3 space-y-2 cursor-pointer transition-all duration-200 ${
+        isHighlighted 
+          ? "ring-2 ring-amber-500/50 border-amber-500" 
+          : statusStyles[task.status]
+      }`}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          {statusIcons[task.status]}
+          <span className="text-xs text-slate-500 font-mono">{task.id}</span>
+        </div>
+        <span className={`text-[10px] px-1.5 py-0.5 rounded ${priorityColors[task.priority] || "text-slate-400 bg-slate-700"}`}>
+          {task.priority}
+        </span>
+      </div>
+      
+      <div className="text-sm text-slate-200 font-medium line-clamp-2">{task.title}</div>
+      
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="text-xs text-slate-400 bg-slate-800 px-2 py-0.5 rounded">
+          👤 {task.owner}
+        </span>
+        <span className="text-xs text-slate-500">
+          📦 {task.module}
+        </span>
+        {task.source && (
+          <span className="text-xs text-slate-500">
+            📌 {task.source}
+          </span>
+        )}
+      </div>
+
+      {/* dependsOn display */}
+      {dependsOnTasks && dependsOnTasks.length > 0 && (
+        <div className="pt-1 border-t border-slate-700/50">
+          <div className="text-[10px] text-slate-500 mb-1">⬇️ depends on:</div>
+          <div className="flex flex-wrap gap-1">
+            {dependsOnTasks.map(dep => (
+              <span 
+                key={dep.id}
+                className={`text-[10px] px-1.5 py-0.5 rounded border ${
+                  dep.status === "DONE" 
+                    ? "border-emerald-500/30 bg-emerald-950/20 text-emerald-400"
+                    : dep.status === "BLOCKED"
+                    ? "border-red-500/30 bg-red-950/20 text-red-400"
+                    : "border-slate-600 bg-slate-800 text-slate-400"
+                }`}
+              >
+                {dep.id}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {task.note && (
+        <div className="text-xs text-slate-500 line-clamp-2">{task.note}</div>
+      )}
+    </div>
+  );
+}
+
+function StatusColumn({ 
+  title, 
+  icon, 
+  tasks, 
+  allTasks,
+  highlightOwner,
+  onTaskClick
+}: { 
+  title: string; 
+  icon: React.ReactNode;
+  tasks: MissionTask[];
+  allTasks: MissionTask[];
+  highlightOwner?: string;
+  onTaskClick?: (owner: string) => void;
+}) {
+  return (
+    <div className="flex-1 min-w-[250px] flex flex-col gap-3">
+      <div className="flex items-center gap-2 pb-2 border-b border-slate-700">
+        {icon}
+        <span className="text-sm font-medium text-slate-300">{title}</span>
+        <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{tasks.length}</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {tasks.map(task => (
+          <TaskCard 
+            key={task.id} 
+            task={task} 
+            allTasks={allTasks}
+            isHighlighted={highlightOwner === task.owner}
+            onClick={() => onTaskClick?.(task.owner)}
+          />
+        ))}
+        {tasks.length === 0 && (
+          <div className="text-xs text-slate-600 text-center py-4">—</div>
+        )}
+      </div>
     </div>
   );
 }
@@ -118,6 +302,7 @@ export default function MissionPage() {
   const [data, setData] = useState<MissionPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveAgents, setLiveAgents] = useState<LiveAgentStatus[]>([]);
+  const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
   const fetchedRef = useRef(false);
 
   const fetchMission = async () => {
@@ -162,6 +347,38 @@ export default function MissionPage() {
     };
   }, []);
 
+  // Group tasks by status
+  const tasksByStatus = useMemo(() => {
+    if (!data) return { TODO: [], DOING: [], DONE: [], BLOCKED: [] };
+    return {
+      TODO: data.tasks.filter(t => t.status === "TODO"),
+      DOING: data.tasks.filter(t => t.status === "DOING"),
+      DONE: data.tasks.filter(t => t.status === "DONE"),
+      BLOCKED: data.tasks.filter(t => t.status === "BLOCKED"),
+    };
+  }, [data]);
+
+  // Check if agent matches selected owner
+  const getOwnerFromAgent = (agentName: string): string | null => {
+    for (const [owner, agents] of Object.entries(OWNER_AGENT_MAP)) {
+      if (agents.some(a => agentName.toLowerCase().includes(a.toLowerCase()))) {
+        return owner;
+      }
+    }
+    return null;
+  };
+
+  const handleAgentClick = (agent: LiveAgentStatus) => {
+    const owner = getOwnerFromAgent(agent.agent);
+    if (owner) {
+      setSelectedOwner(prev => prev === owner ? null : owner);
+    }
+  };
+
+  const handleTaskOwnerClick = (owner: string) => {
+    setSelectedOwner(prev => prev === owner ? null : owner);
+  };
+
   const liveSummary = useMemo(() => {
     const counts = { running: 0, done: 0, idle: 0, error: 0 };
     liveAgents.forEach((a) => {
@@ -172,6 +389,14 @@ export default function MissionPage() {
       else counts.idle += 1;
     });
     return counts;
+  }, [liveAgents]);
+
+  // Calculate stale agents count
+  const staleAgentsCount = useMemo(() => {
+    return liveAgents.filter(a => {
+      const secondsAgo = (Date.now() - new Date(a.updated_at).getTime()) / 1000;
+      return secondsAgo > STALE_THRESHOLD;
+    }).length;
   }, [liveAgents]);
 
   if (loading || !data) {
@@ -185,6 +410,7 @@ export default function MissionPage() {
 
   return (
     <div className="space-y-6 pb-20 md:pb-0">
+      {/* Enhanced Header with Emoji Structure */}
       <div className="rounded-xl bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border border-slate-700 p-4">
         <div className="flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-2"><Zap className="w-5 h-5 text-amber-400" /><span className="text-amber-400 font-bold text-lg">MISSION CONTROL</span></div>
@@ -197,18 +423,100 @@ export default function MissionPage() {
           </div>
           <button onClick={() => { fetchMission(); fetchAgentStatus(); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></button>
         </div>
-        <div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300">运行中 <span className="text-green-400 font-bold">{liveSummary.running}</span></div>
-          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300">已完成 <span className="text-blue-400 font-bold">{liveSummary.done}</span></div>
-          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300">待机 <span className="text-slate-300 font-bold">{liveSummary.idle}</span></div>
-          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300">异常 <span className="text-red-400 font-bold">{liveSummary.error}</span></div>
+        
+        {/* Emoji Structured Summary */}
+        <div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
+            <span>🟢</span><span>完成</span><span className="text-emerald-400 font-bold">{data.summary.done}</span>
+          </div>
+          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
+            <span>🟡</span><span>进行中</span><span className="text-amber-400 font-bold">{data.summary.doing}</span>
+          </div>
+          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
+            <span>🔴</span><span>阻塞</span><span className="text-red-400 font-bold">{data.summary.blocked}</span>
+          </div>
+          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
+            <span>🤖</span><span>运行</span><span className="text-green-400 font-bold">{liveSummary.running}</span>
+          </div>
+          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
+            <span>⚠️</span><span>STALE</span><span className={`font-bold ${staleAgentsCount > 0 ? "text-red-400" : "text-slate-400"}`}>{staleAgentsCount}</span>
+          </div>
         </div>
       </div>
 
+      {/* Task Board - 4 Columns */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm text-slate-400">
+          <Target className="w-4 h-4" />
+          <span>📋 任务看板 / Task Board</span>
+          {selectedOwner && (
+            <button 
+              onClick={() => setSelectedOwner(null)}
+              className="ml-2 text-xs text-amber-400 hover:text-amber-300"
+            >
+              ✕ 清除筛选
+            </button>
+          )}
+        </div>
+        <div className="flex gap-3 overflow-x-auto pb-2">
+          <StatusColumn 
+            title="TODO" 
+            icon={<Circle className="w-4 h-4 text-slate-500" />}
+            tasks={tasksByStatus.TODO}
+            allTasks={data.tasks}
+            highlightOwner={selectedOwner || undefined}
+            onTaskClick={handleTaskOwnerClick}
+          />
+          <StatusColumn 
+            title="DOING" 
+            icon={<PlayCircle className="w-4 h-4 text-amber-500" />}
+            tasks={tasksByStatus.DOING}
+            allTasks={data.tasks}
+            highlightOwner={selectedOwner || undefined}
+            onTaskClick={handleTaskOwnerClick}
+          />
+          <StatusColumn 
+            title="DONE" 
+            icon={<CheckCircle2 className="w-4 h-4 text-emerald-500" />}
+            tasks={tasksByStatus.DONE}
+            allTasks={data.tasks}
+            highlightOwner={selectedOwner || undefined}
+            onTaskClick={handleTaskOwnerClick}
+          />
+          <StatusColumn 
+            title="BLOCKED" 
+            icon={<Ban className="w-4 h-4 text-red-500" />}
+            tasks={tasksByStatus.BLOCKED}
+            allTasks={data.tasks}
+            highlightOwner={selectedOwner || undefined}
+            onTaskClick={handleTaskOwnerClick}
+          />
+        </div>
+      </div>
+
+      {/* Live Agents with Clickable Cards */}
       {liveAgents.length > 0 && (
         <Card className="bg-slate-900/50 border-slate-800">
-          <CardHeader><CardTitle className="text-slate-100 flex items-center gap-2"><Bot className="w-5 h-5 text-emerald-400" /> Agent Status Live</CardTitle></CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{liveAgents.map((agent) => <LiveAgentCard key={agent.agent} agent={agent} />)}</CardContent>
+          <CardHeader>
+            <CardTitle className="text-slate-100 flex items-center gap-2">
+              <Bot className="w-5 h-5 text-emerald-400" /> 
+              🤖 Agent Status Live
+              <span className="text-xs text-slate-500 font-normal ml-2">(点击 Agent 卡片筛选其负责的任务)</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {liveAgents.map((agent) => {
+              const owner = getOwnerFromAgent(agent.agent);
+              return (
+                <LiveAgentCard 
+                  key={agent.agent} 
+                  agent={agent} 
+                  onClick={() => handleAgentClick(agent)}
+                  isSelected={owner === selectedOwner}
+                />
+              );
+            })}
+          </CardContent>
         </Card>
       )}
 
@@ -218,6 +526,29 @@ export default function MissionPage() {
           <CardContent><div className="space-y-2">{data.blockers.map((item, idx) => <div key={idx} className="rounded-lg border border-red-800/40 bg-red-950/30 px-4 py-3 flex items-start gap-3"><span className="text-red-400 text-lg">🔴</span><div><div className="text-sm text-red-200 font-medium">{item}</div><div className="text-xs text-red-400/70 mt-1">需要解决后才能继续执行</div></div></div>)}</div></CardContent>
         </Card>
       )}
+
+      <style jsx global>{`
+        @keyframes pulse-border {
+          0%, 100% { border-color: rgba(245, 158, 11, 0.3); }
+          50% { border-color: rgba(245, 158, 11, 0.8); }
+        }
+        .animate-pulse-border {
+          animation: pulse-border 2s ease-in-out infinite;
+        }
+        @keyframes breathe-red {
+          0%, 100% { 
+            border-color: rgba(239, 68, 68, 0.3);
+            box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+          }
+          50% { 
+            border-color: rgba(239, 68, 68, 0.8);
+            box-shadow: 0 0 8px 2px rgba(239, 68, 68, 0.3);
+          }
+        }
+        .animate-breathe-red {
+          animation: breathe-red 2s ease-in-out infinite;
+        }
+      `}</style>
     </div>
   );
 }

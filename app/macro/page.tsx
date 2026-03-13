@@ -113,15 +113,16 @@ interface BondFutureQuote {
   status: "LIVE" | "DELAYED" | "STALE" | "OFF";
 }
 
-interface YieldPoint {
-  maturity: string;
-  yield: number;
-  change: number;
+interface CnYieldCurve {
+  date: string;
+  maturities: Record<string, number>;
+  source: string;
+  status: string;
 }
 
 interface CnBondData {
   futures: BondFutureQuote[];
-  yieldCurve: YieldPoint[] | null;
+  yieldCurve: CnYieldCurve | { maturity: string; yield: number }[] | null;
   source: string;
   status: "LIVE" | "DELAYED" | "STALE" | "OFF";
 }
@@ -269,11 +270,22 @@ export default function MacroPage() {
         setCnBondLoading(true);
         const json = await safeFetchJSON<{ success: boolean; data?: CnBondData; source?: string; status?: string }>("/api/bond-cn?level=L2&fallback=true");
         if (json?.success) {
+          // Transform CnYieldCurve to array format for LineChart
+          let yieldCurveData: { maturity: string; yield: number }[] | null = null;
+          const rawYieldCurve = json.data?.yieldCurve;
+          if (rawYieldCurve && 'maturities' in rawYieldCurve && rawYieldCurve.maturities) {
+            yieldCurveData = Object.entries(rawYieldCurve.maturities).map(([maturity, yield_]) => ({
+              maturity,
+              yield: yield_,
+            }));
+          } else if (Array.isArray(rawYieldCurve)) {
+            yieldCurveData = rawYieldCurve;
+          }
           setCnBondData({
             futures: json.data?.futures || [],
-            yieldCurve: json.data?.yieldCurve?.yields || json.data?.yieldCurve || null,
+            yieldCurve: yieldCurveData,
             source: json.source || "Seed",
-            status: json.status || "OFF",
+            status: (json.status as "LIVE" | "DELAYED" | "STALE" | "OFF") || "OFF",
           });
         }
       } catch (e) {
@@ -970,7 +982,7 @@ export default function MacroPage() {
                   <h3 className="text-sm font-medium text-slate-200 mb-3">收益率曲线 / Yield Curve</h3>
                   {cnBondLoading ? (
                     <Skeleton className="h-48 bg-slate-800" />
-                  ) : cnBondData?.yieldCurve && cnBondData.yieldCurve.length > 0 ? (
+                  ) : cnBondData?.yieldCurve && Array.isArray(cnBondData.yieldCurve) && cnBondData.yieldCurve.length > 0 ? (
                     <div className="h-48">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={cnBondData.yieldCurve}>
