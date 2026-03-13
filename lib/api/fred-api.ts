@@ -127,7 +127,7 @@ export async function getFredChange(
 // Compute YoY% from an index series (monthly series typical for CPI)
 export async function getFredYoY(seriesId: string): Promise<{ current: number; previous: number; yoy: number; asOf: string } | null> {
   // ask for 13 points to cover 12 months back
-  const data = await fetchFredWithFallback(seriesId, 13);
+  const data = await fetchFredSeries(seriesId, 13);
   if (!data || data.length < 13) return null;
   const curr = data[data.length - 1];
   const prev = data[data.length - 13];

@@ -4,13 +4,18 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { fetchFredSeries, FRED_SERIES } from "./fred-api";
+import { FRED_SERIES, fetchFredSeries, getFredYoY } from "./fred-api";
 import { fetchAIndex, fetchHKIndex } from "./eastmoney-api";
 
 // === Supabase Client ===
 export function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  // Prefer service-role for server routes, but allow read-only anon fallback so Vercel
+  // environments that only have NEXT_PUBLIC_SUPABASE_ANON_KEY still work.
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!url || !key) return null;
   return createClient(url, key);
 }
@@ -171,27 +176,43 @@ export async function fetchMacroWithFallback(
   if (region === "US") {
     // Map field to FRED series
     const fredSeriesMap: Record<string, string> = {
-      cpi_yoy: FRED_SERIES.CPI_YOY,
-      core_cpi_yoy: FRED_SERIES.CORE_CPI_YOY,
+      // levels
       ism_manufacturing: FRED_SERIES.ISM_PMI,
       unemployment_rate: FRED_SERIES.UNEMPLOYMENT,
       fed_funds_rate: FRED_SERIES.FED_FUNDS,
       yield_10y: FRED_SERIES.TREASURY_10Y,
       yield_2y: FRED_SERIES.TREASURY_2Y,
+      // YoY computed from index levels below
+      cpi_yoy: FRED_SERIES.CPI,
+      core_cpi_yoy: FRED_SERIES.CORE_CPI,
     };
 
     const fredSeries = fredSeriesMap[field];
     if (fredSeries) {
-      const fredData = await fetchFredSeries(fredSeries, 2);
-      if (fredData && fredData.length > 0) {
-        const latest = fredData[fredData.length - 1];
-        return {
-          value: latest.value,
-          asOf: latest.date,
-          source: "FRED",
-          isStale: isMacroMonthlyStale(latest.date),
-          qualityTag: "Indicative",
-        };
+      // CPI YoY / Core CPI YoY need to be computed from the index series.
+      if (field === "cpi_yoy" || field === "core_cpi_yoy") {
+        const yoy = await getFredYoY(fredSeries);
+        if (yoy) {
+          return {
+            value: yoy.yoy,
+            asOf: yoy.asOf,
+            source: "FRED",
+            isStale: isMacroMonthlyStale(yoy.asOf),
+            qualityTag: "Indicative",
+          };
+        }
+      } else {
+        const fredData = await fetchFredSeries(fredSeries, 2);
+        if (fredData && fredData.length > 0) {
+          const latest = fredData[fredData.length - 1];
+          return {
+            value: latest.value,
+            asOf: latest.date,
+            source: "FRED",
+            isStale: isMacroMonthlyStale(latest.date),
+            qualityTag: "Indicative",
+          };
+        }
       }
     }
   } else {
