@@ -12,6 +12,12 @@ export interface MissionTask {
   priority: string;
   status: TaskStatus;
   note: string;
+  dependsOn?: string[];
+  startedAt?: string;
+  completedAt?: string;
+  estimatedHours?: number;
+  retryCount?: number;
+  maxRetries?: number;
 }
 
 export interface MissionAgent {
@@ -20,6 +26,9 @@ export interface MissionAgent {
   status: string;
   task: string;
   risk: string;
+  sessionId?: string;
+  currentTaskId?: string;
+  lastHeartbeatAt?: string;
 }
 
 export interface MissionData {
@@ -82,16 +91,21 @@ export function updateTask(data: MissionData, id: string, status: TaskStatus, no
   if (!task) throw new Error(`Task not found: ${id}`);
   task.status = status;
   if (typeof note === "string" && note.trim()) task.note = note.trim();
+  if (status === "DOING" && !task.startedAt) task.startedAt = new Date().toISOString();
+  if (status === "DONE") task.completedAt = new Date().toISOString();
   appendTimeline(data, `${emojiForTask(status)} ${task.id} ${task.title}`);
   return task;
 }
 
-export function updateAgent(data: MissionData, name: string, status: AgentRunStatus, taskText?: string, risk?: string) {
+export function updateAgent(data: MissionData, name: string, status: AgentRunStatus, taskText?: string, risk?: string, sessionId?: string, currentTaskId?: string) {
   const agent = data.agents.find((a) => a.name === name);
   if (!agent) throw new Error(`Agent not found: ${name}`);
   agent.status = status;
   if (typeof taskText === "string" && taskText.trim()) agent.task = taskText.trim();
   if (typeof risk === "string" && risk.trim()) agent.risk = risk.trim();
+  if (typeof sessionId === "string" && sessionId.trim()) agent.sessionId = sessionId.trim();
+  if (typeof currentTaskId === "string" && currentTaskId.trim()) agent.currentTaskId = currentTaskId.trim();
+  agent.lastHeartbeatAt = new Date().toISOString();
   appendTimeline(data, `${emojiForAgent(status)} AGENT ${name} -> ${status}${taskText ? ` · ${taskText}` : ""}`);
   return agent;
 }

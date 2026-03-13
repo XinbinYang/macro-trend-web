@@ -5,7 +5,7 @@
     "done": 3,
     "doing": 2,
     "blocked": 0,
-    "updatedAt": "2026-03-13T05:06:09.444Z"
+    "updatedAt": "2026-03-13T05:16:55.128Z"
   },
   "tasks": [
     {
@@ -33,7 +33,8 @@
       "module": "ops",
       "priority": "P1",
       "status": "DOING",
-      "note": "Mission Control 已接入开发动态 feed"
+      "note": "Mission schema enhanced with timestamps/session binding",
+      "startedAt": "2026-03-13T05:16:55.127Z"
     },
     {
       "id": "MACRO-001",
@@ -87,6 +88,7 @@
     }
   ],
   "timeline": [
+    "🟡 OPS-001 Mission Control 页面动态化",
     "📍 Test Mission Event [test:passed]",
     "📝 Mission Control 已新增事件驱动自动写入 API",
     "📝 主执行流已接入统一 mission 写入命令入口",

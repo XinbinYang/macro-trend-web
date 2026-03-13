@@ -15,6 +15,10 @@ interface MissionTask {
   priority: string;
   status: TaskStatus;
   note: string;
+  dependsOn?: string[];
+  startedAt?: string;
+  completedAt?: string;
+  estimatedHours?: number;
 }
 
 interface AgentStatus {
@@ -23,6 +27,9 @@ interface AgentStatus {
   status: string;
   task: string;
   risk: string;
+  sessionId?: string;
+  currentTaskId?: string;
+  lastHeartbeatAt?: string;
 }
 
 interface MissionPayload {
@@ -154,6 +161,11 @@ export default function MissionPage() {
                   </div>
                 </div>
                 <div className="text-xs text-slate-400">{task.note}</div>
+                <div className="flex items-center gap-3 flex-wrap text-[11px] text-slate-500">
+                  {task.startedAt ? <span>⏱️ started: {new Date(task.startedAt).toLocaleString("zh-CN")}</span> : null}
+                  {task.completedAt ? <span>✅ done: {new Date(task.completedAt).toLocaleString("zh-CN")}</span> : null}
+                  {task.dependsOn?.length ? <span>🔗 depends: {task.dependsOn.join(", ")}</span> : null}
+                </div>
               </div>
             ))}
           </CardContent>
@@ -171,10 +183,15 @@ export default function MissionPage() {
                   <div className="text-xs text-slate-400">{agent.role}</div>
                   <div className="text-xs text-slate-300">当前任务：{agent.task}</div>
                   <div className="flex items-center gap-2 flex-wrap">
-                    <Badge className={agent.status === "RUNNING" ? "bg-amber-500/15 text-amber-400 border-amber-500/30" : "bg-slate-500/15 text-slate-300 border-slate-500/30"}>
-                      {agent.status === "RUNNING" ? "🟡 RUNNING" : "⚪ IDLE"}
+                    <Badge className={agent.status === "RUNNING" ? "bg-amber-500/15 text-amber-400 border-amber-500/30" : agent.status === "DONE" ? "bg-green-500/15 text-green-400 border-green-500/30" : agent.status === "BLOCKED" ? "bg-red-500/15 text-red-400 border-red-500/30" : "bg-slate-500/15 text-slate-300 border-slate-500/30"}>
+                      {agent.status === "RUNNING" ? "🟡 RUNNING" : agent.status === "DONE" ? "🟢 DONE" : agent.status === "BLOCKED" ? "🔴 BLOCKED" : "⚪ IDLE"}
                     </Badge>
                     <Badge variant="outline" className="text-xs border-slate-700 text-slate-300">风险：{agent.risk}</Badge>
+                  </div>
+                  <div className="flex items-center gap-3 flex-wrap text-[11px] text-slate-500">
+                    {agent.currentTaskId ? <span>🧩 task: {agent.currentTaskId}</span> : null}
+                    {agent.sessionId ? <span>🆔 session: {agent.sessionId}</span> : null}
+                    {agent.lastHeartbeatAt ? <span>💓 heartbeat: {new Date(agent.lastHeartbeatAt).toLocaleString("zh-CN")}</span> : null}
                   </div>
                 </div>
               ))}
