@@ -4,7 +4,7 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { FRED_SERIES, fetchFredSeries, getFredYoY } from "./fred-api";
+import { FRED_SERIES, fetchFredWithFallback, getFredYoY } from "./fred-api";
 import { fetchAIndex, fetchHKIndex } from "./eastmoney-api";
 
 // === Supabase Client ===
@@ -202,7 +202,7 @@ export async function fetchMacroWithFallback(
           };
         }
       } else {
-        const fredData = await fetchFredSeries(fredSeries, 2);
+        const fredData = await fetchFredWithFallback(fredSeries, 2);
         if (fredData && fredData.length > 0) {
           const latest = fredData[fredData.length - 1];
           return {
@@ -216,8 +216,23 @@ export async function fetchMacroWithFallback(
       }
     }
   } else {
-    // CN macro - use AkShare (via existing Eastmoney functions for indices)
-    // For now, return default - CN macro fallback requires AkShare integration
+    // CN macro - hardcoded fallback for LPR (no AkShare integration)
+    // LPR is announced monthly by PBOC, use latest known rate
+    const cnLprFallbacks: Record<string, { value: number; date: string }> = {
+      lpr_1y: { value: 3.45, date: "2025-12-20" }, // Latest PBOC rate
+      lpr_5y: { value: 3.60, date: "2025-12-20" },
+    };
+    
+    const fallback = cnLprFallbacks[field];
+    if (fallback) {
+      return {
+        value: fallback.value,
+        asOf: fallback.date,
+        source: "PBOC(fallback)",
+        isStale: true,
+        qualityTag: "Indicative",
+      };
+    }
     console.log(`[Fallback] CN macro fallback not implemented for ${field}`);
   }
 
