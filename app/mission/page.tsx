@@ -93,6 +93,9 @@ function displayOwner(owner: string): string {
 // STALE threshold in seconds
 const STALE_THRESHOLD = 120;
 
+// Hide DONE agents after this many seconds (default 5 minutes)
+const DONE_FOLD_AFTER = 5 * 60;
+
 function agentVisual(status: string) {
   const s = status.toLowerCase();
   if (s === "running") return { dot: "bg-green-400 animate-pulse", badge: "bg-green-500/15 text-green-400 border-green-500/30", label: "RUNNING" };
@@ -357,9 +360,17 @@ export default function MissionPage() {
       .select("agent,status,step,progress,output,updated_at")
       .order("updated_at", { ascending: false });
     if (!error && data) {
+      const now = Date.now();
       const rows = (data as LiveAgentStatus[])
         .map((x) => ({ ...x, agent: normalizeAgentName(x.agent) }))
-        .filter((x) => AGENT_ALLOWLIST.has(x.agent));
+        .filter((x) => AGENT_ALLOWLIST.has(x.agent))
+        // fold DONE after 5 minutes to keep the command view clean
+        .filter((x) => {
+          const s = String(x.status || "").toLowerCase();
+          if (s !== "done") return true;
+          const secondsAgo = Math.floor((now - new Date(x.updated_at).getTime()) / 1000);
+          return secondsAgo <= DONE_FOLD_AFTER;
+        });
       setLiveAgents(rows);
     }
   };
