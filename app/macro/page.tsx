@@ -173,6 +173,26 @@ const getCategoryIcon = (category?: string) => {
   }
 };
 
+// Safe fetch helper with fail-soft: check res.ok + content-type before parse
+async function safeFetchJSON<T>(url: string): Promise<T | null> {
+  try {
+    const res = await fetch(url, { cache: "no-store" });
+    if (!res.ok) {
+      console.warn(`[SafeFetch] ${url} returned ${res.status}`);
+      return null;
+    }
+    const contentType = res.headers.get("content-type") || "";
+    if (!contentType.includes("application/json")) {
+      console.warn(`[SafeFetch] ${url} content-type is not JSON: ${contentType}`);
+      return null;
+    }
+    return await res.json();
+  } catch (e) {
+    console.warn(`[SafeFetch] ${url} failed:`, e);
+    return null;
+  }
+}
+
 export default function MacroPage() {
   const [usById, setUsById] = useState<Record<string, { value: number | null; asOf: string | null; source: string }> | null>(null);
   const [cn, setCn] = useState<CnMacroSnapshot | null>(null);
@@ -213,30 +233,26 @@ export default function MacroPage() {
       } catch {}
 
       try {
-        const res = await fetch("/api/macro-regime", { cache: "no-store" });
-        const json = await res.json();
-        if (json?.success && json?.data) setRegime(json.data);
+        const res = await safeFetchJSON<{ success: boolean; data: RegimeData }>("/api/macro-regime");
+        if (res?.success && res?.data) setRegime(res.data);
       } catch {}
 
       try {
-        const res = await fetch("/api/macro-history", { cache: "no-store" });
-        const json = await res.json();
-        if (json?.success && json?.data?.history) setHistory(json.data.history);
+        const res = await safeFetchJSON<{ success: boolean; data: { history: RegimeHistoryItem[] } }>("/api/macro-history");
+        if (res?.success && res?.data?.history) setHistory(res.data.history);
       } catch {}
 
       try {
-        const res = await fetch("/api/macro-monitor", { cache: "no-store" });
-        const json = await res.json();
-        if (json?.success && json?.data?.items) setMonitorItems(json.data.items);
+        const res = await safeFetchJSON<{ success: boolean; data: { items: MonitorItem[] } }>("/api/macro-monitor");
+        if (res?.success && res?.data?.items) setMonitorItems(res.data.items);
       } catch {}
 
       // 三大中枢联动：获取组合偏离数据
       try {
         setExposureLoading(true);
-        const expRes = await fetch("/api/risk-exposure", { cache: "no-store" });
-        const expJson = await expRes.json();
-        if (expJson?.success && expJson?.data) {
-          setPortfolioExposure(expJson.data);
+        const expRes = await safeFetchJSON<{ success: boolean; data: typeof portfolioExposure }>("/api/risk-exposure");
+        if (expRes?.success && expRes?.data) {
+          setPortfolioExposure(expRes.data);
         }
       } catch (e) {
         console.error("[MacroHub] Failed to fetch portfolio exposure:", e);
@@ -251,8 +267,7 @@ export default function MacroPage() {
     const fetchCnBond = async () => {
       try {
         setCnBondLoading(true);
-        const res = await fetch("/api/bond-cn?level=L2&fallback=true", { cache: "no-store" });
-        const json = await res.json();
+        const json = await safeFetchJSON<{ success: boolean; data?: CnBondData; source?: string; status?: string }>("/api/bond-cn?level=L2&fallback=true");
         if (json?.success) {
           setCnBondData({
             futures: json.data?.futures || [],
@@ -496,7 +511,7 @@ export default function MacroPage() {
             </div>
             <div className="text-center p-2 bg-slate-950/50 rounded">
               <div className="text-xs text-slate-500">美国 CPI</div>
-              <div className="text-lg font-mono text-slate-200">{usById?.us_cpi?.value?.toFixed(1) || "—"}%</div>
+              <div className="text-lg font-mono text-slate-200">{usById?.us_cpi?.value?.toFixed(1) || "—"}</div>
             </div>
             <div className="text-center p-2 bg-slate-950/50 rounded">
               <div className="text-xs text-slate-500">中国 PMI</div>
@@ -592,7 +607,7 @@ export default function MacroPage() {
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[
               { title: "增长 Growth", us: usById?.us_ism_pmi ? formatValue(usById.us_ism_pmi.value, "idx") : "—", cn: cn?.series?.pmi_mfg ? formatValue(cn.series.pmi_mfg.value, "idx") : "—", icon: TrendingUp, usLabel: "ISM", cnLabel: "PMI" },
-              { title: "通胀 Inflation", us: usById?.us_cpi ? formatValue(usById.us_cpi.value, "%") : "—", cn: cn?.series?.cpi_yoy ? formatValue(cn.series.cpi_yoy.value, "%") : "—", icon: Activity, usLabel: "CPI", cnLabel: "CPI" },
+              { title: "通胀 Inflation", us: usById?.us_cpi ? formatValue(usById.us_cpi.value, "idx") : "—", cn: cn?.series?.cpi_yoy ? formatValue(cn.series.cpi_yoy.value, "%") : "—", icon: Activity, usLabel: "CPI", cnLabel: "CPI" },
               { title: "政策 Policy", us: usById?.us_fedfunds ? formatValue(usById.us_fedfunds.value, "%") : "—", cn: cn?.series?.lpr_1y ? formatValue(cn.series.lpr_1y.value, "%") : "—", icon: Target, usLabel: "Fed", cnLabel: "LPR" },
               { title: "流动性 Liquidity", us: usById?.us_10y ? formatValue(usById.us_10y.value, "%") : "—", cn: cn?.series?.m2_yoy ? formatValue(cn.series.m2_yoy.value, "%") : "—", icon: Globe, usLabel: "10Y", cnLabel: "M2" },
             ].map((item) => (
@@ -775,7 +790,7 @@ export default function MacroPage() {
                             </div>
                             {row.usValue && (
                               <div className="mt-2 text-lg font-mono text-slate-200">
-                                {row.usValue.toFixed(1)}{row.usLabel === "CPI" ? "%" : ""}
+                                {row.usValue.toFixed(1)}
                               </div>
                             )}
                           </div>
@@ -1129,9 +1144,9 @@ export default function MacroPage() {
                           </Badge>
                         )}
                       </div>
-                      {item.current && <div className="text-xs text-cyan-300 mt-2">📊 当前：{item.current}</div>}
-                      <div className="text-xs text-slate-400 mt-2">📌 {item.why}</div>
-                      <div className="text-xs text-amber-300 mt-1">⚠️ {item.watch}</div>
+                      {item.current && <div className="text-xs text-cyan-300 mt-2">📊 <span className="text-slate-400">当前:</span> {item.current}</div>}
+                      <div className="text-xs text-slate-400 mt-2">📌 <span className="text-slate-500">原因:</span> {item.why}</div>
+                      <div className="text-xs text-amber-300 mt-1">⚠️ <span className="text-amber-400/80">观察:</span> {item.watch}</div>
                       {item.threshold && (
                         <div className="mt-2 grid grid-cols-3 gap-2 text-[10px]">
                           {item.threshold.bullish && <div className="text-green-400">🟢 {item.threshold.bullish}</div>}
@@ -1250,7 +1265,7 @@ export default function MacroPage() {
                     "border-slate-800 bg-slate-950/60"
                   }`}>
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-slate-200 font-medium">📌 {item.condition}</span>
+                      <span className="text-slate-200 font-medium">📌 <span className="text-slate-400 font-normal">条件:</span> {item.condition}</span>
                       {item.severity && (
                         <Badge variant="outline" className={`text-[10px] ${
                           item.severity === "high" ? "border-red-500/30 text-red-400" :
@@ -1268,8 +1283,8 @@ export default function MacroPage() {
                         </Badge>
                       )}
                     </div>
-                    <div className="text-slate-400">🧭 {item.implication}</div>
-                    <div className="text-amber-300">🎯 {item.action}</div>
+                    <div className="text-slate-400">🧭 <span className="text-slate-500">含义:</span> {item.implication}</div>
+                    <div className="text-amber-300">🎯 <span className="text-amber-400/80">应对:</span> {item.action}</div>
                     {item.linkedMonitor && (
                       <div className="text-[10px] text-cyan-400">
                         🔗 关联监控: {item.linkedMonitor}
