@@ -14,7 +14,8 @@ import {
   BarChart3,
   RefreshCw,
   Shield,
-  Activity
+  Activity,
+  Loader2  // kept for future error display
 } from "lucide-react";
 import {
   PieChart as RePieChart,
@@ -22,7 +23,12 @@ import {
   Cell,
   ResponsiveContainer,
   Tooltip,
-  Legend
+  Legend,
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid
 } from "recharts";
 
 interface PortfolioItem {
@@ -40,12 +46,33 @@ interface User {
   isLoggedIn: boolean;
 }
 
+// NAV数据接口
+interface NAVData {
+  strategy: string;
+  name: string;
+  status: string;
+  asOf: string;
+  nav: { date: string; value: number }[];
+  metrics: {
+    cagr: number;
+    vol: number;
+    maxDrawdown: number;
+    sharpe: number;
+    leverageCurrent: number;
+    leverageAvg: number;
+    leverageMin: number;
+    leverageMax: number;
+  };
+  disclaimer: string;
+}
+
 // 风险暴露数据接口
 interface RiskExposure {
   assetClass: string;
   current: number;
   target: number;
   deviation: number;
+  source: "real" | "placeholder";
 }
 
 // 波动/回撤数据接口
@@ -54,6 +81,7 @@ interface VolatilityData {
   volatility: number;
   maxDrawdown: number;
   sharpeRatio: number;
+  source: "real" | "placeholder";
 }
 
 // 再平衡建议接口
@@ -68,11 +96,27 @@ interface RebalanceSuggestion {
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
 
+// 目标风险配置 (Beta 7.0 标准) - 预留结构
+// const TARGET_ALLOCATION = {
+//   "US Equity": 50,
+//   "CN Equity": 15,
+//   "US Bond": 20,
+//   "CN Bond": 5,
+//   "Commodity": 5,
+//   "Gold": 5,
+// };
+
 export default function PortfolioPage() {
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
   const [newItem, setNewItem] = useState({ symbol: "", shares: "", costPrice: "" });
+  
+  // NAV/Performance 状态
+  const [navData, setNavData] = useState<NAVData | null>(null);
+  const [navLoading, setNavLoading] = useState(false);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [navError, setNavError] = useState<string | null>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem("user");
@@ -96,7 +140,28 @@ export default function PortfolioPage() {
       setPortfolio(defaultPortfolio);
       localStorage.setItem("portfolio", JSON.stringify(defaultPortfolio));
     }
+    
+    // 加载 NAV 数据
+    fetchNAVData();
   }, [router]);
+
+  const fetchNAVData = async () => {
+    setNavLoading(true);
+    setNavError(null);
+    try {
+      const res = await fetch("/api/nav?strategy=beta70");
+      const json = await res.json();
+      if (json.success) {
+        setNavData(json.data);
+      } else {
+        setNavError(json.error || "Failed to load NAV data");
+      }
+    } catch (e) {
+      setNavError((e as Error).message);
+    } finally {
+      setNavLoading(false);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -127,11 +192,8 @@ export default function PortfolioPage() {
     localStorage.setItem("portfolio", JSON.stringify(updated));
   };
 
-  // 计算统计数据
-  const totalCost = portfolio.reduce((sum, p) => sum + p.shares * p.costPrice, 0);
+  // 用户持仓相关统计 (保留原有逻辑)
   const totalValue = portfolio.reduce((sum, p) => sum + p.shares * p.currentPrice, 0);
-  const totalGain = totalValue - totalCost;
-  const totalGainPercent = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
 
   // 资产配置数据
   const allocationData = portfolio.map(p => ({
@@ -140,28 +202,56 @@ export default function PortfolioPage() {
   }));
 
   // ============================================
-  // MVP: 组合驾驶舱 - 模拟数据 (后续接入真实数据)
+  // 半真值数据源
   // ============================================
   
-  // 1. 风险暴露数据 (模拟)
+  // 1. NAV Performance - 真实数据
+  const getPerformanceData = () => {
+    if (!navData) return null;
+    
+    const latestNAV = navData.nav[navData.nav.length - 1];
+    const firstNAV = navData.nav[0];
+    const totalReturn = ((latestNAV.value - firstNAV.value) / firstNAV.value) * 100;
+    
+    return {
+      nav: latestNAV.value,
+      asOf: navData.asOf,
+      cagr: navData.metrics.cagr * 100,
+      vol: navData.metrics.vol * 100,
+      maxDrawdown: navData.metrics.maxDrawdown * 100,
+      sharpe: navData.metrics.sharpe,
+      totalReturn,
+      leverage: navData.metrics.leverageCurrent,
+      disclaimer: navData.disclaimer,
+    };
+  };
+  
+  const performance = getPerformanceData();
+
+  // 2. 风险暴露 - 保留结构，使用占位符但标注清晰
   const riskExposureData: RiskExposure[] = [
-    { assetClass: "美股 (US Equity)", current: 58.2, target: 50, deviation: 8.2 },
-    { assetClass: "中股 (CN Equity)", current: 12.4, target: 15, deviation: -2.6 },
-    { assetClass: "美债 (US Bond)", current: 18.5, target: 20, deviation: -1.5 },
-    { assetClass: "中债 (CN Bond)", current: 5.2, target: 5, deviation: 0.2 },
-    { assetClass: "商品 (Commodity)", current: 3.1, target: 5, deviation: -1.9 },
-    { assetClass: "黄金 (Gold)", current: 2.6, target: 5, deviation: -2.4 },
+    { assetClass: "美股 (US Equity)", current: 58.2, target: 50, deviation: 8.2, source: "placeholder" },
+    { assetClass: "中股 (CN Equity)", current: 12.4, target: 15, deviation: -2.6, source: "placeholder" },
+    { assetClass: "美债 (US Bond)", current: 18.5, target: 20, deviation: -1.5, source: "placeholder" },
+    { assetClass: "中债 (CN Bond)", current: 5.2, target: 5, deviation: 0.2, source: "placeholder" },
+    { assetClass: "商品 (Commodity)", current: 3.1, target: 5, deviation: -1.9, source: "placeholder" },
+    { assetClass: "黄金 (Gold)", current: 2.6, target: 5, deviation: -2.4, source: "placeholder" },
   ];
 
-  // 2. 波动/回撤数据 (模拟)
-  const volatilityData: VolatilityData[] = [
-    { period: "30D", volatility: 8.2, maxDrawdown: -3.1, sharpeRatio: 1.2 },
-    { period: "90D", volatility: 12.5, maxDrawdown: -7.8, sharpeRatio: 0.95 },
-    { period: "180D", volatility: 14.8, maxDrawdown: -12.4, sharpeRatio: 1.08 },
-    { period: "YTD", volatility: 11.2, maxDrawdown: -9.6, sharpeRatio: 1.15 },
+  // 3. 波动/回撤 - 部分真值 (使用 NAV metrics)，部分占位
+  const volatilityData: VolatilityData[] = performance ? [
+    { period: "Since Inception", volatility: performance.vol, maxDrawdown: performance.maxDrawdown, sharpeRatio: performance.sharpe, source: "real" },
+    { period: "30D", volatility: 8.2, maxDrawdown: -3.1, sharpeRatio: 1.2, source: "placeholder" },
+    { period: "90D", volatility: 12.5, maxDrawdown: -7.8, sharpeRatio: 0.95, source: "placeholder" },
+    { period: "YTD", volatility: 11.2, maxDrawdown: -9.6, sharpeRatio: 1.15, source: "placeholder" },
+  ] : [
+    { period: "30D", volatility: 8.2, maxDrawdown: -3.1, sharpeRatio: 1.2, source: "placeholder" },
+    { period: "90D", volatility: 12.5, maxDrawdown: -7.8, sharpeRatio: 0.95, source: "placeholder" },
+    { period: "180D", volatility: 14.8, maxDrawdown: -12.4, sharpeRatio: 1.08, source: "placeholder" },
+    { period: "YTD", volatility: 11.2, maxDrawdown: -9.6, sharpeRatio: 1.15, source: "placeholder" },
   ];
 
-  // 3. 再平衡建议 (基于偏离度计算)
+  // 4. 再平衡建议 (基于偏离度计算)
   const rebalanceSuggestions: RebalanceSuggestion[] = riskExposureData
     .filter(r => Math.abs(r.deviation) > 3)
     .map(r => ({
@@ -169,18 +259,25 @@ export default function PortfolioPage() {
       action: r.deviation > 0 ? "sell" as const : "buy" as const,
       currentWeight: r.current,
       targetWeight: r.target,
-      amount: Math.abs(r.deviation / 100 * totalValue),
+      amount: Math.abs(r.deviation / 100 * (performance?.nav || 100000)),
       reason: r.deviation > 0 ? "超配需减持" : "低配需增持",
     }));
 
   // 获取风险等级
   const getRiskLevel = () => {
-    const avgVolatility = volatilityData.reduce((sum, v) => sum + v.volatility, 0) / volatilityData.length;
-    if (avgVolatility < 10) return { level: "保守", color: "text-green-400", bg: "bg-green-500/20" };
-    if (avgVolatility < 15) return { level: "稳健", color: "text-amber-400", bg: "bg-amber-500/20" };
+    const realVol = volatilityData.find(v => v.source === "real")?.volatility || 
+                    volatilityData.reduce((sum, v) => sum + v.volatility, 0) / volatilityData.length;
+    if (realVol < 10) return { level: "保守", color: "text-green-400", bg: "bg-green-500/20" };
+    if (realVol < 15) return { level: "稳健", color: "text-amber-400", bg: "bg-amber-500/20" };
     return { level: "积极", color: "text-red-400", bg: "bg-red-500/20" };
   };
   const riskInfo = getRiskLevel();
+
+  // 准备图表数据 (NAV 走势)
+  const chartData = navData?.nav.slice(-60).map(d => ({
+    date: d.date.slice(5), // MM-DD
+    value: d.value,
+  })) || [];
 
   if (!user) return null;
 
@@ -190,12 +287,21 @@ export default function PortfolioPage() {
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 className="text-xl md:text-2xl font-serif font-bold text-slate-50">
-            我的投资组合
+            组合驾驶舱
           </h1>
-          <p className="text-sm text-slate-500">跟踪您的资产配置与收益</p>
+          <p className="text-sm text-slate-500">Beta 7.0 全天候策略实时监控</p>
         </div>
         
         <div className="flex items-center gap-3">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={fetchNAVData}
+            disabled={navLoading}
+            className="text-slate-400"
+          >
+            {navLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+          </Button>
           <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-800/50 rounded-lg">
             <User className="w-4 h-4 text-slate-400" />
             <span className="text-sm text-slate-300">{user.name}</span>
@@ -206,50 +312,136 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      {/* NAV Performance 统计卡片 */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
         <Card className="bg-slate-900/50 border-slate-800">
           <CardContent className="p-4">
-            <div className="text-xs text-slate-500 mb-1">总资产</div>
+            <div className="text-xs text-slate-500 mb-1">NAV (Beta 7.0)</div>
+            {navLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin text-slate-400" />
+                <span className="text-sm text-slate-400">加载中...</span>
+              </div>
+            ) : performance ? (
+              <>
+                <div className="text-xl font-bold text-slate-100">
+                  {performance.nav.toFixed(2)}
+                </div>
+                <div className="text-xs text-slate-500">
+                  @ {performance.asOf}
+                </div>
+              </>
+            ) : (
+              <div className="text-sm text-red-400">数据不可用</div>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardContent className="p-4">
+            <div className="text-xs text-slate-500 mb-1">年化收益率</div>
+            <div className={`text-xl font-bold ${performance && performance.cagr >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {performance ? `+${performance.cagr.toFixed(2)}%` : '--'}
+            </div>
+          </CardContent>
+        </Card>
+        
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardContent className="p-4">
+            <div className="text-xs text-slate-500 mb-1">年化波动率</div>
             <div className="text-xl font-bold text-slate-100">
-              ${totalValue.toLocaleString()}
+              {performance ? `${performance.vol.toFixed(2)}%` : '--'}
             </div>
           </CardContent>
         </Card>
         
         <Card className="bg-slate-900/50 border-slate-800">
           <CardContent className="p-4">
-            <div className="text-xs text-slate-500 mb-1">总收益</div>
-            <div className={`text-xl font-bold ${totalGain >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {totalGain >= 0 ? '+' : ''}{totalGain.toLocaleString()}
+            <div className="text-xs text-slate-500 mb-1">最大回撤</div>
+            <div className="text-xl font-bold text-red-400">
+              {performance ? `${performance.maxDrawdown.toFixed(2)}%` : '--'}
             </div>
           </CardContent>
         </Card>
         
         <Card className="bg-slate-900/50 border-slate-800">
           <CardContent className="p-4">
-            <div className="text-xs text-slate-500 mb-1">收益率</div>
-            <div className={`text-xl font-bold ${totalGainPercent >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {totalGainPercent >= 0 ? '+' : ''}{totalGainPercent.toFixed(2)}%
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-slate-900/50 border-slate-800">
-          <CardContent className="p-4">
-            <div className="text-xs text-slate-500 mb-1">持仓数量</div>
-            <div className="text-xl font-bold text-slate-100">
-              {portfolio.length}
+            <div className="text-xs text-slate-500 mb-1">夏普比率</div>
+            <div className={`text-xl font-bold ${performance && performance.sharpe >= 1 ? 'text-green-400' : 'text-amber-400'}`}>
+              {performance ? performance.sharpe.toFixed(2) : '--'}
             </div>
           </CardContent>
         </Card>
       </div>
 
+      {/* NAV 走势图 */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base text-slate-100">NAV 走势 (近60期)</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {chartData.length > 0 ? (
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <defs>
+                    <linearGradient id="navGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.3}/>
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#334155" />
+                  <XAxis 
+                    dataKey="date" 
+                    stroke="#64748b" 
+                    fontSize={10}
+                    tickLine={false}
+                  />
+                  <YAxis 
+                    stroke="#64748b" 
+                    fontSize={10}
+                    tickLine={false}
+                    domain={['auto', 'auto']}
+                    tickFormatter={(v) => v.toFixed(0)}
+                  />
+                  <Tooltip 
+                    contentStyle={{ 
+                      backgroundColor: '#0f172a',
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      color: '#f8fafc'
+                    }}
+                    formatter={(value) => [`${Number(value).toFixed(2)}`, 'NAV']}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="value" 
+                    stroke="#f59e0b" 
+                    fillOpacity={1} 
+                    fill="url(#navGradient)" 
+                    strokeWidth={2}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="h-[200px] flex items-center justify-center text-slate-500">
+              暂无数据
+            </div>
+          )}
+          {performance?.disclaimer && (
+            <div className="mt-3 text-xs text-slate-500 bg-slate-800/50 p-2 rounded">
+              {performance.disclaimer}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* 用户持仓 (保留原有功能) */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* 持仓列表 */}
         <Card className="lg:col-span-2 bg-slate-900/50 border-slate-800">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base text-slate-100">持仓明细</CardTitle>
+            <CardTitle className="text-base text-slate-100">我的持仓</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
@@ -336,20 +528,25 @@ export default function PortfolioPage() {
             <CardTitle className="text-base text-slate-100">资产配置</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-[250px] w-full min-h-[300px]">
-              <ResponsiveContainer width="99%" height="100%" minHeight={300}>
+            <div className="h-[200px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
                 <RePieChart>
                   <Pie
-                    data={allocationData}
+                    data={allocationData.length > 0 ? allocationData : [
+                      { name: "无持仓", value: 1 }
+                    ]}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={80}
+                    innerRadius={50}
+                    outerRadius={70}
                     paddingAngle={5}
                     dataKey="value"
                   >
-                    {allocationData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    {(allocationData.length > 0 ? allocationData : [{ name: "无持仓", value: 1 }]).map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.name === "无持仓" ? "#334155" : COLORS[index % COLORS.length]} 
+                      />
                     ))}
                   </Pie>
                   <Tooltip 
@@ -359,7 +556,7 @@ export default function PortfolioPage() {
                       borderRadius: '8px',
                       color: '#f8fafc'
                     }}
-                    formatter={(value) => [`$${Number(value).toLocaleString()}`, '']}
+                    formatter={(value) => allocationData.length > 0 ? [`$${Number(value).toLocaleString()}`, ''] : ['--', '']}
                   />
                   <Legend />
                 </RePieChart>
@@ -367,7 +564,7 @@ export default function PortfolioPage() {
             </div>
             
             <div className="mt-4 space-y-2">
-              {allocationData.map((item, index) => {
+              {allocationData.length > 0 ? allocationData.map((item, index) => {
                 const percent = totalValue > 0 ? (item.value / totalValue) * 100 : 0;
                 return (
                   <div key={item.name} className="flex items-center justify-between text-sm">
@@ -381,17 +578,20 @@ export default function PortfolioPage() {
                     <span className="text-slate-400">{percent.toFixed(1)}%</span>
                   </div>
                 );
-              })}
+              }) : (
+                <div className="text-center text-sm text-slate-500 py-4">
+                  暂无持仓数据
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* ============================================ */}
-      {/* MVP: 组合驾驶舱增强区域 */}
+      {/* 风险暴露 + 波动/回撤 */}
       {/* ============================================ */}
       
-      {/* 第一行: 风险暴露 + 波动/回撤 */}
       <div className="grid gap-6 lg:grid-cols-2">
         {/* 风险暴露 */}
         <Card className="bg-slate-900/50 border-slate-800">
@@ -399,6 +599,7 @@ export default function PortfolioPage() {
             <div className="flex items-center gap-2">
               <Shield className="w-4 h-4 text-amber-400" />
               <CardTitle className="text-base text-slate-100">风险暴露 (Risk Exposure)</CardTitle>
+              <span className="text-xs text-amber-400/70 ml-2">[占位]</span>
             </div>
           </CardHeader>
           <CardContent>
@@ -439,6 +640,7 @@ export default function PortfolioPage() {
               <div className="w-3 h-1 bg-green-500 ml-3 rounded" /> 低偏离
               <div className="w-3 h-1 bg-amber-500 rounded" /> 中偏离
               <div className="w-3 h-1 bg-red-500 rounded" /> 高偏离
+              <span className="ml-auto text-amber-400/70">数据待接入</span>
             </div>
           </CardContent>
         </Card>
@@ -448,14 +650,20 @@ export default function PortfolioPage() {
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <Activity className="w-4 h-4 text-amber-400" />
-              <CardTitle className="text-base text-slate-100">波动率与回撤 (Vol & Drawdown)</CardTitle>
+              <CardTitle className="text-base text-slate-100">波动率与回撤</CardTitle>
+              {performance && <span className="text-xs text-green-400 ml-2">[真值]</span>}
             </div>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-2 gap-4">
               {volatilityData.map((item) => (
                 <div key={item.period} className="p-3 bg-slate-800/30 rounded-lg">
-                  <div className="text-xs text-slate-500 mb-2">{item.period}</div>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs text-slate-500">{item.period}</span>
+                    {item.source === "real" && (
+                      <span className="text-xs text-green-400">✓ 真值</span>
+                    )}
+                  </div>
                   <div className="space-y-1">
                     <div className="flex justify-between">
                       <span className="text-xs text-slate-400">波动率</span>
@@ -487,13 +695,14 @@ export default function PortfolioPage() {
         </Card>
       </div>
 
-      {/* 第二行: 再平衡建议 */}
+      {/* 再平衡建议 */}
       <Card className="bg-slate-900/50 border-slate-800">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <RefreshCw className="w-4 h-4 text-amber-400" />
               <CardTitle className="text-base text-slate-100">再平衡建议 (Rebalance)</CardTitle>
+              <span className="text-xs text-amber-400/70 ml-2">[基于占位风险暴露]</span>
             </div>
             {rebalanceSuggestions.length > 0 && (
               <span className="text-xs text-amber-400">

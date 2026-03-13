@@ -7,7 +7,9 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   BarChart3, Target, History, Radar, TrendingUp, TrendingDown, 
-  Minus, Activity, ArrowRight, Globe, Flag 
+  Minus, Activity, Globe, Flag, AlertTriangle, 
+  ChevronRight, TrendingDown as TrendingDownIcon,
+  Zap, Shield, Scale
 } from "lucide-react";
 import {
   LineChart,
@@ -30,6 +32,7 @@ interface CounterSignal {
   linkedMonitor?: string;
   triggerType?: string;
   severity?: "high" | "medium" | "low";
+  triggered?: boolean;
 }
 
 interface RegimeData {
@@ -47,16 +50,18 @@ interface RegimeData {
 }
 
 interface UsCnComparison {
-  growth: { us: MacroDimension; cn: MacroDimension };
-  inflation: { us: MacroDimension; cn: MacroDimension };
-  policy: { us: MacroDimension; cn: MacroDimension };
-  liquidity: { us: MacroDimension; cn: MacroDimension };
+  growth: MacroDimension;
+  inflation: MacroDimension;
+  policy: MacroDimension;
+  liquidity: MacroDimension;
 }
 
 interface MacroDimension {
   status: string;
   trend: string;
   level: string;
+  us?: { status: string; trend: string; level: string };
+  cn?: { status: string; trend: string; level: string };
 }
 
 interface RegimeHistoryItem {
@@ -83,6 +88,8 @@ interface MonitorItem {
   current?: string;
   linkedSignals?: string[];
   linkedHistory?: string[];
+  dataSource?: string;
+  updateFrequency?: string;
 }
 
 interface BondFutureQuote {
@@ -110,6 +117,53 @@ interface CnBondData {
   source: string;
   status: "LIVE" | "DELAYED" | "STALE" | "OFF";
 }
+
+// Helper functions
+const getStatusColor = (status: string) => {
+  const colors: Record<string, string> = {
+    soft_landing: "text-blue-400",
+    weak_recovery: "text-red-400",
+    disinflation: "text-emerald-400",
+    low_inflation: "text-slate-400",
+    restrictive: "text-amber-400",
+    accommodative: "text-emerald-400",
+    tightening: "text-amber-400",
+    easing: "text-emerald-400",
+  };
+  return colors[status] || "text-slate-400";
+};
+
+const getTrendIcon = (trend: string) => {
+  if (trend.includes("up") || trend.includes("improving") || trend.includes("easing")) {
+    return <TrendingUp className="w-3 h-3 text-emerald-400" />;
+  }
+  if (trend.includes("down") || trend.includes("declining") || trend.includes("tightening")) {
+    return <TrendingDownIcon className="w-3 h-3 text-red-400" />;
+  }
+  return <Minus className="w-3 h-3 text-slate-400" />;
+};
+
+const getSeverityColor = (severity?: string) => {
+  switch (severity) {
+    case "high": return "bg-red-500/20 text-red-400 border-red-500/30";
+    case "medium": return "bg-amber-500/20 text-amber-400 border-amber-500/30";
+    case "low": return "bg-blue-500/20 text-blue-400 border-blue-500/30";
+    default: return "bg-slate-700/50 text-slate-400 border-slate-600";
+  }
+};
+
+const getCategoryIcon = (category?: string) => {
+  switch (category) {
+    case "Rates": return <Activity className="w-4 h-4" />;
+    case "Policy": return <Target className="w-4 h-4" />;
+    case "Growth": return <TrendingUp className="w-4 h-4" />;
+    case "Inflation": return <Zap className="w-4 h-4" />;
+    case "Credit": return <Shield className="w-4 h-4" />;
+    case "Liquidity": return <Globe className="w-4 h-4" />;
+    case "Cross-Asset": return <Scale className="w-4 h-4" />;
+    default: return <Radar className="w-4 h-4" />;
+  }
+};
 
 export default function MacroPage() {
   const [usById, setUsById] = useState<Record<string, { value: number | null; asOf: string | null; source: string }> | null>(null);
@@ -182,20 +236,51 @@ export default function MacroPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Bond calculations
   const curveSpread = useMemo(() => {
     const futures = cnBondData?.futures || [];
     const tFuture = futures.find(f => f.symbol.startsWith("T") && !f.symbol.startsWith("TS") && !f.symbol.startsWith("TL"));
     const tlFuture = futures.find(f => f.symbol.startsWith("TL"));
+    const tsFuture = futures.find(f => f.symbol.startsWith("TS"));
+    const tfFuture = futures.find(f => f.symbol.startsWith("TF") && !f.symbol.startsWith("T"));
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result: Record<string, any> = {};
+    
     if (tFuture && tlFuture) {
-      return {
+      result.tlT = {
         spread: (tlFuture.price - tFuture.price).toFixed(2),
         tPrice: tFuture.price,
         tlPrice: tlFuture.price,
         tChange: tFuture.changePercent,
         tlChange: tlFuture.changePercent,
+        label: "30Y-10Y"
       };
     }
-    return null;
+    
+    if (tfFuture && tFuture) {
+      result.tfT = {
+        spread: (tFuture.price - tfFuture.price).toFixed(2),
+        tPrice: tFuture.price,
+        tlPrice: tfFuture.price,
+        tChange: tFuture.changePercent,
+        tlChange: tfFuture.changePercent,
+        label: "10Y-5Y"
+      };
+    }
+    
+    if (tsFuture && tfFuture) {
+      result.tsTf = {
+        spread: (tfFuture.price - tsFuture.price).toFixed(2),
+        tPrice: tfFuture.price,
+        tlPrice: tsFuture.price,
+        tChange: tfFuture.changePercent,
+        tlChange: tsFuture.changePercent,
+        label: "5Y-2Y"
+      };
+    }
+    
+    return result;
   }, [cnBondData]);
 
   const filteredHistory = useMemo(() => {
@@ -234,15 +319,33 @@ export default function MacroPage() {
     const futures = cnBondData?.futures || [];
     const tFuture = futures.find(f => f.symbol.startsWith("T") && !f.symbol.startsWith("TS") && !f.symbol.startsWith("TL"));
     const tlFuture = futures.find(f => f.symbol.startsWith("TL"));
+    
     if (!tFuture || !tlFuture) {
-      return { title: "流动性状态待观测", content: "国债期货数据加载中，暂无法判断流动性状态。", trend: "neutral" as const };
+      return { 
+        title: "流动性状态待观测", 
+        content: "国债期货数据加载中，暂无法判断流动性状态。", 
+        trend: "neutral" as const,
+        signals: []
+      };
     }
+    
     const curveSteepness = tlFuture.price - tFuture.price;
     const isSteepening = curveSteepness > 4.0;
+    
     if (isSteepening) {
-      return { title: "曲线陡峭化 · 长端承压", content: "30Y-10Y价差走阔，反映市场对长期通胀/增长预期升温，或久期需求减弱。", trend: "up" as const };
+      return { 
+        title: "曲线陡峭化 · 长端承压", 
+        content: "30Y-10Y价差走阔，反映市场对长期通胀/增长预期升温，或久期需求减弱。",
+        trend: "up" as const,
+        signals: ["长端利率上行风险", "久期偏好下降", "增长预期改善"]
+      };
     } else {
-      return { title: "曲线趋平 · 久期偏好", content: "30Y-10Y价差收窄，显示市场对长期利率下行预期增强，或配置型资金拉长久期。", trend: "down" as const };
+      return { 
+        title: "曲线趋平 · 久期偏好", 
+        content: "30Y-10Y价差收窄，显示市场对长期利率下行预期增强，或配置型资金拉长久期。",
+        trend: "down" as const,
+        signals: ["配置需求旺盛", "久期偏好上升", "宽松预期定价"]
+      };
     }
   };
 
@@ -259,12 +362,18 @@ export default function MacroPage() {
         <p className="text-sm text-slate-400">🌍 中美双主轴宏观研究 · 监控变量与反证条件联动 · 历史映射验证</p>
       </div>
 
+      {/* Regime Card */}
       <Card className="bg-slate-900/50 border-slate-800">
-        <CardHeader>
-          <CardTitle className="text-slate-100 flex items-center gap-2">
-            <Target className="w-5 h-5 text-amber-500" /> 
-            当前 Regime · {regime?.regime?.name || "Neutral"}
-          </CardTitle>
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-slate-100 flex items-center gap-2">
+              <Target className="w-5 h-5 text-amber-500" /> 
+              当前 Regime · {regime?.regime?.name || "Neutral"}
+            </CardTitle>
+            <Badge className={getSeverityColor(regime?.regime?.confidence && regime.regime.confidence > 70 ? "high" : regime?.regime?.confidence && regime.regime.confidence > 50 ? "medium" : "low")}>
+              置信度 {regime?.regime?.confidence || 50}%
+            </Badge>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4 flex-wrap">
@@ -282,192 +391,317 @@ export default function MacroPage() {
           <div className="text-sm text-slate-300">
             <span className="text-slate-500">核心驱动:</span> {regime?.regime?.driver || "数据源恢复中，暂按中性基线显示"}
           </div>
+          
+          {/* Quick Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-800">
+            <div className="text-center p-2 bg-slate-950/50 rounded">
+              <div className="text-xs text-slate-500">美国 ISM</div>
+              <div className="text-lg font-mono text-slate-200">{usById?.us_ism_pmi?.value?.toFixed(1) || "—"}</div>
+            </div>
+            <div className="text-center p-2 bg-slate-950/50 rounded">
+              <div className="text-xs text-slate-500">美国 CPI</div>
+              <div className="text-lg font-mono text-slate-200">{usById?.us_cpi?.value?.toFixed(1) || "—"}%</div>
+            </div>
+            <div className="text-center p-2 bg-slate-950/50 rounded">
+              <div className="text-xs text-slate-500">中国 PMI</div>
+              <div className="text-lg font-mono text-slate-200">{cn?.series?.pmi_mfg?.value?.toFixed(1) || "—"}</div>
+            </div>
+            <div className="text-center p-2 bg-slate-950/50 rounded">
+              <div className="text-xs text-slate-500">中国 CPI</div>
+              <div className="text-lg font-mono text-slate-200">{cn?.series?.cpi_yoy?.value?.toFixed(1) || "—"}%</div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
+      {/* Main Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-4 bg-slate-900/50 border border-slate-800">
           <TabsTrigger value="overview" className="data-[state=active]:bg-slate-800">总览</TabsTrigger>
-          <TabsTrigger value="us-cn" className="data-[state=active]:bg-slate-800">中美主轴</TabsTrigger>
-          <TabsTrigger value="bonds" className="data-[state=active]:bg-slate-800">债券研究</TabsTrigger>
+          <TabsTrigger value="us-cn" className="data-[state=active]:bg-slate-800">🇺🇸🇨🇳 中美主轴</TabsTrigger>
+          <TabsTrigger value="bonds" className="data-[state=active]:bg-slate-800">🇨🇳 债券研究</TabsTrigger>
           <TabsTrigger value="signals" className="data-[state=active]:bg-slate-800">监控与反证</TabsTrigger>
         </TabsList>
 
+        {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6 mt-6">
+          {/* Four Dimension Cards */}
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
             {[
-              { title: "增长 Growth", us: usById?.us_ism_pmi ? formatValue(usById.us_ism_pmi.value, "idx") : "—", cn: cn?.series?.pmi_mfg ? formatValue(cn.series.pmi_mfg.value, "idx") : "—", icon: TrendingUp },
-              { title: "通胀 Inflation", us: usById?.us_cpi ? formatValue(usById.us_cpi.value, "%") : "—", cn: cn?.series?.cpi_yoy ? formatValue(cn.series.cpi_yoy.value, "%") : "—", icon: Activity },
-              { title: "政策 Policy", us: usById?.us_fedfunds ? formatValue(usById.us_fedfunds.value, "%") : "—", cn: cn?.series?.lpr_1y ? formatValue(cn.series.lpr_1y.value, "%") : "—", icon: Target },
-              { title: "流动性 Liquidity", us: usById?.us_10y ? formatValue(usById.us_10y.value, "%") : "—", cn: cn?.series?.m2_yoy ? formatValue(cn.series.m2_yoy.value, "%") : "—", icon: Globe },
+              { title: "增长 Growth", us: usById?.us_ism_pmi ? formatValue(usById.us_ism_pmi.value, "idx") : "—", cn: cn?.series?.pmi_mfg ? formatValue(cn.series.pmi_mfg.value, "idx") : "—", icon: TrendingUp, usLabel: "ISM", cnLabel: "PMI" },
+              { title: "通胀 Inflation", us: usById?.us_cpi ? formatValue(usById.us_cpi.value, "%") : "—", cn: cn?.series?.cpi_yoy ? formatValue(cn.series.cpi_yoy.value, "%") : "—", icon: Activity, usLabel: "CPI", cnLabel: "CPI" },
+              { title: "政策 Policy", us: usById?.us_fedfunds ? formatValue(usById.us_fedfunds.value, "%") : "—", cn: cn?.series?.lpr_1y ? formatValue(cn.series.lpr_1y.value, "%") : "—", icon: Target, usLabel: "Fed", cnLabel: "LPR" },
+              { title: "流动性 Liquidity", us: usById?.us_10y ? formatValue(usById.us_10y.value, "%") : "—", cn: cn?.series?.m2_yoy ? formatValue(cn.series.m2_yoy.value, "%") : "—", icon: Globe, usLabel: "10Y", cnLabel: "M2" },
             ].map((item) => (
-              <Card key={item.title} className="bg-slate-900/50 border-slate-800">
+              <Card key={item.title} className="bg-slate-900/50 border-slate-800 hover:border-slate-700 transition-colors">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm text-slate-100 flex items-center gap-2">
                     <item.icon className="w-4 h-4 text-slate-400" />
                     {item.title}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">🇺🇸</span>
-                    <span className="text-slate-200 font-mono">{item.us}</span>
+                <CardContent className="space-y-3">
+                  <div className="flex justify-between items-center p-2 bg-slate-950/50 rounded">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🇺🇸</span>
+                      <span className="text-xs text-slate-500">{item.usLabel}</span>
+                    </div>
+                    <span className="text-slate-200 font-mono font-medium">{item.us}</span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">🇨🇳</span>
-                    <span className="text-slate-200 font-mono">{item.cn}</span>
+                  <div className="flex justify-between items-center p-2 bg-slate-950/50 rounded">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">🇨🇳</span>
+                      <span className="text-xs text-slate-500">{item.cnLabel}</span>
+                    </div>
+                    <span className="text-slate-200 font-mono font-medium">{item.cn}</span>
                   </div>
                 </CardContent>
               </Card>
             ))}
           </div>
 
+          {/* Quick Navigation Cards */}
           <div className="grid md:grid-cols-3 gap-4">
-            <Card className="bg-slate-900/50 border-slate-800 cursor-pointer hover:border-amber-500/50 transition-colors" onClick={() => setActiveTab("us-cn")}>
+            <Card className="bg-slate-900/50 border-slate-800 cursor-pointer hover:border-amber-500/50 transition-colors group" onClick={() => setActiveTab("us-cn")}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Globe className="w-5 h-5 text-amber-500" />
-                  <span className="text-sm text-slate-200">中美宏观对比</span>
+                  <div className="p-2 bg-amber-500/10 rounded-lg group-hover:bg-amber-500/20 transition-colors">
+                    <Globe className="w-5 h-5 text-amber-500" />
+                  </div>
+                  <div>
+                    <span className="text-sm text-slate-200 block">中美宏观对比</span>
+                    <span className="text-xs text-slate-500">周期错位与政策分化</span>
+                  </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-500" />
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-amber-400 transition-colors" />
               </CardContent>
             </Card>
-            <Card className="bg-slate-900/50 border-slate-800 cursor-pointer hover:border-emerald-500/50 transition-colors" onClick={() => setActiveTab("bonds")}>
+            <Card className="bg-slate-900/50 border-slate-800 cursor-pointer hover:border-emerald-500/50 transition-colors group" onClick={() => setActiveTab("bonds")}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Activity className="w-5 h-5 text-emerald-500" />
-                  <span className="text-sm text-slate-200">中国债券研究</span>
+                  <div className="p-2 bg-emerald-500/10 rounded-lg group-hover:bg-emerald-500/20 transition-colors">
+                    <Activity className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <div>
+                    <span className="text-sm text-slate-200 block">中国债券研究</span>
+                    <span className="text-xs text-slate-500">期限结构与流动性</span>
+                  </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-500" />
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-emerald-400 transition-colors" />
               </CardContent>
             </Card>
-            <Card className="bg-slate-900/50 border-slate-800 cursor-pointer hover:border-cyan-500/50 transition-colors" onClick={() => setActiveTab("signals")}>
+            <Card className="bg-slate-900/50 border-slate-800 cursor-pointer hover:border-cyan-500/50 transition-colors group" onClick={() => setActiveTab("signals")}>
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Radar className="w-5 h-5 text-cyan-500" />
-                  <span className="text-sm text-slate-200">监控与反证条件</span>
+                  <div className="p-2 bg-cyan-500/10 rounded-lg group-hover:bg-cyan-500/20 transition-colors">
+                    <Radar className="w-5 h-5 text-cyan-500" />
+                  </div>
+                  <div>
+                    <span className="text-sm text-slate-200 block">监控与反证条件</span>
+                    <span className="text-xs text-slate-500">联动验证与历史映射</span>
+                  </div>
                 </div>
-                <ArrowRight className="w-4 h-4 text-slate-500" />
+                <ChevronRight className="w-4 h-4 text-slate-500 group-hover:text-cyan-400 transition-colors" />
               </CardContent>
             </Card>
           </div>
+
+          {/* Active Counter Signals Preview */}
+          {regime?.regime?.counterSignals && regime.regime.counterSignals.length > 0 && (
+            <Card className="bg-slate-900/50 border-slate-800">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm text-slate-100 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  活跃反证条件 / Active Counter Signals
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {regime.regime.counterSignals.slice(0, 4).map((signal, idx) => (
+                    <div key={idx} className="flex items-start gap-3 p-3 bg-slate-950/50 rounded-lg border border-slate-800">
+                      <div className={`w-2 h-2 rounded-full mt-1.5 ${signal.severity === 'high' ? 'bg-red-500' : signal.severity === 'medium' ? 'bg-amber-500' : 'bg-blue-500'}`} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm text-slate-200 font-medium truncate">{signal.condition}</div>
+                        <div className="text-xs text-slate-500 mt-1">{signal.implication}</div>
+                        <div className="text-xs text-amber-400 mt-1">→ {signal.action}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
+        {/* US-CN Comparison Tab */}
         <TabsContent value="us-cn" className="space-y-6 mt-6">
+          {/* Comparison Matrix */}
           <Card className="bg-slate-900/50 border-slate-800">
             <CardHeader>
               <CardTitle className="text-slate-100 flex items-center gap-2">
                 <Globe className="w-5 h-5 text-amber-500" />
-                中美宏观周期对比
+                🇺🇸🇨🇳 中美宏观周期对比矩阵
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
-                    <Flag className="w-5 h-5 text-blue-500" />
-                    <span className="text-lg font-medium text-slate-100">美国 United States</span>
-                  </div>
-                  <div className="space-y-3">
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-slate-800">
+                      <th className="text-left py-3 px-2 text-xs text-slate-500 font-medium">维度</th>
+                      <th className="text-center py-3 px-2 text-xs text-slate-500 font-medium">🇺🇸 美国</th>
+                      <th className="text-center py-3 px-2 text-xs text-slate-500 font-medium">🇨🇳 中国</th>
+                      <th className="text-center py-3 px-2 text-xs text-slate-500 font-medium">错位分析</th>
+                    </tr>
+                  </thead>
+                  <tbody>
                     {[
-                      { label: "增长", value: usCnComparison?.growth?.us?.status || "soft_landing", level: usCnComparison?.growth?.us?.level },
-                      { label: "通胀", value: usCnComparison?.inflation?.us?.status || "disinflation", level: usCnComparison?.inflation?.us?.level },
-                      { label: "政策", value: usCnComparison?.policy?.us?.status || "restrictive", level: usCnComparison?.policy?.us?.level },
-                      { label: "流动性", value: usCnComparison?.liquidity?.us?.status || "tightening", level: usCnComparison?.liquidity?.us?.level },
-                    ].map((item) => (
-                      <div key={item.label} className="flex items-center justify-between p-2 bg-slate-950/50 rounded">
-                        <span className="text-sm text-slate-400">{item.label}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs border-slate-700 text-slate-300">{item.value}</Badge>
-                          {item.level && <span className="text-xs text-slate-500">{item.level}</span>}
-                        </div>
-                      </div>
+                      { 
+                        dimension: "增长 Growth", 
+                        us: usCnComparison?.growth?.us || { status: "soft_landing", trend: "stable", level: "moderate" },
+                        cn: usCnComparison?.growth?.cn || { status: "weak_recovery", trend: "improving_slowly", level: "below_potential" },
+                        usValue: usById?.us_ism_pmi?.value,
+                        cnValue: cn?.series?.pmi_mfg?.value,
+                        usLabel: "ISM",
+                        cnLabel: "PMI",
+                        analysis: "美强中弱"
+                      },
+                      { 
+                        dimension: "通胀 Inflation", 
+                        us: usCnComparison?.inflation?.us || { status: "disinflation", trend: "declining", level: "moderate" },
+                        cn: usCnComparison?.inflation?.cn || { status: "low_inflation", trend: "stable_low", level: "below_target" },
+                        usValue: usById?.us_cpi?.value,
+                        cnValue: cn?.series?.cpi_yoy?.value,
+                        usLabel: "CPI",
+                        cnLabel: "CPI",
+                        analysis: "美高中低"
+                      },
+                      { 
+                        dimension: "政策 Policy", 
+                        us: usCnComparison?.policy?.us || { status: "restrictive", trend: "easing_expected", level: "tight" },
+                        cn: usCnComparison?.policy?.cn || { status: "accommodative", trend: "easing", level: "loose" },
+                        usValue: usById?.us_fedfunds?.value,
+                        cnValue: cn?.series?.lpr_1y?.value,
+                        usLabel: "Fed Funds",
+                        cnLabel: "LPR 1Y",
+                        analysis: "美紧中松"
+                      },
+                      { 
+                        dimension: "流动性 Liquidity", 
+                        us: usCnComparison?.liquidity?.us || { status: "tightening", trend: "stable", level: "neutral_tight" },
+                        cn: usCnComparison?.liquidity?.cn || { status: "easing", trend: "easing", level: "neutral_loose" },
+                        usValue: usById?.us_10y?.value,
+                        cnValue: cn?.series?.m2_yoy?.value,
+                        usLabel: "10Y Yield",
+                        cnLabel: "M2 YoY",
+                        analysis: "美紧中松"
+                      },
+                    ].map((row, idx) => (
+                      <tr key={idx} className="border-b border-slate-800/50 last:border-0">
+                        <td className="py-4 px-2">
+                          <div className="text-sm text-slate-200 font-medium">{row.dimension}</div>
+                        </td>
+                        <td className="py-4 px-2">
+                          <div className="text-center">
+                            <Badge variant="outline" className={`text-xs border-slate-700 ${getStatusColor(row.us.status)}`}>
+                              {row.us.status}
+                            </Badge>
+                            <div className="flex items-center justify-center gap-1 mt-2">
+                              {getTrendIcon(row.us.trend)}
+                              <span className="text-xs text-slate-500">{row.us.trend}</span>
+                            </div>
+                            {row.usValue && (
+                              <div className="mt-2 text-lg font-mono text-slate-200">
+                                {row.usValue.toFixed(1)}{row.usLabel === "CPI" ? "%" : ""}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-2">
+                          <div className="text-center">
+                            <Badge variant="outline" className={`text-xs border-slate-700 ${getStatusColor(row.cn.status)}`}>
+                              {row.cn.status}
+                            </Badge>
+                            <div className="flex items-center justify-center gap-1 mt-2">
+                              {getTrendIcon(row.cn.trend)}
+                              <span className="text-xs text-slate-500">{row.cn.trend}</span>
+                            </div>
+                            {row.cnValue && (
+                              <div className="mt-2 text-lg font-mono text-slate-200">
+                                {row.cnValue.toFixed(1)}{row.cnLabel === "CPI" ? "%" : ""}
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-4 px-2">
+                          <div className="text-center">
+                            <Badge className="bg-slate-800 text-slate-300 border-slate-700 text-xs">
+                              {row.analysis}
+                            </Badge>
+                          </div>
+                        </td>
+                      </tr>
                     ))}
-                  </div>
-                  <div className="pt-3 border-t border-slate-800">
-                    <div className="text-xs text-slate-500 mb-2">关键指标</div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="bg-slate-950/50 rounded p-2">
-                        <div className="text-xs text-slate-500">ISM</div>
-                        <div className="text-sm font-mono text-slate-200">{usById?.us_ism_pmi?.value?.toFixed(1) || "—"}</div>
-                      </div>
-                      <div className="bg-slate-950/50 rounded p-2">
-                        <div className="text-xs text-slate-500">CPI</div>
-                        <div className="text-sm font-mono text-slate-200">{usById?.us_cpi?.value?.toFixed(1) || "—"}%</div>
-                      </div>
-                      <div className="bg-slate-950/50 rounded p-2">
-                        <div className="text-xs text-slate-500">10Y</div>
-                        <div className="text-sm font-mono text-slate-200">{usById?.us_10y?.value?.toFixed(2) || "—"}%</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b border-slate-800">
-                    <Flag className="w-5 h-5 text-red-500" />
-                    <span className="text-lg font-medium text-slate-100">中国 China</span>
-                  </div>
-                  <div className="space-y-3">
-                    {[
-                      { label: "增长", value: usCnComparison?.growth?.cn?.status || "weak_recovery", level: usCnComparison?.growth?.cn?.level },
-                      { label: "通胀", value: usCnComparison?.inflation?.cn?.status || "low_inflation", level: usCnComparison?.inflation?.cn?.level },
-                      { label: "政策", value: usCnComparison?.policy?.cn?.status || "accommodative", level: usCnComparison?.policy?.cn?.level },
-                      { label: "流动性", value: usCnComparison?.liquidity?.cn?.status || "easing", level: usCnComparison?.liquidity?.cn?.level },
-                    ].map((item) => (
-                      <div key={item.label} className="flex items-center justify-between p-2 bg-slate-950/50 rounded">
-                        <span className="text-sm text-slate-400">{item.label}</span>
-                        <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs border-slate-700 text-slate-300">{item.value}</Badge>
-                          {item.level && <span className="text-xs text-slate-500">{item.level}</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                  <div className="pt-3 border-t border-slate-800">
-                    <div className="text-xs text-slate-500 mb-2">关键指标</div>
-                    <div className="grid grid-cols-3 gap-2 text-center">
-                      <div className="bg-slate-950/50 rounded p-2">
-                        <div className="text-xs text-slate-500">PMI</div>
-                        <div className="text-sm font-mono text-slate-200">{cn?.series?.pmi_mfg?.value?.toFixed(1) || "—"}</div>
-                      </div>
-                      <div className="bg-slate-950/50 rounded p-2">
-                        <div className="text-xs text-slate-500">CPI</div>
-                        <div className="text-sm font-mono text-slate-200">{cn?.series?.cpi_yoy?.value?.toFixed(1) || "—"}%</div>
-                      </div>
-                      <div className="bg-slate-950/50 rounded p-2">
-                        <div className="text-xs text-slate-500">LPR</div>
-                        <div className="text-sm font-mono text-slate-200">{cn?.series?.lpr_1y?.value?.toFixed(2) || "—"}%</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  </tbody>
+                </table>
               </div>
 
+              {/* Cycle Divergence Analysis */}
               <div className="mt-6 pt-6 border-t border-slate-800">
-                <div className="text-sm font-medium text-slate-200 mb-3">周期错位分析</div>
-                <div className="bg-slate-950/50 rounded-lg p-4 text-sm text-slate-400">
-                  <p>美国处于<span className="text-blue-400">软着陆</span>预期阶段，通胀回落但就业韧性仍强，美联储维持限制性政策但降息预期仍在。</p>
-                  <p className="mt-2">中国处于<span className="text-red-400">弱复苏</span>阶段，政策持续宽松但信用传导不畅，房地产风险仍待化解。</p>
-                  <p className="mt-2 text-amber-400">周期错位意味着中美资产表现可能分化，需关注汇率与资本流动约束。</p>
+                <div className="text-sm font-medium text-slate-200 mb-3">周期错位分析 / Cycle Divergence</div>
+                <div className="grid md:grid-cols-2 gap-4">
+                  <div className="bg-slate-950/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Flag className="w-4 h-4 text-blue-500" />
+                      <span className="text-sm font-medium text-slate-200">美国：软着陆预期</span>
+                    </div>
+                    <ul className="text-xs text-slate-400 space-y-2">
+                      <li>• 增长：ISM 制造业 PMI 处于扩张边缘，服务业保持韧性</li>
+                      <li>• 通胀：CPI 持续回落，但核心通胀仍高于目标</li>
+                      <li>• 政策：美联储维持限制性利率，但降息预期仍在</li>
+                      <li>• 流动性：10Y 收益率高位震荡，期限利差修复</li>
+                    </ul>
+                  </div>
+                  <div className="bg-slate-950/50 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Flag className="w-4 h-4 text-red-500" />
+                      <span className="text-sm font-medium text-slate-200">中国：弱复苏阶段</span>
+                    </div>
+                    <ul className="text-xs text-slate-400 space-y-2">
+                      <li>• 增长：制造业 PMI 在荣枯线附近波动，内需不足</li>
+                      <li>• 通胀：CPI 低位运行，通缩压力仍存</li>
+                      <li>• 政策：货币政策宽松，财政发力稳增长</li>
+                      <li>• 流动性：M2 增速较高，但信用传导不畅</li>
+                    </ul>
+                  </div>
+                </div>
+                <div className="mt-4 p-3 bg-amber-950/20 border border-amber-900/30 rounded-lg">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500 mt-0.5" />
+                    <div className="text-xs text-amber-400">
+                      <strong>投资启示：</strong>中美周期错位意味着资产表现可能分化。美国软着陆预期支撑美元与美股，中国弱复苏阶段债券与红利资产相对占优。需关注汇率波动与跨境资本流动风险。
+                    </div>
+                  </div>
                 </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Bonds Tab */}
         <TabsContent value="bonds" className="space-y-6 mt-6">
           <Card className="bg-slate-900/50 border-slate-800">
             <CardHeader>
               <CardTitle className="text-slate-100 flex items-center gap-2">
                 <Activity className="w-5 h-5 text-emerald-500" />
-                中国债券研究层 / China Bond Research
+                🇨🇳 中国债券研究层 / China Bond Research
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Futures Section */}
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-sm font-medium text-slate-200">国债期货主力合约</h3>
+                  <h3 className="text-sm font-medium text-slate-200">国债期货主力合约 / Treasury Futures</h3>
                   <div className="flex items-center gap-2">
                     <Badge variant="outline" className={`text-[10px] ${
                       cnBondData?.status === "LIVE" ? "bg-green-500/10 text-green-400 border-green-500/30" :
@@ -476,7 +710,7 @@ export default function MacroPage() {
                     }`}>
                       {cnBondData?.status === "LIVE" ? "实时" : cnBondData?.status === "DELAYED" ? "延迟" : "Seed"}
                     </Badge>
-                    <span className="text-[10px] text-slate-500">source: {cnBondData?.source || "—"}</span>
+                    <span className="text-[10px] text-slate-500">{cnBondData?.source || "—"}</span>
                   </div>
                 </div>
                 
@@ -489,7 +723,7 @@ export default function MacroPage() {
                     {(cnBondData?.futures || []).map((future) => {
                       const isPositive = future.change >= 0;
                       return (
-                        <div key={future.symbol} className="bg-slate-950/60 border border-slate-800 rounded-lg p-3">
+                        <div key={future.symbol} className="bg-slate-950/60 border border-slate-800 rounded-lg p-3 hover:border-slate-700 transition-colors">
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs text-slate-400">{getMaturityLabel(future.symbol)} 国债期货</span>
                             <span className="text-[10px] font-mono text-slate-500">{future.symbol}</span>
@@ -507,31 +741,52 @@ export default function MacroPage() {
                 )}
               </div>
 
-              {curveSpread && (
+              {/* Curve Spread Section - Enhanced */}
+              {curveSpread && curveSpread.tlT && (
                 <div className="bg-slate-950/50 rounded-lg p-4 border border-slate-800">
                   <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-sm font-medium text-slate-200">期限利差监控 (TL-T)</h3>
-                    <Badge variant="outline" className="text-xs border-slate-700">价差: {curveSpread.spread}元</Badge>
+                    <h3 className="text-sm font-medium text-slate-200">期限利差监控 / Curve Spread Monitor</h3>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-xs border-slate-700">TL-T: {curveSpread.tlT.spread}元</Badge>
+                      {curveSpread.tfT && <Badge variant="outline" className="text-xs border-slate-700">T-TF: {curveSpread.tfT.spread}元</Badge>}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="text-center p-3 bg-slate-900/50 rounded">
-                      <div className="text-xs text-slate-500 mb-1">10Y 主力 (T)</div>
-                      <div className="text-lg font-mono text-slate-200">{curveSpread.tPrice.toFixed(3)}</div>
-                      <div className={`text-xs ${curveSpread.tChange >= 0 ? "text-red-400" : "text-green-400"}`}>
-                        {curveSpread.tChange >= 0 ? "+" : ""}{curveSpread.tChange.toFixed(2)}%
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {curveSpread.tsTf && (
+                      <div className="text-center p-3 bg-slate-900/50 rounded">
+                        <div className="text-xs text-slate-500 mb-1">2Y 主力 (TS)</div>
+                        <div className="text-lg font-mono text-slate-200">{curveSpread.tsTf.tsPrice.toFixed(3)}</div>
                       </div>
-                    </div>
-                    <div className="text-center p-3 bg-slate-900/50 rounded">
-                      <div className="text-xs text-slate-500 mb-1">30Y 主力 (TL)</div>
-                      <div className="text-lg font-mono text-slate-200">{curveSpread.tlPrice.toFixed(3)}</div>
-                      <div className={`text-xs ${curveSpread.tlChange >= 0 ? "text-red-400" : "text-green-400"}`}>
-                        {curveSpread.tlChange >= 0 ? "+" : ""}{curveSpread.tlChange.toFixed(2)}%
+                    )}
+                    {curveSpread.tfT && (
+                      <div className="text-center p-3 bg-slate-900/50 rounded">
+                        <div className="text-xs text-slate-500 mb-1">5Y 主力 (TF)</div>
+                        <div className="text-lg font-mono text-slate-200">{curveSpread.tfT.tfPrice.toFixed(3)}</div>
                       </div>
-                    </div>
+                    )}
+                    {curveSpread.tlT && (
+                      <>
+                        <div className="text-center p-3 bg-slate-900/50 rounded">
+                          <div className="text-xs text-slate-500 mb-1">10Y 主力 (T)</div>
+                          <div className="text-lg font-mono text-slate-200">{curveSpread.tlT.tPrice.toFixed(3)}</div>
+                          <div className={`text-xs ${curveSpread.tlT.tChange >= 0 ? "text-red-400" : "text-green-400"}`}>
+                            {curveSpread.tlT.tChange >= 0 ? "+" : ""}{curveSpread.tlT.tChange.toFixed(2)}%
+                          </div>
+                        </div>
+                        <div className="text-center p-3 bg-slate-900/50 rounded">
+                          <div className="text-xs text-slate-500 mb-1">30Y 主力 (TL)</div>
+                          <div className="text-lg font-mono text-slate-200">{curveSpread.tlT.tlPrice.toFixed(3)}</div>
+                          <div className={`text-xs ${curveSpread.tlT.tlChange >= 0 ? "text-red-400" : "text-green-400"}`}>
+                            {curveSpread.tlT.tlChange >= 0 ? "+" : ""}{curveSpread.tlT.tlChange.toFixed(2)}%
+                          </div>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
 
+              {/* Yield Curve & Liquidity Analysis */}
               <div className="grid md:grid-cols-2 gap-4">
                 <div>
                   <h3 className="text-sm font-medium text-slate-200 mb-3">收益率曲线 / Yield Curve</h3>
@@ -584,24 +839,88 @@ export default function MacroPage() {
                     <p className="text-xs text-slate-400 leading-relaxed">
                       {liquidityInterp.content}
                     </p>
-                    <div className="mt-3 pt-3 border-t border-slate-800">
-                      <div className="text-[10px] text-slate-500">关键监控指标</div>
-                      <div className="flex flex-wrap gap-2 mt-2">
-                        <Badge variant="outline" className="text-[9px] bg-slate-800/50 text-slate-400 border-slate-700">DR007</Badge>
-                        <Badge variant="outline" className="text-[9px] bg-slate-800/50 text-slate-400 border-slate-700">MLF</Badge>
-                        <Badge variant="outline" className="text-[9px] bg-slate-800/50 text-slate-400 border-slate-700">社融增速</Badge>
-                        <Badge variant="outline" className="text-[9px] bg-slate-800/50 text-slate-400 border-slate-700">期限利差</Badge>
+                    {liquidityInterp.signals && liquidityInterp.signals.length > 0 && (
+                      <div className="mt-3 flex flex-wrap gap-1">
+                        {liquidityInterp.signals.map((signal, idx) => (
+                          <Badge key={idx} variant="outline" className="text-[9px] bg-slate-800/50 text-slate-400 border-slate-700">
+                            {signal}
+                          </Badge>
+                        ))}
                       </div>
-                    </div>
+                    )}
                   </div>
+                </div>
+              </div>
+
+              {/* Bond Research Layers */}
+              <div className="grid md:grid-cols-3 gap-4">
+                <div className="bg-slate-950/50 rounded-lg p-4 border border-slate-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-medium text-slate-200">L1: 资金面</span>
+                  </div>
+                  <ul className="text-xs text-slate-400 space-y-1.5">
+                    <li>• DR007 与政策利率偏离度</li>
+                    <li>• 银行间质押式回购成交量</li>
+                    <li>• MLF 操作与到期压力</li>
+                  </ul>
+                </div>
+                <div className="bg-slate-950/50 rounded-lg p-4 border border-slate-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-blue-500" />
+                    <span className="text-sm font-medium text-slate-200">L2: 期限结构</span>
+                  </div>
+                  <ul className="text-xs text-slate-400 space-y-1.5">
+                    <li>• 国债期货期限利差 (TL-T)</li>
+                    <li>• 现券收益率曲线形态</li>
+                    <li>• 骑乘策略可行性</li>
+                  </ul>
+                </div>
+                <div className="bg-slate-950/50 rounded-lg p-4 border border-slate-800">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="w-2 h-2 rounded-full bg-amber-500" />
+                    <span className="text-sm font-medium text-slate-200">L3: 信用与政策</span>
+                  </div>
+                  <ul className="text-xs text-slate-400 space-y-1.5">
+                    <li>• 社融增速与信用扩张</li>
+                    <li>• LPR 调降预期</li>
+                    <li>• 房地产债务风险传导</li>
+                  </ul>
                 </div>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
+        {/* Signals Tab */}
         <TabsContent value="signals" className="space-y-6 mt-6">
+          {/* Selection Status Bar */}
+          {(selectedMonitor || selectedHistory) && (
+            <div className="flex items-center gap-2 p-3 bg-slate-950/50 rounded-lg border border-slate-800">
+              <span className="text-xs text-slate-500">当前筛选:</span>
+              {selectedMonitor && (
+                <Badge className="bg-cyan-500/20 text-cyan-400 border-cyan-500/30 text-xs">
+                  监控: {selectedMonitor}
+                  <button onClick={() => setSelectedMonitor(null)} className="ml-1 hover:text-cyan-200">×</button>
+                </Badge>
+              )}
+              {selectedHistory && (
+                <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-xs">
+                  历史: {selectedHistory}
+                  <button onClick={() => setSelectedHistory(null)} className="ml-1 hover:text-amber-200">×</button>
+                </Badge>
+              )}
+              <button 
+                onClick={() => { setSelectedMonitor(null); setSelectedHistory(null); }}
+                className="text-xs text-slate-500 hover:text-slate-300 ml-auto"
+              >
+                清除筛选
+              </button>
+            </div>
+          )}
+
           <div className="grid lg:grid-cols-2 gap-6">
+            {/* Monitor Variables */}
             <Card className="bg-slate-900/50 border-slate-800">
               <CardHeader>
                 <CardTitle className="text-slate-100 flex items-center gap-2">
@@ -634,7 +953,12 @@ export default function MacroPage() {
                         }`}>
                           {item.region}
                         </Badge>
-                        {item.category && <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-400">{item.category}</Badge>}
+                        {item.category && (
+                          <Badge variant="outline" className="text-[10px] border-slate-700 text-slate-400 flex items-center gap-1">
+                            {getCategoryIcon(item.category)}
+                            {item.category}
+                          </Badge>
+                        )}
                         <span className="text-sm font-medium text-slate-100">{item.name}</span>
                         {linkedSignals.length > 0 && (
                           <Badge variant="outline" className="text-[10px] border-amber-500/30 text-amber-400">
@@ -652,6 +976,12 @@ export default function MacroPage() {
                           {item.threshold.bearish && <div className="text-red-400">🔴 {item.threshold.bearish}</div>}
                         </div>
                       )}
+                      {(item.dataSource || item.updateFrequency) && (
+                        <div className="mt-2 flex items-center gap-2 text-[10px] text-slate-600">
+                          {item.dataSource && <span>来源: {item.dataSource}</span>}
+                          {item.updateFrequency && <span>• 更新: {item.updateFrequency}</span>}
+                        </div>
+                      )}
                     </div>
                   );
                 }) : (
@@ -662,6 +992,7 @@ export default function MacroPage() {
               </CardContent>
             </Card>
 
+            {/* Historical Mapping */}
             <Card className="bg-slate-900/50 border-slate-800">
               <CardHeader>
                 <CardTitle className="text-slate-100 flex items-center gap-2">
@@ -690,12 +1021,31 @@ export default function MacroPage() {
                         <span className="text-sm font-medium text-slate-100">{item.period}</span>
                       </div>
                       <div className="text-xs text-slate-400 mt-2">{item.summary}</div>
+                      {item.keyEvents && item.keyEvents.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1">
+                          {item.keyEvents.map((evt, idx) => (
+                            <Badge key={idx} variant="outline" className="text-[9px] border-slate-700 text-slate-500">
+                              {evt}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
                       {item.counterSignalsTriggered && item.counterSignalsTriggered.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-1">
                           {item.counterSignalsTriggered.map((sig, idx) => (
                             <Badge key={idx} variant="outline" className="text-[9px] border-red-500/30 text-red-400">
                               {sig}
                             </Badge>
+                          ))}
+                        </div>
+                      )}
+                      {item.assetPerformance && (
+                        <div className="mt-2 grid grid-cols-4 gap-1 text-[9px]">
+                          {Object.entries(item.assetPerformance).map(([asset, perf]) => (
+                            <div key={asset} className="text-center p-1 bg-slate-900/50 rounded">
+                              <span className="text-slate-500">{asset}</span>
+                              <div className="text-slate-300">{perf}</div>
+                            </div>
                           ))}
                         </div>
                       )}
@@ -715,16 +1065,22 @@ export default function MacroPage() {
             </Card>
           </div>
 
+          {/* Counter Signals */}
           <Card className="bg-slate-900/50 border-slate-800">
             <CardHeader>
               <CardTitle className="text-slate-100 flex items-center gap-2">
                 <Target className="w-5 h-5 text-amber-500" />
                 反证条件 / Counter Signals
+                {selectedMonitor && (
+                  <Badge variant="outline" className="text-xs ml-2 border-cyan-500/50 text-cyan-400">
+                    已筛选
+                  </Badge>
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              {(regime?.regime?.counterSignals || []).length > 0 ? (
-                regime?.regime?.counterSignals.map((item) => (
+              {(selectedMonitor ? getLinkedCounterSignals(selectedMonitor) : regime?.regime?.counterSignals || []).length > 0 ? (
+                (selectedMonitor ? getLinkedCounterSignals(selectedMonitor) : regime?.regime?.counterSignals || []).map((item) => (
                   <div key={item.condition} className={`rounded-lg border p-3 text-sm space-y-2 ${
                     item.severity === "high" ? "border-red-900/50 bg-red-950/10" : 
                     item.severity === "medium" ? "border-amber-900/50 bg-amber-950/10" :
@@ -741,6 +1097,13 @@ export default function MacroPage() {
                           {item.severity === "high" ? "高风险" : item.severity === "medium" ? "中风险" : "低风险"}
                         </Badge>
                       )}
+                      {item.triggerType && (
+                        <Badge variant="outline" className="text-[10px] border-slate-600 text-slate-400">
+                          {item.triggerType === "threshold_cross" ? "阈值突破" : 
+                           item.triggerType === "persistence" ? "持续触发" : 
+                           item.triggerType === "divergence" ? "背离信号" : item.triggerType}
+                        </Badge>
+                      )}
                     </div>
                     <div className="text-slate-400">🧭 {item.implication}</div>
                     <div className="text-amber-300">🎯 {item.action}</div>
@@ -752,7 +1115,9 @@ export default function MacroPage() {
                   </div>
                 ))
               ) : (
-                <div className="text-xs text-slate-500 text-center py-8">暂无反证条件数据</div>
+                <div className="text-xs text-slate-500 text-center py-8">
+                  {selectedMonitor ? "该监控变量暂无关联反证条件" : "暂无反证条件数据"}
+                </div>
               )}
             </CardContent>
           </Card>
