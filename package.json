@@ -16,7 +16,8 @@
     "mission:event": "tsx scripts/mission-event.ts",
     "mission:log": "tsx scripts/mission-log.ts",
     "agent:heartbeat": "tsx scripts/agent-heartbeat.ts",
-    "agent:heartbeat:loop": "tsx scripts/agent-heartbeat-loop.ts"
+    "agent:heartbeat:loop": "tsx scripts/agent-heartbeat-loop.ts",
+    "supabase:sync": "node --env-file .env.local scripts/sync_sqlite_to_supabase.mjs macro_quant.db A && node --env-file .env.local scripts/sync_sqlite_to_supabase.mjs macro_quant.db B1"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
