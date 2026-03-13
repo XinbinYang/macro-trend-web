@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { 
   Plus,
   Trash2,
@@ -19,7 +20,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Globe,
-  Zap
+  Zap,
+  AlertTriangle
 } from "lucide-react";
 
 // 宏观状态接口
@@ -31,6 +33,12 @@ interface MacroRegimeData {
     name: string;
     confidence: number;
     driver: string;
+    assetPreference?: {
+      summary: string;
+      preferred: Array<{ asset: string; reason: string; weight: string }>;
+      cautious: Array<{ asset: string; reason: string; weight: string }>;
+      riskAlerts: Array<{ level: string; alert: string; action: string }>;
+    };
     counterSignals: Array<{
       condition: string;
       implication: string;
@@ -519,6 +527,113 @@ export default function PortfolioPage() {
                 更新: {new Date(macroRegime.updatedAt).toLocaleString("zh-CN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
               </div>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 三大中枢联动：宏观-组合偏离对齐分析 */}
+      {macroRegime && macroRegime.regime.assetPreference && riskExposureData.length > 0 && (
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              <CardTitle className="text-base text-slate-100">宏观-组合偏离对齐分析</CardTitle>
+              <Badge variant="outline" className="text-xs border-amber-500/50 text-amber-400">
+                基于宏观判断的偏离检测
+              </Badge>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {(() => {
+              // 构建宏观偏好映射
+              const macroPreferenceMap: Record<string, "preferred" | "cautious" | "neutral"> = {};
+              macroRegime.regime.assetPreference?.preferred.forEach(p => {
+                if (p.asset.includes("美股") || p.asset === "US Equity") macroPreferenceMap["US Equity"] = "preferred";
+                if (p.asset.includes("中股") || p.asset === "CN Equity") macroPreferenceMap["CN Equity"] = "preferred";
+                if (p.asset.includes("美债") || p.asset === "US Bond") macroPreferenceMap["US Bond"] = "preferred";
+                if (p.asset.includes("中债") || p.asset === "CN Bond") macroPreferenceMap["CN Bond"] = "preferred";
+                if (p.asset.includes("商品") || p.asset === "Commodity") macroPreferenceMap["Commodity"] = "preferred";
+                if (p.asset.includes("黄金") || p.asset === "Gold") macroPreferenceMap["Gold"] = "preferred";
+              });
+              macroRegime.regime.assetPreference?.cautious.forEach(p => {
+                if (p.asset.includes("美股") || p.asset === "US Equity") macroPreferenceMap["US Equity"] = "cautious";
+                if (p.asset.includes("中股") || p.asset === "CN Equity") macroPreferenceMap["CN Equity"] = "cautious";
+                if (p.asset.includes("美债") || p.asset === "US Bond") macroPreferenceMap["US Bond"] = "cautious";
+                if (p.asset.includes("中债") || p.asset === "CN Bond") macroPreferenceMap["CN Bond"] = "cautious";
+                if (p.asset.includes("商品") || p.asset === "Commodity") macroPreferenceMap["Commodity"] = "cautious";
+                if (p.asset.includes("黄金") || p.asset === "Gold") macroPreferenceMap["Gold"] = "cautious";
+              });
+
+              // 分析对齐情况
+              const alignmentItems = riskExposureData.map(r => {
+                const pref = macroPreferenceMap[r.assetClass] || "neutral";
+                const isMisaligned = (pref === "cautious" && r.current > r.target) || (pref === "preferred" && r.deviation < -2);
+                return { ...r, pref, isMisaligned };
+              });
+              const misalignedCount = alignmentItems.filter(i => i.isMisaligned).length;
+
+              return (
+                <div className="space-y-3">
+                  {/* 对齐状态摘要 */}
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className={`px-3 py-1.5 rounded-lg text-sm ${
+                      misalignedCount === 0 ? "bg-green-500/20 text-green-400" :
+                      misalignedCount <= 2 ? "bg-amber-500/20 text-amber-400" :
+                      "bg-red-500/20 text-red-400"
+                    }`}>
+                      {misalignedCount === 0 ? "✓ 组合与宏观判断对齐" : 
+                       misalignedCount <= 2 ? `⚠ ${misalignedCount} 项偏离宏观偏好` : 
+                       `🚨 ${misalignedCount} 项与宏观判断冲突`}
+                    </div>
+                  </div>
+
+                  {/* 详细对齐分析 */}
+                  <div className="grid gap-2">
+                    {alignmentItems.map((item) => {
+                      return (
+                        <div 
+                          key={item.assetClass} 
+                          className={`p-3 rounded-lg border ${
+                            item.isMisaligned 
+                              ? "bg-red-950/20 border-red-800/40" 
+                              : item.pref === "preferred"
+                                ? "bg-green-950/20 border-green-800/30"
+                                : "bg-slate-950/50 border-slate-800"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              {item.pref === "preferred" && (
+                                <span className="text-xs text-green-400">✓ 推荐</span>
+                              )}
+                              {item.pref === "cautious" && (
+                                <span className="text-xs text-amber-400">⚠ 谨慎</span>
+                              )}
+                              <span className="text-sm text-slate-200 font-medium">{item.label}</span>
+                            </div>
+                            <div className="flex items-center gap-3 text-xs">
+                              <span className="text-slate-400">
+                                当前 {item.current.toFixed(1)}% / 目标 {item.target}%
+                              </span>
+                              <span className={`font-mono ${
+                                item.deviation > 0 ? "text-red-400" : item.deviation < 0 ? "text-blue-400" : "text-slate-400"
+                              }`}>
+                                {item.deviation > 0 ? "+" : ""}{item.deviation.toFixed(1)}%
+                              </span>
+                              {item.isMisaligned && (
+                                <Badge className="text-[10px] bg-red-500/20 text-red-400 border-red-500/30">
+                                  与宏观判断冲突
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
           </CardContent>
         </Card>
       )}

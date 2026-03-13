@@ -6,6 +6,22 @@
     "name": "Neutral",
     "confidence": 55,
     "driver": "中美宏观周期错位，美国软着陆预期 vs 中国弱复苏",
+    "assetPreference": {
+      "summary": "中美周期错位，债券与黄金相对占优",
+      "preferred": [
+        { "asset": "中债", "reason": "中国货币宽松周期，收益率下行空间打开", "weight": "超配" },
+        { "asset": "黄金", "reason": "避险需求与美元信用担忧", "weight": "标配" }
+      ],
+      "cautious": [
+        { "asset": "美股", "reason": "估值偏高，波动率上升风险", "weight": "低配" },
+        { "asset": "中股", "reason": "内需不足，盈利修复缓慢", "weight": "低配" }
+      ],
+      "riskAlerts": [
+        { "level": "high", "alert": "US ISM PMI < 48 → 衰退风险上升", "action": "减配权益" },
+        { "level": "high", "alert": "US CPI > 4% → 降息路径受阻", "action": "久期中性" },
+        { "level": "medium", "alert": "US 10Y > 4.5% → 权益承压", "action": "减配成长" }
+      ]
+    },
     "counterSignals": [
       {
         "condition": "US ISM PMI < 48",

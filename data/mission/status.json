@@ -1,11 +1,11 @@
 {
   "summary": {
     "objective": "网页端作战驾驶舱：稳定版恢复 → Mission Control 动态化 → 宏观研究层重建",
-    "phase": "P1 · Mission Control 第三轮深化：作战控制台化",
-    "done": 3,
+    "phase": "P1 · 三大中枢联动第二轮：状态→动作联动",
+    "done": 4,
     "doing": 2,
     "blocked": 0,
-    "updatedAt": "2026-03-13T06:31:50.834Z"
+    "updatedAt": "2026-03-13T10:58:00.000Z"
   },
   "tasks": [
     {
@@ -44,43 +44,57 @@
       "owner": "main",
       "module": "ops",
       "priority": "P1",
-      "status": "DOING",
+      "status": "DONE",
       "note": "阶段→检查点→进度流、Blocker聚焦、Agent动作细化、时间线结构化",
       "dependsOn": [
         "WEB-001"
       ],
       "startedAt": "2026-03-13T05:40:00.000Z",
+      "completedAt": "2026-03-13T06:30:00.000Z",
       "estimatedHours": 2,
       "source": "System"
     },
     {
-      "id": "MACRO-001",
-      "title": "宏观研究页 /macro 搭建",
-      "owner": "main",
-      "module": "research",
+      "id": "HUB-001",
+      "title": "三大中枢联动第二轮：状态→动作联动",
+      "owner": "minimax",
+      "module": "hub",
       "priority": "P1",
       "status": "DOING",
-      "note": "Macro Hub 已新增监控变量模块",
+      "note": "1) macro输出资产偏好与风险提示 2) portfolio显示宏观-偏离对齐分析 3) mission自动生成宏观/偏离驱动任务",
       "dependsOn": [
-        "WEB-001",
-        "WEB-002"
+        "WEB-001"
       ],
-      "startedAt": "2026-03-13T05:20:00.000Z",
-      "estimatedHours": 4,
-      "source": "Macro"
+      "startedAt": "2026-03-13T10:30:00.000Z",
+      "estimatedHours": 3,
+      "source": "System"
     },
     {
-      "id": "DATA-001",
-      "title": "中国宏观数据稳态重建",
-      "owner": "kimi",
-      "module": "data",
-      "priority": "P1",
+      "id": "PORT-001",
+      "title": "组合偏离宏观对齐检测",
+      "owner": "system",
+      "module": "portfolio",
+      "priority": "P2",
       "status": "TODO",
-      "note": "先恢复月度稳态接入，不再破坏构建链",
+      "note": "检测组合风险暴露与宏观判断的一致性，识别需要再平衡的偏离项",
       "dependsOn": [
-        "BOND-001"
+        "HUB-001"
       ],
-      "estimatedHours": 6,
+      "estimatedHours": 1,
+      "source": "Portfolio Drift"
+    },
+    {
+      "id": "MACRO-002",
+      "title": "宏观风险信号监控",
+      "owner": "system",
+      "module": "macro",
+      "priority": "P2",
+      "status": "TODO",
+      "note": "监控宏观状态变化，触发风险警示与资产偏好更新",
+      "dependsOn": [
+        "HUB-001"
+      ],
+      "estimatedHours": 1,
       "source": "Macro"
     },
     {
@@ -138,22 +152,19 @@
     }
   ],
   "timeline": [
-    "📝 主干已确认包含 Mission round3 / Macro round3 / Portfolio semi-truth",
-    "🏛️ P1 · Mission Control 第三轮深化：作战控制台化",
-    "🟡 OPS-001 Mission Control 作战控制台化 (Round 3) [started:05:40]",
-    "📝 阶段→检查点→进度流已实现",
-    "📝 Blocker 更聚焦、更醒目",
-    "📝 Agent 当前动作更细化",
-    "📝 时间线结构化：phase/checkpoint/task/agent/workflow/note",
-    "📝 任务列表按状态分组：DOING/TODO/BLOCKED/DONE",
-    "📝 代理状态增强：Active/Idle 分离显示",
-    "📝 作战日志按类型分组展示",
-    "📍 Test Mission Event [test:passed]",
-    "📝 Mission Control 已新增事件驱动自动写入 API",
-    "📝 主执行流已接入统一 mission 写入命令入口",
-    "🟡 MACRO-001 宏观研究页 /macro 搭建 [depends:WEB-001,WEB-002]",
+    "📝 主干已确认包含 三大中枢联动第二轮：状态→动作联动",
+    "🏛️ P1 · 三大中枢联动第二轮：状态→动作联动",
+    "🟡 HUB-001 三大中枢联动第二轮实施 [started:10:30]",
+    "📝 /macro 新增资产偏好与风险提示展示",
+    "📝 /portfolio 新增宏观-组合偏离对齐分析",
+    "📝 /mission 自动生成宏观/偏离驱动任务",
+    "📝 regime.json 新增 assetPreference 字段",
+    "📝 PORT-001 组合偏离宏观对齐检测 [source:Portfolio Drift]",
+    "📝 MACRO-002 宏观风险信号监控 [source:Macro]",
+    "📍 OPS-001 Mission Control Round3 已完成",
+    "🟢 OPS-001 Mission Control 作战控制台化 (Round 3) [depends:WEB-001] [dur:50min]",
+    "🟢 MACRO-001 宏观研究页 /macro 搭建 [depends:WEB-001,WEB-002]",
     "🟢 BOND-001 中国债券数据正式重建 [depends:WEB-001] [dur:50min]",
-    "🟡 AGENT MiniMax Highspeed -> RUNNING [session:5de02126] [task:OPS-001]",
     "🟢 网站恢复可访问 [dur:150min]",
     "🟢 低价值 AI token 消耗已关闭 [dur:25min]",
     "🟢 Mission Control MVP 已上线"

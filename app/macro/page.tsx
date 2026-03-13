@@ -25,6 +25,13 @@ import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
 
 // Types
+interface AssetPreference {
+  summary: string;
+  preferred: Array<{ asset: string; reason: string; weight: string }>;
+  cautious: Array<{ asset: string; reason: string; weight: string }>;
+  riskAlerts: Array<{ level: string; alert: string; action: string }>;
+}
+
 interface CounterSignal {
   condition: string;
   implication: string;
@@ -43,6 +50,7 @@ interface RegimeData {
     name: string;
     confidence: number;
     driver: string;
+    assetPreference?: AssetPreference;
     counterSignals: CounterSignal[];
     thresholds?: Record<string, number>;
     us_cn_comparison?: UsCnComparison;
@@ -415,6 +423,66 @@ export default function MacroPage() {
           <div className="text-sm text-slate-300">
             <span className="text-slate-500">核心驱动:</span> {regime?.regime?.driver || "数据源恢复中，暂按中性基线显示"}
           </div>
+          
+          {/* 三大中枢联动：资产偏好与风险提示 */}
+          {regime?.regime?.assetPreference && (
+            <div className="pt-3 border-t border-slate-800 space-y-3">
+              <div className="flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-400" />
+                <span className="text-sm font-medium text-slate-200">资产偏好建议</span>
+              </div>
+              <div className="p-3 bg-amber-950/20 border border-amber-800/30 rounded-lg">
+                <div className="text-sm text-amber-300 mb-2">{regime.regime.assetPreference.summary}</div>
+                <div className="grid md:grid-cols-2 gap-3">
+                  {/* 推荐资产 */}
+                  <div className="space-y-2">
+                    <div className="text-xs text-emerald-400 font-medium">✓ 推荐</div>
+                    {regime.regime.assetPreference.preferred.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-xs">
+                        <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 text-[10px]">
+                          {item.weight}
+                        </Badge>
+                        <div>
+                          <span className="text-slate-200">{item.asset}</span>
+                          <span className="text-slate-500 ml-1">- {item.reason}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 谨慎资产 */}
+                  <div className="space-y-2">
+                    <div className="text-xs text-amber-400 font-medium">⚠ 谨慎</div>
+                    {regime.regime.assetPreference.cautious.map((item, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-xs">
+                        <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 text-[10px]">
+                          {item.weight}
+                        </Badge>
+                        <div>
+                          <span className="text-slate-200">{item.asset}</span>
+                          <span className="text-slate-500 ml-1">- {item.reason}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {/* 风险警示 */}
+                {regime.regime.assetPreference.riskAlerts && regime.regime.assetPreference.riskAlerts.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-amber-800/30">
+                    <div className="text-xs text-red-400 font-medium mb-2">🚨 风险警示</div>
+                    <div className="flex flex-wrap gap-2">
+                      {regime.regime.assetPreference.riskAlerts.map((alert, idx) => (
+                        <Badge key={idx} className={`text-[10px] ${
+                          alert.level === "high" ? "bg-red-500/20 text-red-400 border-red-500/30" : "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                        }`}>
+                          {alert.alert} → {alert.action}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
           
           {/* Quick Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-800">
