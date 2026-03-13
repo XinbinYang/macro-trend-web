@@ -1,17 +1,11 @@
 // Unified Market Data API
 // Primary: Supabase (assets_equity, assets_bond, assets_commodity, assets_fx)
-// Fallback: Original sources (Yahoo, Eastmoney, FRED) with "indicative" flag
+// Fallback: Yahoo, Eastmoney, FRED with "indicative" flag
 
 import { NextResponse } from "next/server";
 import { fetchAShareWithFallback } from "@/lib/api/eastmoney-api";
 import { fetchFredWithFallback, FRED_SERIES, buildFredMacroSummary } from "@/lib/api/fred-api";
-import { 
-  getLatestEquityQuote, 
-  getLatestCommodityQuote, 
-  getLatestBondQuote,
-  getLatestFXQuote,
-  type SupabaseAssetQuote
-} from "@/lib/api/supabase-assets";
+import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
 
 // Asset config - maps frontend symbols to Supabase tickers
 interface AssetConfigItem {
@@ -83,8 +77,8 @@ export async function GET(request: Request) {
 }
 
 async function getMarketSnapshot() {
-  // Try Supabase first, fallback to original sources
-  const quotes = await fetchSupabaseQuotes();
+  // Use unified fallback chain for all assets
+  const quotes = await fetchAllQuotesWithFallback();
   
   // Categorize by region
   const usAssets = quotes.filter(q => q.region === "US");
@@ -92,21 +86,15 @@ async function getMarketSnapshot() {
   const hkAssets = quotes.filter(q => q.region === "HK");
   const globalAssets = quotes.filter(q => q.region === "GLOBAL");
   
-  // Get fallback data for missing assets
-  const fallbackPromises: Promise<{ type: string; data: unknown[] }>[] = [];
-  
-  // Fetch A-share fallback if missing
-  if (cnAssets.length === 0 || cnAssets.every((q: SupabaseAssetQuote) => q.status === "OFF")) {
-    fallbackPromises.push(fetchAShareWithFallback().then(data => ({ type: "a-share", data })));
-  }
-  
-  const fallbackResults = await Promise.all(fallbackPromises);
+  // Count sources
+  const supabaseCount = quotes.filter(q => !q.isIndicative).length;
+  const fallbackCount = quotes.filter(q => q.isIndicative && q.price !== null).length;
   
   return NextResponse.json({
     timestamp: new Date().toISOString(),
     sources: {
-      supabase: quotes.filter(q => q.status !== "OFF").length,
-      fallback: fallbackResults.reduce((acc, r) => acc + ((r.data as unknown[])?.length || 0), 0),
+      supabase: supabaseCount,
+      fallback: fallbackCount,
     },
     data: {
       us: usAssets,
@@ -114,15 +102,21 @@ async function getMarketSnapshot() {
       hongkong: hkAssets,
       global: globalAssets,
     },
+    disclaimer: {
+      indicative: "Fallback data (FRED/Yahoo/Eastmoney) is indicative only, not for backtesting",
+      truth: "Strategy backtest must use Master + official settlement data",
+    },
   });
 }
 
 async function getAShareData() {
-  // First try Supabase
-  const quotes = await fetchSupabaseQuotes();
+  // First try Supabase via fallback
+  const quotes = await fetchAllQuotesWithFallback();
   const cnAssets = quotes.filter(q => q.region === "CN");
   
-  if (cnAssets.length > 0 && cnAssets.some((q: SupabaseAssetQuote) => q.status !== "OFF")) {
+  const hasSupabaseData = cnAssets.some(q => !q.isIndicative);
+  
+  if (hasSupabaseData) {
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       source: "supabase",
@@ -140,7 +134,7 @@ async function getAShareData() {
 }
 
 async function getMacroData() {
-  // Fetch key macro indicators
+  // Fetch key macro indicators via fallback chain
   const [
     fedFunds,
     treasury10y,
@@ -186,39 +180,29 @@ async function getAllData() {
   });
 }
 
-// Fetch quotes from Supabase
-async function fetchSupabaseQuotes(): Promise<SupabaseAssetQuote[]> {
-  const results = await Promise.allSettled(
+// Fetch all quotes using unified fallback chain
+async function fetchAllQuotesWithFallback() {
+  const results = await Promise.all(
     ASSET_CONFIG.map(async (config) => {
       try {
-        if (config.category === "EQUITY") {
-          return await getLatestEquityQuote(config.ticker);
-        } else if (config.category === "COMMODITY") {
-          return await getLatestCommodityQuote(config.ticker);
-        } else if (config.category === "BOND") {
-          return await getLatestBondQuote(config.ticker);
-        } else if (config.category === "FX" && config.pair) {
-          return await getLatestFXQuote(config.pair);
-        }
-        return null;
+        const fallbackResult = await fetchMarketQuoteWithFallback(
+          config.ticker || config.symbol,
+          config.region,
+          config.category
+        );
+        
+        return {
+          ...fallbackResult,
+          name: config.name,
+          region: config.region,
+          category: config.category,
+        };
       } catch (e) {
-        console.error(`[Supabase] Error fetching ${config.symbol}:`, e);
+        console.error(`[Market Fallback] Error fetching ${config.symbol}:`, e);
         return null;
       }
     })
   );
 
-  return results
-    .filter((r): r is PromiseFulfilledResult<SupabaseAssetQuote> => r.status === "fulfilled" && r.value !== null)
-    .map((r) => {
-      const quote = r.value;
-      const config = ASSET_CONFIG.find(c => c.symbol === quote.symbol || c.ticker === quote.symbol || c.pair === quote.symbol);
-      
-      return {
-        ...quote,
-        name: config?.name || quote.name,
-        region: config?.region || quote.region,
-        category: config?.category || quote.category,
-      };
-    });
+  return results.filter((r): r is NonNullable<typeof r> => r !== null);
 }

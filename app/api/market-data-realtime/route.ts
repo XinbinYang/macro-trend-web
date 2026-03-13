@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
-import { getMultipleQuotes } from "@/lib/api/market-data";
 import { getCnBondData } from "@/lib/api/bond-cn";
 import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
 import { fetchAIndex, fetchHKIndex } from "@/lib/api/eastmoney-api";
+import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 // 资产分类配置
 interface AssetConfig {
@@ -20,15 +23,7 @@ const ASSET_CONFIG: AssetConfig[] = [
   { symbol: "^NDX", name: "纳斯达克100", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo" },
   { symbol: "^DJI", name: "道指30", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo" },
   
-  // 中国宽基指数（展示层优先用国内指数收盘口径；避免同一资产出现“ETF+指数”双口径冲突）
-  // NOTE: 如需额外增加宽基（上证50/创业板/科创50等），后续走国内口径再补。
-
-  
-  // 港股
-  // NOTE: 港股指数用 AkShare(sample) 的 HSI（收盘口径）展示，避免 EWH(HK ETF proxy) 与 HSI(指数) 双口径重复。
-  
   // 商品
-  // NOTE: 黄金仅保留一个口径（优先期货/更贴近可交易品种）；避免 GLD 与 GC=F 重复。
   { symbol: "GC=F", name: "COMEX黄金期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   { symbol: "CL=F", name: "WTI原油期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
   { symbol: "DJP", name: "道琼斯商品指数总回报ETN (DJP)", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
@@ -38,10 +33,6 @@ const ASSET_CONFIG: AssetConfig[] = [
 ];
 
 // AkShare收盘数据 - A股/港股指数
-// NOTE: 历史上这里放过写死 sample，占位联调用。为避免误导：
-// - 不再返回写死数值
-// - 未接入时显示 OFF/—
-// 等接入真实 AkShare/官方口径数据后再改回 LIVE。
 const AKSHARE_EOD_DATA: Array<{ symbol: string; name: string; region: "CN" | "HK"; source: string }> = [
   // 中国主要宽基指数（OFF：等待可审计数据源）
   { symbol: "000300.SH", name: "沪深300", region: "CN", source: "OFF" },
@@ -67,31 +58,66 @@ export interface MarketQuote {
   category: "EQUITY" | "BOND" | "COMMODITY" | "FX";
   dataType: "REALTIME" | "DELAYED" | "EOD";
   dataSource: string;
+  isIndicative: boolean;
 }
 
 export async function GET() {
   try {
-    // 获取实时数据
-    const symbols = ASSET_CONFIG.map(a => a.symbol);
-    const quotes = await getMultipleQuotes(symbols);
-    
-    // 合并配置信息
-    const enrichedQuotes: MarketQuote[] = quotes.map(q => {
-      const config = ASSET_CONFIG.find(a => a.symbol === q.symbol);
-      return {
-        ...q,
-        name: config?.name || q.name,
-        region: config?.region || "GLOBAL",
-        category: config?.category || "EQUITY",
-        dataType: config?.dataType || "REALTIME",
-        dataSource: config?.dataSource || q.source,
-      };
-    });
+    // 使用 fallback 链路获取数据
+    const enrichedQuotes = await Promise.all(
+      ASSET_CONFIG.map(async (config) => {
+        const fallbackResult = await fetchMarketQuoteWithFallback(
+          config.symbol,
+          config.region,
+          config.category
+        );
+        
+        return {
+          symbol: config.symbol,
+          name: config.name,
+          price: fallbackResult.price || 0,
+          change: fallbackResult.change || 0,
+          changePercent: fallbackResult.changePercent || 0,
+          volume: 0,
+          timestamp: fallbackResult.timestamp,
+          source: fallbackResult.source,
+          region: config.region,
+          category: config.category,
+          dataType: config.dataType,
+          dataSource: fallbackResult.price !== null ? (fallbackResult.isIndicative ? "indicative" : "LIVE") : "OFF",
+          isIndicative: fallbackResult.isIndicative,
+        };
+      })
+    );
 
-    // CN/HK 宽基指数：优先接 Eastmoney（免 key，Indicative）；失败则 OFF
+    // CN/HK 宽基指数：优先 Supabase -> Eastmoney fallback
     const akshareQuotes: MarketQuote[] = await Promise.all(
       AKSHARE_EOD_DATA.map(async (d) => {
-        // Eastmoney：A股指数用数字 code；恒指用 secid=100.HSI
+        const fallbackResult = await fetchMarketQuoteWithFallback(
+          d.symbol,
+          d.region,
+          "EQUITY"
+        );
+        
+        if (fallbackResult.price !== null) {
+          return {
+            symbol: d.symbol,
+            name: fallbackResult.name,
+            price: fallbackResult.price,
+            change: fallbackResult.change || 0,
+            changePercent: fallbackResult.changePercent || 0,
+            volume: 0,
+            timestamp: fallbackResult.timestamp,
+            source: fallbackResult.source,
+            region: d.region,
+            category: "EQUITY",
+            dataType: "EOD" as const,
+            dataSource: fallbackResult.isIndicative ? "indicative" : "LIVE",
+            isIndicative: fallbackResult.isIndicative,
+          };
+        }
+
+        // Try Eastmoney directly as fallback
         const isCNIndex = /^\d{6}\.(SH|SZ)$/i.test(d.symbol);
         const isHSI = d.symbol === "HSI";
 
@@ -109,8 +135,9 @@ export async function GET() {
               source: "OFF",
               region: d.region,
               category: "EQUITY",
-              dataType: "EOD",
+              dataType: "EOD" as const,
               dataSource: "OFF",
+              isIndicative: true,
             };
           }
 
@@ -125,8 +152,9 @@ export async function GET() {
             source: "Eastmoney",
             region: d.region,
             category: "EQUITY",
-            dataType: "EOD",
-            dataSource: "LIVE",
+            dataType: "EOD" as const,
+            dataSource: "indicative",
+            isIndicative: true,
           };
         }
 
@@ -143,8 +171,9 @@ export async function GET() {
             source: "OFF",
             region: d.region,
             category: "EQUITY",
-            dataType: "EOD",
+            dataType: "EOD" as const,
             dataSource: "OFF",
+            isIndicative: true,
           };
         }
 
@@ -161,8 +190,9 @@ export async function GET() {
             source: "OFF",
             region: d.region,
             category: "EQUITY",
-            dataType: "EOD",
+            dataType: "EOD" as const,
             dataSource: "OFF",
+            isIndicative: true,
           };
         }
 
@@ -177,13 +207,14 @@ export async function GET() {
           source: "Eastmoney",
           region: d.region,
           category: "EQUITY",
-          dataType: "EOD",
-          dataSource: "LIVE", // 展示层可用，但不是回测真值
+          dataType: "EOD" as const,
+          dataSource: "indicative",
+          isIndicative: true,
         };
       })
     );
 
-    // 获取中国债券稳态数据 + US Treasury Curve（展示层，FRED；无 key 则自动 mock）
+    // 获取中国债券稳态数据 + US Treasury Curve
     const [cnBondData, usTreasuryCurve] = await Promise.all([
       getCnBondData({ level: "L2", realtime: false, fallback: true }),
       getUsTreasuryCurveLatest(),
@@ -199,11 +230,12 @@ export async function GET() {
       source: bf.source,
       region: "CN",
       category: "BOND",
-      dataType: bf.dataType === "REALTIME" ? "REALTIME" : "EOD",
+      dataType: bf.dataType === "REALTIME" ? "REALTIME" as const : "EOD" as const,
       dataSource: bf.status === "LIVE" ? "LIVE" : bf.status === "DELAYED" ? "LIVE" : bf.status === "STALE" ? "MOCK" : "SAMPLE",
+      isIndicative: true,
     }));
 
-    // US Treasury curve -> convert to MarketQuote (BOND / US / EOD)
+    // US Treasury curve
     const usTreasuryCurveQuotes: MarketQuote[] = usTreasuryCurve.map(p => ({
       symbol: `US${p.maturity}`,
       name: `美债收益率 ${p.maturity}`,
@@ -215,8 +247,9 @@ export async function GET() {
       source: p.source,
       region: "US",
       category: "BOND",
-      dataType: "EOD",
+      dataType: "EOD" as const,
       dataSource: p.source?.includes("mock") ? "MOCK" : "LIVE",
+      isIndicative: !p.source?.includes("FRED"),
     }));
 
     const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes, ...usTreasuryCurveQuotes];
@@ -229,7 +262,8 @@ export async function GET() {
 
     // 统计数据源
     const sources = allQuotes.reduce((acc, q) => {
-      acc[q.dataSource] = (acc[q.dataSource] || 0) + 1;
+      const key = q.isIndicative ? "indicative" : "supabase";
+      acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
@@ -273,7 +307,6 @@ export async function GET() {
       {
         status: 200,
         headers: {
-          // Prevent browser/proxy caching for realtime dashboard
           "Cache-Control": "no-store",
         },
       }
