@@ -111,3 +111,35 @@ export function addNote(data: MissionData, text: string) {
   appendTimeline(data, `📝 ${note}`);
   return note;
 }
+
+/**
+ * Unified event logger for external agents/systems
+ * Use this to inject events into mission timeline from anywhere in the system
+ */
+export function logEvent(data: MissionData, event: {
+  type: "phase" | "objective" | "subagent_spawn" | "subagent_complete" | "workflow" | "checkpoint";
+  message: string;
+  details?: Record<string, string>;
+}) {
+  const emoji: Record<string, string> = {
+    phase: "🏛️",
+    objective: "🎯",
+    subagent_spawn: "🚀",
+    subagent_complete: "✅",
+    workflow: "⚙️",
+    checkpoint: "📍",
+  };
+  
+  const e = emoji[event.type] || "📝";
+  let line = `${e} ${event.message}`;
+  
+  if (event.details) {
+    const detailsStr = Object.entries(event.details)
+      .map(([k, v]) => `${k}:${v}`)
+      .join(" ");
+    line += ` [${detailsStr}]`;
+  }
+  
+  appendTimeline(data, line);
+  return line;
+}

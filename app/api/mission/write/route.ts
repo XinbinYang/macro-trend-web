@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { addBlocker, addNote, loadMission, saveMission, updateAgent, updateTask } from "@/lib/mission-control";
+import { addBlocker, addNote, loadMission, saveMission, updateAgent, updateTask, logEvent } from "@/lib/mission-control";
 
 export async function POST(request: Request) {
   try {
@@ -27,6 +27,28 @@ export async function POST(request: Request) {
 
     if (action === "note") {
       addNote(data, String(body?.text || ""));
+      saveMission(data);
+      return NextResponse.json({ success: true, data });
+    }
+
+    // New: generic event logging
+    if (action === "event") {
+      const eventType = String(body?.type || "").trim() as "phase" | "objective" | "subagent_spawn" | "subagent_complete" | "workflow" | "checkpoint";
+      const message = String(body?.message || "").trim();
+      const validTypes = ["phase", "objective", "subagent_spawn", "subagent_complete", "workflow", "checkpoint"];
+      
+      if (!eventType || !message) {
+        return NextResponse.json({ success: false, error: "Missing type or message" }, { status: 200 });
+      }
+      if (!validTypes.includes(eventType)) {
+        return NextResponse.json({ success: false, error: `Invalid event type: ${eventType}` }, { status: 200 });
+      }
+      
+      logEvent(data, {
+        type: eventType,
+        message,
+        details: body?.details,
+      });
       saveMission(data);
       return NextResponse.json({ success: true, data });
     }

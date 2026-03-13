@@ -1,15 +1,44 @@
 {
   "region": "US",
   "status": "LIVE",
-  "updatedAt": "2026-03-13T07:26:00+08:00",
+  "updatedAt": "2026-03-13T13:00:00+08:00",
   "regime": {
     "name": "Neutral",
     "confidence": 50,
     "driver": "数据源恢复中，暂按中性基线显示",
     "counterSignals": [
-      "增长尚未形成一致上行确认",
-      "通胀与政策路径仍需更多数据验证",
-      "流动性与利率链条处于观察期"
-    ]
+      {
+        "condition": "US ISM PMI < 48",
+        "implication": "制造业收缩确认，衰退风险上升",
+        "action": "减配权益，增配防御"
+      },
+      {
+        "condition": "US CPI > 4% 或 Core CPI > 3.5%",
+        "implication": "通胀黏性超预期，降息路径受阻",
+        "action": "久期中性或偏短"
+      },
+      {
+        "condition": "US 10Y > 4.5% 或利差倒挂消失",
+        "implication": "定价锚重新失锚，权益承压",
+        "action": "减配成长股"
+      },
+      {
+        "condition": "CN 社融存量同比 < 9%",
+        "implication": "信用扩张不足，内需复苏低于预期",
+        "action": "减配中国相关资产"
+      }
+    ],
+    "thresholds": {
+      "us_ism_critical": 48,
+      "us_ism_warning": 52,
+      "us_cpi_critical": 4.0,
+      "us_cpi_warning": 3.5,
+      "us_10y_critical": 4.5,
+      "us_10y_warning": 4.2,
+      "cn_social_financing_critical": 9.0,
+      "cn_social_financing_warning": 10.0,
+      "gold_critical": 2200,
+      "gold_warning": 2100
+    }
   }
 }
