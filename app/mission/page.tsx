@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AlertTriangle, Bot, CheckCircle2, Clock3, Flag, Layers3, Play, RefreshCw, Target, Timer, Workflow, Zap } from "lucide-react";
+import { supabase } from "@/lib/supabase";
 
 type TaskStatus = "TODO" | "DOING" | "DONE" | "BLOCKED";
 
@@ -143,7 +144,22 @@ export default function MissionPage() {
   useEffect(() => {
     fetchMission();
     const timer = setInterval(fetchMission, 30000);
-    return () => clearInterval(timer);
+
+    const channel = supabase
+      .channel("agent-status-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "agent_status" },
+        () => {
+          fetchMission();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      clearInterval(timer);
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   // Parse timeline into structured events
