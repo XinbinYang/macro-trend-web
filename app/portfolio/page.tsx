@@ -97,15 +97,32 @@ interface NAVData {
   disclaimer: string;
 }
 
-// 风险暴露数据接口 (扩展支持 indicative)
+// 风险暴露数据接口 (扩展支持双模式)
 interface RiskExposure {
   assetClass: string;
   label: string;
-  current: number;
-  target: number;
-  deviation: number;
+  weight: number;              // 权重百分比
+  targetWeight: number;        // 目标权重
+  weightDeviation: number;    // 权重偏离度
+  riskContribution: number;    // 风险贡献百分比
+  targetRiskContribution: number; // 目标风险贡献
+  riskDeviation: number;      // 风险偏离度
+  deviation: number;           // 综合偏离度 (用于再平衡)
   source: "truth" | "indicative" | "placeholder";
   methodology?: string;
+}
+
+// 再平衡建议接口
+interface RebalanceItem {
+  assetClass: string;
+  label: string;
+  action: "buy" | "sell" | "hold";
+  currentWeight: number;
+  targetWeight: number;
+  deviation: number;
+  amount: number;
+  reason: string;
+  confidence: "high" | "medium" | "low";
 }
 
 // 波动/回撤数据接口
@@ -158,6 +175,9 @@ export default function PortfolioPage() {
   // 波动率状态
   const [volatilityData, setVolatilityData] = useState<VolatilityData[]>([]);
   const [volLoading, setVolLoading] = useState(false);
+
+  // 再平衡建议状态
+  const [rebalanceData, setRebalanceData] = useState<RebalanceItem[]>([]);
 
   // 宏观状态 (三大中枢联动)
   const [macroRegime, setMacroRegime] = useState<MacroRegimeData | null>(null);
@@ -215,6 +235,10 @@ export default function PortfolioPage() {
       const json = await res.json();
       if (json.success) {
         setRiskExposure(json.data);
+        // 提取再平衡建议
+        if (json.rebalance && Array.isArray(json.rebalance)) {
+          setRebalanceData(json.rebalance);
+        }
       }
     } catch (e) {
       console.error("Failed to load risk exposure:", e);
@@ -320,7 +344,7 @@ export default function PortfolioPage() {
   
   const performance = getPerformanceData();
 
-  // 2. 风险暴露 - 使用 API 数据，标记为 indicative
+  // 2. 风险暴露 - 使用 API 数据 (双模式)
   const getRiskExposureData = (): RiskExposure[] => {
     if (riskExposure.length > 0) {
       return riskExposure.map(r => ({
@@ -329,14 +353,14 @@ export default function PortfolioPage() {
       }));
     }
     
-    // 降级：占位数据，带清晰标记
+    // 降级：占位数据
     return [
-      { assetClass: "US Equity", label: "美股", current: 52.3, target: 50, deviation: 2.3, source: "placeholder" },
-      { assetClass: "CN Equity", label: "中股", current: 14.8, target: 15, deviation: -0.2, source: "placeholder" },
-      { assetClass: "US Bond", label: "美债", current: 21.2, target: 20, deviation: 1.2, source: "placeholder" },
-      { assetClass: "CN Bond", label: "中债", current: 4.8, target: 5, deviation: -0.2, source: "placeholder" },
-      { assetClass: "Commodity", label: "商品", current: 3.9, target: 5, deviation: -1.1, source: "placeholder" },
-      { assetClass: "Gold", label: "黄金", current: 3.0, target: 5, deviation: -2.0, source: "placeholder" },
+      { assetClass: "US Equity", label: "美股", weight: 50, targetWeight: 50, weightDeviation: 0, riskContribution: 50, targetRiskContribution: 50, riskDeviation: 0, deviation: 0, source: "placeholder" },
+      { assetClass: "CN Equity", label: "中股", weight: 15, targetWeight: 15, weightDeviation: 0, riskContribution: 15, targetRiskContribution: 15, riskDeviation: 0, deviation: 0, source: "placeholder" },
+      { assetClass: "US Bond", label: "美债", weight: 20, targetWeight: 20, weightDeviation: 0, riskContribution: 20, targetRiskContribution: 20, riskDeviation: 0, deviation: 0, source: "placeholder" },
+      { assetClass: "CN Bond", label: "中债", weight: 5, targetWeight: 5, weightDeviation: 0, riskContribution: 5, targetRiskContribution: 5, riskDeviation: 0, deviation: 0, source: "placeholder" },
+      { assetClass: "Commodity", label: "商品", weight: 5, targetWeight: 5, weightDeviation: 0, riskContribution: 5, targetRiskContribution: 5, riskDeviation: 0, deviation: 0, source: "placeholder" },
+      { assetClass: "Gold", label: "黄金", weight: 5, targetWeight: 5, weightDeviation: 0, riskContribution: 5, targetRiskContribution: 5, riskDeviation: 0, deviation: 0, source: "placeholder" },
     ];
   };
 
@@ -368,44 +392,36 @@ export default function PortfolioPage() {
   const volatility = getVolatilityData();
 
   // 4. 再平衡建议 (基于风险暴露偏离度计算 + 更合理的逻辑)
-  const REBALANCE_THRESHOLD = 3; // 偏离超过 3% 才建议再平衡
-  const MIN_TRADE_AMOUNT = 1000; // 最小交易金额门槛
-  
-  const rebalanceSuggestions: RebalanceSuggestion[] = riskExposureData
-    .filter(r => Math.abs(r.deviation) > REBALANCE_THRESHOLD)
-    .filter(r => {
-      // 过滤掉金额太小的建议
-      const amount = Math.abs(r.deviation / 100 * (performance?.nav || 100000));
-      return amount >= MIN_TRADE_AMOUNT;
-    })
-    .map(r => {
-      const amount = Math.abs(r.deviation / 100 * (performance?.nav || 100000));
-      const deviationAbs = Math.abs(r.deviation);
-      
-      // 更详细的原因说明
-      let reason = "";
-      if (r.deviation > 0) {
-        if (deviationAbs > 5) reason = "显著超配，建议减持";
-        else if (deviationAbs > 3) reason = "轻微超配，可考虑减持";
-        else reason = "略超配，观望";
-      } else {
-        if (deviationAbs > 5) reason = "显著低配，建议增持";
-        else if (deviationAbs > 3) reason = "轻微低配，可考虑增持";
-        else reason = "略低配，观望";
-      }
-      
-      return {
+  // 优先使用 API 提供的再平衡建议 (来自后端计算)
+  const rebalanceSuggestions: RebalanceSuggestion[] = rebalanceData.length > 0 
+    ? rebalanceData.map(r => ({
         symbol: r.label,
-        action: r.deviation > 0 ? "sell" as const : "buy" as const,
-        currentWeight: r.current,
-        targetWeight: r.target,
-        amount,
-        reason,
-        confidence: r.source === "truth" ? "high" as const : r.source === "indicative" ? "medium" as const : "low" as const,
-      };
-    })
-    // 按偏离度排序，优先处理偏离大的
-    .sort((a, b) => Math.abs(b.currentWeight - b.targetWeight) - Math.abs(a.currentWeight - a.targetWeight));
+        action: r.action,
+        currentWeight: r.currentWeight,
+        targetWeight: r.targetWeight,
+        amount: r.amount,
+        reason: r.reason,
+        confidence: r.confidence,
+      }))
+    : riskExposureData
+        .filter(r => Math.abs(r.deviation) > 3)
+        .filter(r => {
+          const amount = Math.abs(r.deviation / 100 * (performance?.nav || 100000));
+          return amount >= 1000;
+        })
+        .map(r => {
+          const amount = Math.abs(r.deviation / 100 * (performance?.nav || 100000));
+          return {
+            symbol: r.label,
+            action: r.deviation > 0 ? "sell" as const : "buy" as const,
+            currentWeight: r.weight,
+            targetWeight: r.targetWeight,
+            amount,
+            reason: r.deviation > 0 ? "超配，建议减持" : "低配，建议增持",
+            confidence: r.source === "truth" ? "high" as const : "medium" as const,
+          };
+        })
+        .sort((a, b) => Math.abs(b.currentWeight - b.targetWeight) - Math.abs(a.currentWeight - a.targetWeight));
 
   // 获取风险等级
   const getRiskLevel = () => {
@@ -567,7 +583,7 @@ export default function PortfolioPage() {
               // 分析对齐情况
               const alignmentItems = riskExposureData.map(r => {
                 const pref = macroPreferenceMap[r.assetClass] || "neutral";
-                const isMisaligned = (pref === "cautious" && r.current > r.target) || (pref === "preferred" && r.deviation < -2);
+                const isMisaligned = (pref === "cautious" && r.weight > r.targetWeight) || (pref === "preferred" && r.deviation < -2);
                 return { ...r, pref, isMisaligned };
               });
               const misalignedCount = alignmentItems.filter(i => i.isMisaligned).length;
@@ -613,7 +629,7 @@ export default function PortfolioPage() {
                             </div>
                             <div className="flex items-center gap-3 text-xs">
                               <span className="text-slate-400">
-                                当前 {item.current.toFixed(1)}% / 目标 {item.target}%
+                                当前 {item.weight.toFixed(1)}% / 目标 {item.targetWeight}%
                               </span>
                               <span className={`font-mono ${
                                 item.deviation > 0 ? "text-red-400" : item.deviation < 0 ? "text-blue-400" : "text-slate-400"
@@ -957,7 +973,7 @@ export default function PortfolioPage() {
                         <span className="text-slate-300">{item.label} ({item.assetClass})</span>
                         <div className="flex items-center gap-2">
                           <span className="text-slate-400">
-                            {item.current.toFixed(1)}% / {item.target}%
+                            {item.weight.toFixed(1)}% / {item.targetWeight}%
                           </span>
                           {item.source !== "placeholder" && (
                             <span className={`text-xs px-1.5 py-0.5 rounded ${badge.bg} ${badge.color}`}>
@@ -970,7 +986,7 @@ export default function PortfolioPage() {
                         {/* 目标基准线 */}
                         <div 
                           className="absolute top-0 bottom-0 w-0.5 bg-slate-500 z-10"
-                          style={{ left: `${item.target}%` }}
+                          style={{ left: `${item.targetWeight}%` }}
                         />
                         {/* 当前实际 */}
                         <div 
@@ -978,7 +994,7 @@ export default function PortfolioPage() {
                             Math.abs(item.deviation) > 5 ? 'bg-red-500' : 
                             Math.abs(item.deviation) > 2 ? 'bg-amber-500' : 'bg-green-500'
                           }`}
-                          style={{ width: `${Math.min(item.current, 100)}%` }}
+                          style={{ width: `${Math.min(item.weight, 100)}%` }}
                         />
                       </div>
                       <div className={`text-xs text-right ${
