@@ -8,7 +8,13 @@ import {
   Plus,
   Trash2,
   User,
-  LogOut
+  LogOut,
+  TrendingUp,
+  TrendingDown,
+  BarChart3,
+  RefreshCw,
+  Shield,
+  Activity
 } from "lucide-react";
 import {
   PieChart as RePieChart,
@@ -32,6 +38,32 @@ interface User {
   name: string;
   email: string;
   isLoggedIn: boolean;
+}
+
+// 风险暴露数据接口
+interface RiskExposure {
+  assetClass: string;
+  current: number;
+  target: number;
+  deviation: number;
+}
+
+// 波动/回撤数据接口
+interface VolatilityData {
+  period: string;
+  volatility: number;
+  maxDrawdown: number;
+  sharpeRatio: number;
+}
+
+// 再平衡建议接口
+interface RebalanceSuggestion {
+  symbol: string;
+  action: "buy" | "sell" | "hold";
+  currentWeight: number;
+  targetWeight: number;
+  amount: number;
+  reason: string;
 }
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -106,6 +138,49 @@ export default function PortfolioPage() {
     name: p.symbol,
     value: p.shares * p.currentPrice,
   }));
+
+  // ============================================
+  // MVP: 组合驾驶舱 - 模拟数据 (后续接入真实数据)
+  // ============================================
+  
+  // 1. 风险暴露数据 (模拟)
+  const riskExposureData: RiskExposure[] = [
+    { assetClass: "美股 (US Equity)", current: 58.2, target: 50, deviation: 8.2 },
+    { assetClass: "中股 (CN Equity)", current: 12.4, target: 15, deviation: -2.6 },
+    { assetClass: "美债 (US Bond)", current: 18.5, target: 20, deviation: -1.5 },
+    { assetClass: "中债 (CN Bond)", current: 5.2, target: 5, deviation: 0.2 },
+    { assetClass: "商品 (Commodity)", current: 3.1, target: 5, deviation: -1.9 },
+    { assetClass: "黄金 (Gold)", current: 2.6, target: 5, deviation: -2.4 },
+  ];
+
+  // 2. 波动/回撤数据 (模拟)
+  const volatilityData: VolatilityData[] = [
+    { period: "30D", volatility: 8.2, maxDrawdown: -3.1, sharpeRatio: 1.2 },
+    { period: "90D", volatility: 12.5, maxDrawdown: -7.8, sharpeRatio: 0.95 },
+    { period: "180D", volatility: 14.8, maxDrawdown: -12.4, sharpeRatio: 1.08 },
+    { period: "YTD", volatility: 11.2, maxDrawdown: -9.6, sharpeRatio: 1.15 },
+  ];
+
+  // 3. 再平衡建议 (基于偏离度计算)
+  const rebalanceSuggestions: RebalanceSuggestion[] = riskExposureData
+    .filter(r => Math.abs(r.deviation) > 3)
+    .map(r => ({
+      symbol: r.assetClass.split(" ")[0],
+      action: r.deviation > 0 ? "sell" as const : "buy" as const,
+      currentWeight: r.current,
+      targetWeight: r.target,
+      amount: Math.abs(r.deviation / 100 * totalValue),
+      reason: r.deviation > 0 ? "超配需减持" : "低配需增持",
+    }));
+
+  // 获取风险等级
+  const getRiskLevel = () => {
+    const avgVolatility = volatilityData.reduce((sum, v) => sum + v.volatility, 0) / volatilityData.length;
+    if (avgVolatility < 10) return { level: "保守", color: "text-green-400", bg: "bg-green-500/20" };
+    if (avgVolatility < 15) return { level: "稳健", color: "text-amber-400", bg: "bg-amber-500/20" };
+    return { level: "积极", color: "text-red-400", bg: "bg-red-500/20" };
+  };
+  const riskInfo = getRiskLevel();
 
   if (!user) return null;
 
@@ -311,6 +386,169 @@ export default function PortfolioPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ============================================ */}
+      {/* MVP: 组合驾驶舱增强区域 */}
+      {/* ============================================ */}
+      
+      {/* 第一行: 风险暴露 + 波动/回撤 */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* 风险暴露 */}
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Shield className="w-4 h-4 text-amber-400" />
+              <CardTitle className="text-base text-slate-100">风险暴露 (Risk Exposure)</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {riskExposureData.map((item) => (
+                <div key={item.assetClass} className="space-y-1">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-slate-300">{item.assetClass}</span>
+                    <span className="text-slate-400">
+                      {item.current.toFixed(1)}% / {item.target}%
+                    </span>
+                  </div>
+                  <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden">
+                    {/* 目标基准线 */}
+                    <div 
+                      className="absolute top-0 bottom-0 w-0.5 bg-slate-500 z-10"
+                      style={{ left: `${item.target}%` }}
+                    />
+                    {/* 当前实际 */}
+                    <div 
+                      className={`absolute top-0 bottom-0 rounded-full transition-all ${
+                        Math.abs(item.deviation) > 5 ? 'bg-red-500' : 
+                        Math.abs(item.deviation) > 2 ? 'bg-amber-500' : 'bg-green-500'
+                      }`}
+                      style={{ width: `${Math.min(item.current, 100)}%` }}
+                    />
+                  </div>
+                  <div className={`text-xs text-right ${
+                    item.deviation > 0 ? 'text-red-400' : 'text-blue-400'
+                  }`}>
+                    {item.deviation > 0 ? '+' : ''}{item.deviation.toFixed(1)}%
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-800 flex items-center gap-2 text-xs text-slate-500">
+              <div className="w-2 h-2 bg-slate-500" /> 目标配置线
+              <div className="w-3 h-1 bg-green-500 ml-3 rounded" /> 低偏离
+              <div className="w-3 h-1 bg-amber-500 rounded" /> 中偏离
+              <div className="w-3 h-1 bg-red-500 rounded" /> 高偏离
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* 波动/回撤 */}
+        <Card className="bg-slate-900/50 border-slate-800">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <Activity className="w-4 h-4 text-amber-400" />
+              <CardTitle className="text-base text-slate-100">波动率与回撤 (Vol & Drawdown)</CardTitle>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4">
+              {volatilityData.map((item) => (
+                <div key={item.period} className="p-3 bg-slate-800/30 rounded-lg">
+                  <div className="text-xs text-slate-500 mb-2">{item.period}</div>
+                  <div className="space-y-1">
+                    <div className="flex justify-between">
+                      <span className="text-xs text-slate-400">波动率</span>
+                      <span className="text-sm text-slate-200">{item.volatility}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-slate-400">最大回撤</span>
+                      <span className="text-sm text-red-400">{item.maxDrawdown}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-xs text-slate-400">夏普比率</span>
+                      <span className={`text-sm ${item.sharpeRatio >= 1 ? 'text-green-400' : 'text-amber-400'}`}>
+                        {item.sharpeRatio}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="mt-4 pt-3 border-t border-slate-800">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-slate-400">风险等级</span>
+                <span className={`text-sm font-medium px-2 py-1 rounded ${riskInfo.color} ${riskInfo.bg}`}>
+                  {riskInfo.level}
+                </span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* 第二行: 再平衡建议 */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <RefreshCw className="w-4 h-4 text-amber-400" />
+              <CardTitle className="text-base text-slate-100">再平衡建议 (Rebalance)</CardTitle>
+            </div>
+            {rebalanceSuggestions.length > 0 && (
+              <span className="text-xs text-amber-400">
+                {rebalanceSuggestions.length} 项建议
+              </span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {rebalanceSuggestions.length > 0 ? (
+            <div className="space-y-3">
+              {rebalanceSuggestions.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-slate-800/30 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      item.action === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                    }`}>
+                      {item.action === 'buy' ? (
+                        <TrendingUp className="w-4 h-4" />
+                      ) : (
+                        <TrendingDown className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-slate-200">{item.symbol}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded ${
+                          item.action === 'buy' ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
+                        }`}>
+                          {item.action === 'buy' ? '买入' : '卖出'}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-500">{item.reason}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-sm text-slate-200">
+                      {item.currentWeight.toFixed(1)}% → {item.targetWeight.toFixed(1)}%
+                    </div>
+                    <div className="text-xs text-slate-500">
+                      ${item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-6 text-slate-500">
+              <BarChart3 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+              <p>组合已接近目标配置，无需再平衡</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
     </div>
   );
 }
