@@ -79,11 +79,11 @@ export async function GET() {
   try {
     const supabase = getSupabaseClient();
     
-    // Filter out placeholder data (date = 2099-...)
+    // Filter out placeholder / smoketest future data (date >= 2099-01-01)
     const { data, error } = await supabase
       .from("macro_us")
       .select("*")
-      .neq("date", "2099-03-31T00:00:00+00:00")
+      .lt("date", "2099-01-01")
       .order("date", { ascending: false })
       .limit(1);
 
