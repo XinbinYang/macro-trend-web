@@ -108,13 +108,20 @@ export async function GET() {
       const maxDrawdown = computeMaxDrawdown(values);
       const sharpe = computeSharpe(returns);
       
+      // Since Inception 是完整历史数据，标记为 truth
+      // 有完整月度数据支撑的周期也标记为 truth
+      const isTruth = period.name === "Since Inception" || period.name === "1Y" || period.name === "YTD";
+      
       return {
         period: period.name,
         volatility: Math.round(volatility * 100) / 100,
         maxDrawdown: -Math.round(maxDrawdown * 100) / 100,
         sharpeRatio: Math.round(sharpe * 100) / 100,
         dataPoints: periodNav.length,
-        source: period.name === "Since Inception" ? "truth" : "truth",
+        source: isTruth ? "truth" : "indicative",
+        methodology: isTruth 
+          ? "Computed from NAV historical data (monthly returns)"
+          : "Computed from limited data points (may have higher variance)",
       };
     }).filter(Boolean);
 
@@ -131,14 +138,21 @@ export async function GET() {
         sharpeRatio: 0.85,
         dataPoints: 3,
         source: "indicative",
+        methodology: "Estimated from recent monthly returns (limited data)",
       });
     }
 
     return NextResponse.json({
       success: true,
       data: results,
-      lastUpdated: new Date().toISOString(),
-      note: "Volatility and drawdown computed from NAV truth data. 30D is estimated from recent monthly returns.",
+      lastUpdated: navData.asOf || new Date().toISOString(),
+      note: "Volatility and drawdown computed from Beta 7.0 NAV truth data. Periods with sufficient data points are marked as 'truth'. Shorter periods are 'indicative' due to limited data.",
+      dataSource: {
+        navFile: "data/nav/beta70/latest.json",
+        strategy: "Beta 7.0 (中美全天候)",
+        status: navData.status,
+        asOf: navData.asOf,
+      }
     });
   } catch (e) {
     return NextResponse.json(

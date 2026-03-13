@@ -89,7 +89,7 @@ interface VolatilityData {
   dataPoints?: number;
 }
 
-// 再平衡建议接口
+// 再平衡建议接口 (扩展支持置信度)
 interface RebalanceSuggestion {
   symbol: string;
   action: "buy" | "sell" | "hold";
@@ -97,6 +97,7 @@ interface RebalanceSuggestion {
   targetWeight: number;
   amount: number;
   reason: string;
+  confidence?: "high" | "medium" | "low";
 }
 
 const COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
@@ -316,17 +317,45 @@ export default function PortfolioPage() {
 
   const volatility = getVolatilityData();
 
-  // 4. 再平衡建议 (基于风险暴露偏离度计算)
+  // 4. 再平衡建议 (基于风险暴露偏离度计算 + 更合理的逻辑)
+  const REBALANCE_THRESHOLD = 3; // 偏离超过 3% 才建议再平衡
+  const MIN_TRADE_AMOUNT = 1000; // 最小交易金额门槛
+  
   const rebalanceSuggestions: RebalanceSuggestion[] = riskExposureData
-    .filter(r => Math.abs(r.deviation) > 3)
-    .map(r => ({
-      symbol: r.label,
-      action: r.deviation > 0 ? "sell" as const : "buy" as const,
-      currentWeight: r.current,
-      targetWeight: r.target,
-      amount: Math.abs(r.deviation / 100 * (performance?.nav || 100000)),
-      reason: r.deviation > 0 ? "超配需减持" : "低配需增持",
-    }));
+    .filter(r => Math.abs(r.deviation) > REBALANCE_THRESHOLD)
+    .filter(r => {
+      // 过滤掉金额太小的建议
+      const amount = Math.abs(r.deviation / 100 * (performance?.nav || 100000));
+      return amount >= MIN_TRADE_AMOUNT;
+    })
+    .map(r => {
+      const amount = Math.abs(r.deviation / 100 * (performance?.nav || 100000));
+      const deviationAbs = Math.abs(r.deviation);
+      
+      // 更详细的原因说明
+      let reason = "";
+      if (r.deviation > 0) {
+        if (deviationAbs > 5) reason = "显著超配，建议减持";
+        else if (deviationAbs > 3) reason = "轻微超配，可考虑减持";
+        else reason = "略超配，观望";
+      } else {
+        if (deviationAbs > 5) reason = "显著低配，建议增持";
+        else if (deviationAbs > 3) reason = "轻微低配，可考虑增持";
+        else reason = "略低配，观望";
+      }
+      
+      return {
+        symbol: r.label,
+        action: r.deviation > 0 ? "sell" as const : "buy" as const,
+        currentWeight: r.current,
+        targetWeight: r.target,
+        amount,
+        reason,
+        confidence: r.source === "truth" ? "high" as const : r.source === "indicative" ? "medium" as const : "low" as const,
+      };
+    })
+    // 按偏离度排序，优先处理偏离大的
+    .sort((a, b) => Math.abs(b.currentWeight - b.targetWeight) - Math.abs(a.currentWeight - a.targetWeight));
 
   // 获取风险等级
   const getRiskLevel = () => {
