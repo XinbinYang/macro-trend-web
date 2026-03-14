@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { fetchMacroWithFallback } from "@/lib/api/fallback-utils";
+import { macroFramework, type MacroFrameworkConfig } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -46,78 +47,108 @@ function makeIndicator(
   };
 }
 
+// Map config indicator IDs to fetchMacroWithFallback keys
+function mapIndicatorToFetchParams(indicatorId: string): { table: "macro_us" | "macro_cn"; field: string; region: "US" | "CN" } {
+  const mapping: Record<string, { table: "macro_us" | "macro_cn"; field: string; region: "US" | "CN" }> = {
+    "us_ism_services_pmi": { table: "macro_us", field: "ism_services", region: "US" },
+    "us_ism_manufacturing_pmi": { table: "macro_us", field: "ism_manufacturing", region: "US" },
+    "cn_pmi_mfg": { table: "macro_cn", field: "pmi", region: "CN" },
+    "cn_pmi_services": { table: "macro_cn", field: "pmi_services", region: "CN" },
+    "us_core_pce_yoy": { table: "macro_us", field: "core_pce_yoy", region: "US" },
+    "us_cpi_yoy": { table: "macro_us", field: "cpi_yoy", region: "US" },
+    "us_core_cpi_yoy": { table: "macro_us", field: "core_cpi_yoy", region: "US" },
+    "cn_cpi_yoy": { table: "macro_cn", field: "cpi_yoy", region: "CN" },
+    "cn_ppi_yoy": { table: "macro_cn", field: "ppi_yoy", region: "CN" },
+    "us_sofr": { table: "macro_us", field: "sofr", region: "US" },
+    "us_fed_funds_rate": { table: "macro_us", field: "fed_funds_rate", region: "US" },
+    "cn_lpr_1y": { table: "macro_cn", field: "lpr_1y", region: "CN" },
+    "cn_mlf_rate": { table: "macro_cn", field: "mlf_rate", region: "CN" },
+    "cn_slf_rate": { table: "macro_cn", field: "slf_rate", region: "CN" },
+    "us_10y_yield": { table: "macro_us", field: "yield_10y", region: "US" },
+    "us_2y_yield": { table: "macro_us", field: "yield_2y", region: "US" },
+    "us_m2_yoy": { table: "macro_us", field: "m2_yoy", region: "US" },
+    "cn_m2_yoy": { table: "macro_cn", field: "m2_yoy", region: "CN" },
+    "cn_shibor_overnight": { table: "macro_cn", field: "shibor_overnight", region: "CN" },
+  };
+  return mapping[indicatorId] || { table: "macro_us", field: indicatorId, region: "US" };
+}
+
+async function fetchIndicator(indicatorId: string) {
+  const params = mapIndicatorToFetchParams(indicatorId);
+  return fetchMacroWithFallback(params.table, params.field, params.region);
+}
+
 export async function GET() {
   const updatedAt = new Date().toISOString();
+  const config = macroFramework as MacroFrameworkConfig;
 
-  // Use unified fallback chain for each indicator
-  const [
-    usIsmMfgResult,
-    usIsmSvcResult,
-    usCorePceResult,
-    usCpiResult,
-    usCoreCpiResult,
-    cnPmiResult,
-    cnCpiResult,
-    usSofrResult,
-    usFedFundsResult,
-    cnLprResult,
-    us10yResult,
-    us2yResult,
-    cnM2Result,
-    cnUnemploymentResult,
-    usUnemploymentResult,
-  ] = await Promise.all([
-    // Growth
-    fetchMacroWithFallback("macro_us", "ism_manufacturing", "US"),
-    fetchMacroWithFallback("macro_us", "ism_services", "US"),
-    fetchMacroWithFallback("macro_us", "core_pce_yoy", "US"),
-    fetchMacroWithFallback("macro_us", "cpi_yoy", "US"),
-    fetchMacroWithFallback("macro_us", "core_cpi_yoy", "US"),
-    fetchMacroWithFallback("macro_cn", "pmi", "CN"),
-    fetchMacroWithFallback("macro_cn", "cpi_yoy", "CN"),
-    // Policy
-    fetchMacroWithFallback("macro_us", "sofr", "US"),
-    fetchMacroWithFallback("macro_us", "fed_funds_rate", "US"),
-    fetchMacroWithFallback("macro_cn", "lpr_1y", "CN"),
-    // Rates / Liquidity
-    fetchMacroWithFallback("macro_us", "yield_10y", "US"),
-    fetchMacroWithFallback("macro_us", "yield_2y", "US"),
-    fetchMacroWithFallback("macro_cn", "m2_yoy", "CN"),
-    fetchMacroWithFallback("macro_cn", "unemployment", "CN"),
-    fetchMacroWithFallback("macro_us", "unemployment_rate", "US"),
-  ]);
+  // Get all indicator IDs from config
+  const indicatorIds = Object.keys(config.indicators);
 
-  const indicators: Indicator[] = [
-    // Growth
-    makeIndicator("us_ism_mfg_pmi", "US ISM Manufacturing PMI", "idx", usIsmMfgResult.value, usIsmMfgResult.asOf, updatedAt, usIsmMfgResult.source, usIsmMfgResult.isStale, usIsmMfgResult.qualityTag),
-    makeIndicator("us_ism_services_pmi", "US ISM Services PMI", "idx", usIsmSvcResult.value, usIsmSvcResult.asOf, updatedAt, usIsmSvcResult.source, usIsmSvcResult.isStale, usIsmSvcResult.qualityTag),
-    makeIndicator("cn_pmi_mfg", "CN PMI (Mfg)", "idx", cnPmiResult.value, cnPmiResult.asOf, updatedAt, cnPmiResult.source, cnPmiResult.isStale, cnPmiResult.qualityTag),
+  // Fetch all indicators in parallel
+  const results = await Promise.all(
+    indicatorIds.map(id => fetchIndicator(id))
+  );
 
-    // Inflation
-    makeIndicator("us_core_pce_yoy", "US Core PCE YoY (main)", "%", usCorePceResult.value, usCorePceResult.asOf, updatedAt, usCorePceResult.source, usCorePceResult.isStale, usCorePceResult.qualityTag),
-    makeIndicator("us_cpi_yoy", "US CPI YoY (aux)", "%", usCpiResult.value, usCpiResult.asOf, updatedAt, usCpiResult.source, usCpiResult.isStale, usCpiResult.qualityTag),
-    makeIndicator("us_core_cpi_yoy", "US Core CPI YoY", "%", usCoreCpiResult.value, usCoreCpiResult.asOf, updatedAt, usCoreCpiResult.source, usCoreCpiResult.isStale, usCoreCpiResult.qualityTag),
-    makeIndicator("cn_cpi_yoy", "CN CPI YoY", "%", cnCpiResult.value, cnCpiResult.asOf, updatedAt, cnCpiResult.source, cnCpiResult.isStale, cnCpiResult.qualityTag),
+  // Build indicators array
+  const indicators: Indicator[] = indicatorIds.map((id, index) => {
+    const indicatorConfig = config.indicators[id];
+    const result = results[index];
 
-    // Policy
-    makeIndicator("us_sofr", "US SOFR (main)", "%", usSofrResult.value, usSofrResult.asOf, updatedAt, usSofrResult.source, usSofrResult.isStale, usSofrResult.qualityTag),
-    makeIndicator("us_fed_funds", "US Fed Funds (aux)", "%", usFedFundsResult.value, usFedFundsResult.asOf, updatedAt, usFedFundsResult.source, usFedFundsResult.isStale, usFedFundsResult.qualityTag),
-    makeIndicator("cn_lpr_1y", "CN LPR 1Y", "%", cnLprResult.value, cnLprResult.asOf, updatedAt, cnLprResult.source, cnLprResult.isStale, cnLprResult.qualityTag),
+    return makeIndicator(
+      id,
+      indicatorConfig.name_cn || indicatorConfig.name,
+      indicatorConfig.unit as Indicator["unit"],
+      result.value,
+      result.asOf,
+      updatedAt,
+      result.source,
+      result.isStale,
+      result.qualityTag
+    );
+  });
 
-    // Liquidity / Rates
-    makeIndicator("us_10y_yield", "US 10Y", "%", us10yResult.value, us10yResult.asOf, updatedAt, us10yResult.source, us10yResult.isStale, us10yResult.qualityTag),
-    makeIndicator("us_2y_yield", "US 2Y", "%", us2yResult.value, us2yResult.asOf, updatedAt, us2yResult.source, us2yResult.isStale, us2yResult.qualityTag),
-    makeIndicator("cn_m2_yoy", "CN M2 YoY", "%", cnM2Result.value, cnM2Result.asOf, updatedAt, cnM2Result.source, cnM2Result.isStale, cnM2Result.qualityTag),
-    makeIndicator("cn_unemployment", "CN Unemployment", "%", cnUnemploymentResult.value, cnUnemploymentResult.asOf, updatedAt, cnUnemploymentResult.source, cnUnemploymentResult.isStale, cnUnemploymentResult.qualityTag),
-    makeIndicator("us_unemployment", "US Unemployment", "%", usUnemploymentResult.value, usUnemploymentResult.asOf, updatedAt, usUnemploymentResult.source, usUnemploymentResult.isStale, usUnemploymentResult.qualityTag),
-  ];
+  // Organize by dimension for reference
+  const byDimension: Record<string, Indicator[]> = {
+    growth: [],
+    inflation: [],
+    policy: [],
+    liquidity: [],
+  };
+
+  for (const dim of ["growth", "inflation", "policy", "liquidity"] as const) {
+    const dimConfig = config.dimensions[dim];
+    const mainUs = dimConfig.indicators.us.main;
+    const mainCn = dimConfig.indicators.cn.main;
+    const auxUs = dimConfig.indicators.us.aux;
+    const auxCn = dimConfig.indicators.cn.aux;
+
+    // Add US main
+    const usMainInd = indicators.find(i => i.id === mainUs);
+    if (usMainInd) byDimension[dim].push(usMainInd);
+
+    // Add CN main
+    const cnMainInd = indicators.find(i => i.id === mainCn);
+    if (cnMainInd) byDimension[dim].push(cnMainInd);
+
+    // Add aux indicators
+    for (const auxId of [...auxUs, ...auxCn]) {
+      const auxInd = indicators.find(i => i.id === auxId);
+      if (auxInd && !byDimension[dim].find(i => i.id === auxId)) {
+        byDimension[dim].push(auxInd);
+      }
+    }
+  }
 
   return NextResponse.json(
     {
       updatedAt,
       indicators,
+      byDimension,
+      configSource: "config/macro_framework_v1.json",
       debug: {
         fallbackChain: "Supabase(last-non-null, 12mo window) -> FRED/AkShare",
+        totalIndicators: indicators.length,
       },
     },
     {

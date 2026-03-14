@@ -1,38 +1,6 @@
 {
-  "watchlist": {
-    "us": [
-      { "symbol": "NDX", "name": "纳斯达克100", "category": "EQUITY" },
-      { "symbol": "SPX", "name": "标普500", "category": "EQUITY" },
-      { "symbol": "DJX", "name": "道琼斯", "category": "EQUITY" },
-      { "symbol": "RUT", "name": "罗素2000", "category": "EQUITY" },
-      { "symbol": "US2Y", "name": "2年期国债", "category": "BOND" },
-      { "symbol": "US5Y", "name": "5年期国债", "category": "BOND" },
-      { "symbol": "US10Y", "name": "10年期国债", "category": "BOND" },
-      { "symbol": "US30Y", "name": "30年期国债", "category": "BOND" },
-      { "symbol": "GC=F", "name": "黄金", "category": "COMMODITY" },
-      { "symbol": "CL=F", "name": "原油", "category": "COMMODITY" },
-      { "symbol": "SI=F", "name": "白银", "category": "COMMODITY" },
-      { "symbol": "HG=F", "name": "铜", "category": "COMMODITY" }
-    ],
-    "cn": [
-      { "symbol": "000300.SH", "name": "沪深300", "category": "EQUITY" },
-      { "symbol": "000905.SH", "name": "中证500", "category": "EQUITY" },
-      { "symbol": "000852.SH", "name": "中证1000", "category": "EQUITY" },
-      { "symbol": "399001.SZ", "name": "深证成指", "category": "EQUITY" },
-      { "symbol": "399006.SZ", "name": "创业板指", "category": "EQUITY" },
-      { "symbol": "TS.CN", "name": "中债10年", "category": "BOND" }
-    ],
-    "hk": [
-      { "symbol": "HSI", "name": "恒生指数", "category": "EQUITY" },
-      { "symbol": "HSCEI", "name": "国企指数", "category": "EQUITY" },
-      { "symbol": "HSTECH", "name": "恒生科技", "category": "EQUITY" }
-    ],
-    "global": [
-      { "symbol": "DX=F", "name": "美元指数", "category": "FX" },
-      { "symbol": "EURUSD", "name": "欧元美元", "category": "FX" },
-      { "symbol": "BTC-USD", "name": "比特币", "category": "COMMODITY" }
-    ]
-  },
+  "version": "1.0",
+  "description": "Dashboard Configuration - references macro_framework_v1.json and watchlist_default.json",
   "macroDimensions": {
     "growth": { "name": "增长预期", "emoji": "📈" },
     "inflation": { "name": "通胀预期", "emoji": "🔥" },

@@ -3,67 +3,92 @@ import { getCnBondData } from "@/lib/api/bond-cn";
 import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
 import { fetchAIndex, fetchHKIndex } from "@/lib/api/eastmoney-api";
 import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
+import { 
+  getWatchlistByRegion, 
+  type AssetConfig,
+  type MarketQuote
+} from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// 资产分类配置
-interface AssetConfig {
-  symbol: string;
-  name: string;
-  region: "US" | "CN" | "HK" | "GLOBAL";
-  category: "EQUITY" | "BOND" | "COMMODITY" | "FX";
-  dataType: "REALTIME" | "DELAYED" | "EOD";
-  dataSource: string;
+// Build asset config from watchlist_default.json
+function buildAssetConfigFromWatchlist(): AssetConfig[] {
+  const assets: AssetConfig[] = [];
+  
+  // US assets
+  const usList = getWatchlistByRegion("us");
+  for (const item of usList) {
+    const isBond = item.symbol.startsWith("US") && /[0-9]+Y/.test(item.symbol);
+    assets.push({
+      symbol: item.symbol === "US10Y" ? "^TNX" : item.symbol === "US5Y" ? "^FVX" : item.symbol === "US2Y" ? "^TVYX" : item.symbol === "US30Y" ? "^TYX" : item.symbol,
+      name: item.name,
+      region: "US",
+      category: isBond ? "BOND" : "COMMODITY",
+      dataType: isBond ? "EOD" : "REALTIME",
+      dataSource: item.source,
+    });
+  }
+  
+  // CN assets (indices)
+  const cnList = getWatchlistByRegion("cn");
+  for (const item of cnList) {
+    assets.push({
+      symbol: item.symbol,
+      name: item.name,
+      region: "CN",
+      category: "EQUITY",
+      dataType: "EOD",
+      dataSource: item.source,
+    });
+  }
+  
+  // HK assets
+  const hkList = getWatchlistByRegion("hk");
+  for (const item of hkList) {
+    assets.push({
+      symbol: item.symbol,
+      name: item.name,
+      region: "HK",
+      category: "EQUITY",
+      dataType: "EOD",
+      dataSource: item.source,
+    });
+  }
+  
+  // Global assets
+  const globalList = getWatchlistByRegion("global");
+  for (const item of globalList) {
+    const isFX = item.symbol.includes("=") || item.symbol === "DX=F" || item.symbol === "EURUSD";
+    assets.push({
+      symbol: item.symbol,
+      name: item.name,
+      region: "GLOBAL",
+      category: isFX ? "FX" : "COMMODITY",
+      dataType: "REALTIME",
+      dataSource: item.source,
+    });
+  }
+  
+  return assets;
 }
 
-const ASSET_CONFIG: AssetConfig[] = [
-  // 美股（指数口径，避免 ETF proxy 重复）
-  { symbol: "^GSPC", name: "标普500", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo" },
-  { symbol: "^NDX", name: "纳斯达克100", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo" },
-  { symbol: "^DJI", name: "道指30", region: "US", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo" },
-  
-  // 商品
-  { symbol: "GC=F", name: "COMEX黄金期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "CL=F", name: "WTI原油期货", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  { symbol: "DJP", name: "道琼斯商品指数总回报ETN (DJP)", region: "GLOBAL", category: "COMMODITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-  
-  // 新兴市场
-  { symbol: "EEM", name: "新兴市场", region: "GLOBAL", category: "EQUITY", dataType: "REALTIME", dataSource: "Yahoo/Polygon" },
-];
-
-// AkShare收盘数据 - A股/港股指数
+// CN/HK EOD indices (for backward compatibility)
 const AKSHARE_EOD_DATA: Array<{ symbol: string; name: string; region: "CN" | "HK"; source: string }> = [
-  // 中国主要宽基指数（OFF：等待可审计数据源）
-  { symbol: "000300.SH", name: "沪深300", region: "CN", source: "OFF" },
-  { symbol: "000905.SH", name: "中证500", region: "CN", source: "OFF" },
-  { symbol: "000016.SH", name: "上证50", region: "CN", source: "OFF" },
-  { symbol: "399006.SZ", name: "创业板指", region: "CN", source: "OFF" },
-  { symbol: "000688.SH", name: "科创50", region: "CN", source: "OFF" },
-
-  // 香港（OFF：等待可审计数据源）
-  { symbol: "HSI", name: "恒生指数", region: "HK", source: "OFF" },
+  { symbol: "000300.SH", name: "沪深300", region: "CN", source: "indicative" },
+  { symbol: "000905.SH", name: "中证500", region: "CN", source: "indicative" },
+  { symbol: "000016.SH", name: "上证50", region: "CN", source: "indicative" },
+  { symbol: "399006.SZ", name: "创业板指", region: "CN", source: "indicative" },
+  { symbol: "000688.SH", name: "科创50", region: "CN", source: "indicative" },
+  { symbol: "HSI", name: "恒生指数", region: "HK", source: "indicative" },
 ];
-
-export interface MarketQuote {
-  symbol: string;
-  name: string;
-  price: number;
-  change: number;
-  changePercent: number;
-  volume: number;
-  timestamp: string;
-  source: string;
-  region: "US" | "CN" | "HK" | "GLOBAL";
-  category: "EQUITY" | "BOND" | "COMMODITY" | "FX";
-  dataType: "REALTIME" | "DELAYED" | "EOD";
-  dataSource: string;
-  isIndicative: boolean;
-}
 
 export async function GET() {
   try {
-    // 使用 fallback 链路获取数据
+    // Build asset config from watchlist config
+    const ASSET_CONFIG = buildAssetConfigFromWatchlist();
+
+    // Use fallback chain to fetch data
     const enrichedQuotes = await Promise.all(
       ASSET_CONFIG.map(async (config) => {
         const fallbackResult = await fetchMarketQuoteWithFallback(
@@ -117,7 +142,6 @@ export async function GET() {
           };
         }
 
-        // Try Eastmoney directly as fallback
         const isCNIndex = /^\d{6}\.(SH|SZ)$/i.test(d.symbol);
         const isHSI = d.symbol === "HSI";
 
@@ -250,11 +274,12 @@ export async function GET() {
       })
     );
 
-    // 获取中国债券稳态数据 + US Treasury Curve
+    // Get CN bond data + US Treasury Curve
     const [cnBondData, usTreasuryCurve] = await Promise.all([
       getCnBondData({ level: "L2", realtime: false, fallback: true }),
       getUsTreasuryCurveLatest(),
     ]);
+    
     const bondFutureQuotes: MarketQuote[] = cnBondData.futures.map(bf => ({
       symbol: bf.symbol,
       name: bf.name,
@@ -290,21 +315,29 @@ export async function GET() {
 
     const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes, ...usTreasuryCurveQuotes];
 
-    // 按地区分类
-    const usAssets = allQuotes.filter(q => q.region === "US");
-    const cnAssets = allQuotes.filter(q => q.region === "CN");
-    const hkAssets = allQuotes.filter(q => q.region === "HK");
-    const globalAssets = allQuotes.filter(q => q.region === "GLOBAL");
+    // Filter duplicates by symbol
+    const uniqueQuotesMap = new Map<string, MarketQuote>();
+    for (const q of allQuotes) {
+      if (!uniqueQuotesMap.has(q.symbol) || (uniqueQuotesMap.get(q.symbol)?.price === 0 && q.price > 0)) {
+        uniqueQuotesMap.set(q.symbol, q);
+      }
+    }
+    const uniqueQuotes = Array.from(uniqueQuotesMap.values());
 
-    // 统计数据源
-    const sources = allQuotes.reduce((acc, q) => {
+    // Classify by region
+    const usAssets = uniqueQuotes.filter(q => q.region === "US");
+    const cnAssets = uniqueQuotes.filter(q => q.region === "CN");
+    const hkAssets = uniqueQuotes.filter(q => q.region === "HK");
+    const globalAssets = uniqueQuotes.filter(q => q.region === "GLOBAL");
+
+    // Stats
+    const sources = uniqueQuotes.reduce((acc, q) => {
       const key = q.isIndicative ? "indicative" : "supabase";
       acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
 
-    // 数据类型统计
-    const dataTypes = allQuotes.reduce((acc, q) => {
+    const dataTypes = uniqueQuotes.reduce((acc, q) => {
       acc[q.dataType] = (acc[q.dataType] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
@@ -316,7 +349,7 @@ export async function GET() {
         dataTypes,
         timestamp: new Date().toISOString(),
         data: {
-          // new canonical keys (align with homepage expectations)
+          // canonical keys
           us: usAssets,
           cn: cnAssets,
           hk: hkAssets,
@@ -339,6 +372,7 @@ export async function GET() {
             status: cnBondData.status,
           },
         },
+        configSource: "config/watchlist_default.json",
         disclaimer: {
           indicative: "Real-time/展示层数据仅供参考(Indicative)，不用于回测真值与策略净值。",
           truth: "策略回测/净值/信号必须来自 Master + 官方结算镜像(Spot/Settle 双轨)。",

@@ -1,5 +1,12 @@
 import { NextResponse } from "next/server";
 import { fetchMacroWithFallback } from "@/lib/api/fallback-utils";
+import { 
+  getDimensionConfig, 
+  getIndicatorConfig, 
+  getMainIndicator, 
+  getAuxIndicators, 
+  type DimensionConfig 
+} from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -58,169 +65,179 @@ function confidenceBase(usStale: boolean, cnStale: boolean, missingCount: number
   return clamp(c, 20, 90);
 }
 
+// Map config indicator IDs to fetchMacroWithFallback keys
+// config uses: us_ism_services_pmi, us_core_pce_yoy, etc.
+// fetchMacroWithFallback uses: macro_us, ism_services, etc.
+function mapIndicatorToFetchParams(indicatorId: string): { table: "macro_us" | "macro_cn"; field: string; region: "US" | "CN" } {
+  const mapping: Record<string, { table: "macro_us" | "macro_cn"; field: string; region: "US" | "CN" }> = {
+    "us_ism_services_pmi": { table: "macro_us", field: "ism_services", region: "US" },
+    "us_ism_manufacturing_pmi": { table: "macro_us", field: "ism_manufacturing", region: "US" },
+    "cn_pmi_mfg": { table: "macro_cn", field: "pmi", region: "CN" },
+    "cn_pmi_services": { table: "macro_cn", field: "pmi_services", region: "CN" },
+    "us_core_pce_yoy": { table: "macro_us", field: "core_pce_yoy", region: "US" },
+    "us_cpi_yoy": { table: "macro_us", field: "cpi_yoy", region: "US" },
+    "us_core_cpi_yoy": { table: "macro_us", field: "core_cpi_yoy", region: "US" },
+    "cn_cpi_yoy": { table: "macro_cn", field: "cpi_yoy", region: "CN" },
+    "cn_ppi_yoy": { table: "macro_cn", field: "ppi_yoy", region: "CN" },
+    "us_sofr": { table: "macro_us", field: "sofr", region: "US" },
+    "us_fed_funds_rate": { table: "macro_us", field: "fed_funds_rate", region: "US" },
+    "cn_lpr_1y": { table: "macro_cn", field: "lpr_1y", region: "CN" },
+    "cn_mlf_rate": { table: "macro_cn", field: "mlf_rate", region: "CN" },
+    "cn_slf_rate": { table: "macro_cn", field: "slf_rate", region: "CN" },
+    "us_10y_yield": { table: "macro_us", field: "yield_10y", region: "US" },
+    "us_2y_yield": { table: "macro_us", field: "yield_2y", region: "US" },
+    "us_m2_yoy": { table: "macro_us", field: "m2_yoy", region: "US" },
+    "cn_m2_yoy": { table: "macro_cn", field: "m2_yoy", region: "CN" },
+    "cn_shibor_overnight": { table: "macro_cn", field: "shibor_overnight", region: "CN" },
+  };
+  return mapping[indicatorId] || { table: "macro_us", field: indicatorId, region: "US" };
+}
+
+async function fetchIndicator(indicatorId: string) {
+  const params = mapIndicatorToFetchParams(indicatorId);
+  return fetchMacroWithFallback(params.table, params.field, params.region);
+}
+
+function buildDimOutput(dim: Dim, config: DimensionConfig, usData: { value: number | null; asOf: string | null; isStale: boolean; source: string }, cnData: { value: number | null; asOf: string | null; isStale: boolean; source: string }, auxData: Record<string, number | null>): DimOutput {
+  const thresholdsUs = config.indicators.us.thresholds;
+  const thresholdsCn = config.indicators.cn.thresholds;
+
+  const usMainIndicator = config.indicators.us.main;
+  const cnMainIndicator = config.indicators.cn.main;
+
+  const usAuxIndicatorIds = config.indicators.us.aux;
+  const cnAuxIndicatorIds = config.indicators.cn.aux;
+
+  const usState = stateFromThreshold(usData.value, thresholdsUs, thresholdsUs.higherIsBetter);
+  const cnState = stateFromThreshold(cnData.value, thresholdsCn, thresholdsCn.higherIsBetter);
+
+  // Build note with main + aux values
+  const usAuxStr = usAuxIndicatorIds.map(id => `${id}=${auxData[id] ?? "—"}`).join(", ");
+  const cnAuxStr = cnAuxIndicatorIds.map(id => `${id}=${auxData[id] ?? "—"}`).join(", ");
+
+  const usMainConfig = getIndicatorConfig(usMainIndicator);
+  const cnMainConfig = getIndicatorConfig(cnMainIndicator);
+
+  const note = dim === "inflation" 
+    ? `${usMainConfig?.name_cn || usMainIndicator}(main) · aux={${usAuxStr}}`
+    : dim === "policy"
+    ? `${usMainConfig?.name_cn || usMainIndicator}(main) · aux={${usAuxStr}}`
+    : `${usMainConfig?.name_cn || usMainIndicator} · aux={${usAuxStr}}`;
+
+  return {
+    dim,
+    name: config.name,
+    us: {
+      value: usData.value,
+      unit: (usMainConfig?.unit as Unit) || "idx",
+      asOf: usData.asOf,
+      stale: usData.isStale,
+      state: usState,
+      trend: "unknown",
+      note,
+      source: usData.source,
+    },
+    cn: {
+      value: cnData.value,
+      unit: (cnMainConfig?.unit as Unit) || "%",
+      asOf: cnData.asOf,
+      stale: cnData.isStale,
+      state: cnState,
+      trend: "unknown",
+      note: `${cnMainConfig?.name_cn || cnMainIndicator} · aux={${cnAuxStr}}`,
+      source: cnData.source,
+    },
+  };
+}
+
 export async function GET() {
   const updatedAt = new Date().toISOString();
 
-  // Fetch all required macro indicators using fallback chain
+  // Get dimension configs
+  const growthConfig = getDimensionConfig("growth");
+  const inflationConfig = getDimensionConfig("inflation");
+  const policyConfig = getDimensionConfig("policy");
+  const liquidityConfig = getDimensionConfig("liquidity");
+
+  // Get main indicator IDs from config
+  const growthMainUs = getMainIndicator("growth", "us");
+  const growthMainCn = getMainIndicator("growth", "cn");
+  const inflationMainUs = getMainIndicator("inflation", "us");
+  const inflationMainCn = getMainIndicator("inflation", "cn");
+  const policyMainUs = getMainIndicator("policy", "us");
+  const policyMainCn = getMainIndicator("policy", "cn");
+  const liquidityMainUs = getMainIndicator("liquidity", "us");
+  const liquidityMainCn = getMainIndicator("liquidity", "cn");
+
+  // Get aux indicator IDs
+  const growthAuxUs = getAuxIndicators("growth", "us");
+  const growthAuxCn = getAuxIndicators("growth", "cn");
+  const inflationAuxUs = getAuxIndicators("inflation", "us");
+  const inflationAuxCn = getAuxIndicators("inflation", "cn");
+  const policyAuxUs = getAuxIndicators("policy", "us");
+  const policyAuxCn = getAuxIndicators("policy", "cn");
+  const liquidityAuxUs = getAuxIndicators("liquidity", "us");
+  const liquidityAuxCn = getAuxIndicators("liquidity", "cn");
+
+  // Fetch all main indicators
   const [
-    usIsmSvcResult,
-    cnPmiResult,
-    usCorePceResult,
-    usCpiResult,
-    cnCpiResult,
-    usSofrResult,
-    usFedFundsResult,
-    cnLprResult,
-    us10yResult,
-    us2yResult,
-    cnM2Result,
+    usIsmResult, cnPmiResult,
+    usCorePceResult, cnCpiResult,
+    usSofrResult, cnLprResult,
+    us10yResult, cnM2Result,
   ] = await Promise.all([
-    fetchMacroWithFallback("macro_us", "ism_services", "US"),
-    fetchMacroWithFallback("macro_cn", "pmi", "CN"),
-    fetchMacroWithFallback("macro_us", "core_pce_yoy", "US"),
-    fetchMacroWithFallback("macro_us", "cpi_yoy", "US"),
-    fetchMacroWithFallback("macro_cn", "cpi_yoy", "CN"),
-    fetchMacroWithFallback("macro_us", "sofr", "US"),
-    fetchMacroWithFallback("macro_us", "fed_funds_rate", "US"),
-    fetchMacroWithFallback("macro_cn", "lpr_1y", "CN"),
-    fetchMacroWithFallback("macro_us", "yield_10y", "US"),
-    fetchMacroWithFallback("macro_us", "yield_2y", "US"),
-    fetchMacroWithFallback("macro_cn", "m2_yoy", "CN"),
+    // Growth
+    fetchIndicator(growthMainUs),
+    fetchIndicator(growthMainCn),
+    // Inflation
+    fetchIndicator(inflationMainUs),
+    fetchIndicator(inflationMainCn),
+    // Policy
+    fetchIndicator(policyMainUs),
+    fetchIndicator(policyMainCn),
+    // Liquidity
+    fetchIndicator(liquidityMainUs),
+    fetchIndicator(liquidityMainCn),
   ]);
 
-  const usIsm = usIsmSvcResult.value;
-  const cnPmi = cnPmiResult.value;
-  const usCorePce = usCorePceResult.value;
-  const usCpi = usCpiResult.value;
-  const cnCpi = cnCpiResult.value;
-  const usSofr = usSofrResult.value;
-  const usFedFunds = usFedFundsResult.value;
-  const cnLpr = cnLprResult.value;
-  const us10y = us10yResult.value;
-  const us2y = us2yResult.value;
-  const cnM2 = cnM2Result.value;
+  // Build aux data map for notes
+  const auxData: Record<string, number | null> = {};
+  const auxPromises = [
+    ...growthAuxUs.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...growthAuxCn.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...inflationAuxUs.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...inflationAuxCn.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...policyAuxUs.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...policyAuxCn.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...liquidityAuxUs.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...liquidityAuxCn.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+  ];
+  await Promise.all(auxPromises);
 
-  const usAsOf = usIsmSvcResult.asOf;
-  const usInfAsOf = usCorePceResult.asOf;
-  const cnAsOf = cnPmiResult.asOf;
-  const usStale = usIsmSvcResult.isStale;
-  const cnStale = cnPmiResult.isStale;
+  // Build dimensions
+  const growth = buildDimOutput("growth", growthConfig, 
+    { value: usIsmResult.value, asOf: usIsmResult.asOf, isStale: usIsmResult.isStale, source: usIsmResult.source },
+    { value: cnPmiResult.value, asOf: cnPmiResult.asOf, isStale: cnPmiResult.isStale, source: cnPmiResult.source },
+    auxData
+  );
 
-  // --- Growth ---
-  const growthUsState = stateFromThreshold(usIsm, { strong: 52, weak: 48 }, true);
-  const growthCnState = stateFromThreshold(cnPmi, { strong: 50.5, weak: 49 }, true);
+  const inflation = buildDimOutput("inflation", inflationConfig,
+    { value: usCorePceResult.value, asOf: usCorePceResult.asOf, isStale: usCorePceResult.isStale, source: usCorePceResult.source },
+    { value: cnCpiResult.value, asOf: cnCpiResult.asOf, isStale: cnCpiResult.isStale, source: cnCpiResult.source },
+    auxData
+  );
 
-  const growth: DimOutput = {
-    dim: "growth",
-    name: "增长",
-    us: {
-      value: usIsm,
-      unit: "idx",
-      asOf: usAsOf,
-      stale: usStale,
-      state: growthUsState,
-      trend: "unknown",
-      note: "US ISM Services PMI (>=52 强, <=48 弱)",
-      source: usIsmSvcResult.source,
-    },
-    cn: {
-      value: cnPmi,
-      unit: "idx",
-      asOf: cnAsOf,
-      stale: cnStale,
-      state: growthCnState,
-      trend: "unknown",
-      note: "CN PMI (>=50.5 强, <=49 弱)",
-      source: cnPmiResult.source,
-    },
-  };
+  const policy = buildDimOutput("policy", policyConfig,
+    { value: usSofrResult.value, asOf: usSofrResult.asOf, isStale: usSofrResult.isStale, source: usSofrResult.source },
+    { value: cnLprResult.value, asOf: cnLprResult.asOf, isStale: cnLprResult.isStale, source: cnLprResult.source },
+    auxData
+  );
 
-  // --- Inflation (US main=Core PCE YoY; CPI as auxiliary) ---
-  const infUsState = stateFromThreshold(usCorePce, { strong: 2.5, weak: 4.0 }, false);
-  const infCnState = stateFromThreshold(cnCpi, { strong: 2.5, weak: 0.0 }, true);
-
-  const inflation: DimOutput = {
-    dim: "inflation",
-    name: "通胀",
-    us: {
-      value: usCorePce,
-      unit: "%",
-      asOf: usInfAsOf || usAsOf,
-      stale: usCorePceResult.isStale,
-      state: infUsState,
-      trend: "unknown",
-      note: `US Core PCE YoY (main, <=2.5 佳, >=4.0 压力) · CPI YoY(aux)=${usCpi ?? "—"}`,
-      source: usCorePceResult.source,
-    },
-    cn: {
-      value: cnCpi,
-      unit: "%",
-      asOf: cnAsOf,
-      stale: cnStale,
-      state: infCnState,
-      trend: "unknown",
-      note: "CN CPI YoY (低通胀/通缩风险)",
-      source: cnCpiResult.source,
-    },
-  };
-
-  // --- Policy ---
-  const polUsState = stateFromThreshold(usSofr, { strong: 3.0, weak: 5.0 }, false);
-  const polCnState = stateFromThreshold(cnLpr, { strong: 3.0, weak: 4.0 }, false);
-
-  const policy: DimOutput = {
-    dim: "policy",
-    name: "政策",
-    us: {
-      value: usSofr,
-      unit: "%",
-      asOf: usAsOf,
-      stale: usStale,
-      state: polUsState,
-      trend: "unknown",
-      note: `US SOFR (main, 越低越宽松) · Fed Funds(aux)=${usFedFunds ?? "—"}`,
-      source: usSofrResult.source,
-    },
-    cn: {
-      value: cnLpr,
-      unit: "%",
-      asOf: cnAsOf,
-      stale: cnStale,
-      state: polCnState,
-      trend: "unknown",
-      note: "CN LPR 1Y (越低越宽松)",
-      source: cnLprResult.source,
-    },
-  };
-
-  // --- Liquidity ---
-  const liqUsState = stateFromThreshold(us10y, { strong: 4.0, weak: 4.7 }, false);
-  const liqCnState = stateFromThreshold(cnM2, { strong: 9.5, weak: 7.5 }, true);
-
-  const liquidity: DimOutput = {
-    dim: "liquidity",
-    name: "流动性",
-    us: {
-      value: us10y,
-      unit: "%",
-      asOf: usAsOf,
-      stale: usStale,
-      state: liqUsState,
-      trend: "unknown",
-      note: `US 10Y (参考2Y=${us2y ?? "—"})`,
-      source: us10yResult.source,
-    },
-    cn: {
-      value: cnM2,
-      unit: "%",
-      asOf: cnAsOf,
-      stale: cnStale,
-      state: liqCnState,
-      trend: "unknown",
-      note: "CN M2 YoY (越高越宽松)",
-      source: cnM2Result.source,
-    },
-  };
+  const liquidity = buildDimOutput("liquidity", liquidityConfig,
+    { value: us10yResult.value, asOf: us10yResult.asOf, isStale: us10yResult.isStale, source: us10yResult.source },
+    { value: cnM2Result.value, asOf: cnM2Result.asOf, isStale: cnM2Result.isStale, source: cnM2Result.source },
+    auxData
+  );
 
   const dims = [growth, inflation, policy, liquidity];
 
@@ -234,6 +251,8 @@ export async function GET() {
   const normScore = score / 2;
   const regime: Regime = normScore > 0.3 ? "Risk-ON" : normScore < -0.3 ? "Risk-OFF" : "Neutral";
 
+  const usStale = usIsmResult.isStale;
+  const cnStale = cnPmiResult.isStale;
   const missingCount = dims.reduce((acc, d) => acc + (d.us.value === null ? 1 : 0) + (d.cn.value === null ? 1 : 0), 0);
   const confidence = confidenceBase(usStale, cnStale, missingCount);
 
@@ -254,6 +273,7 @@ export async function GET() {
     },
     dimensions: dims,
     debug: {
+      configSource: "config/macro_framework_v1.json",
       fallbackChain: "Supabase(last-non-null, 12mo) -> FRED/AkShare",
     },
   };

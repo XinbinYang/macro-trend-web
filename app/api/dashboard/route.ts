@@ -5,7 +5,7 @@
  * Returns:
  * - macroState: 增长×通胀四象限 + 情景概率 + Risk-ON/OFF
  * - policyLiquidity: 政策×流动性验证条
- * - watchlist: 核心24个标的 (from config)
+ * - watchlist: 核心24个标的 (from config/watchlist_default.json)
  * - nav: 策略净值
  * - news: 最新资讯 (optional, behind flag)
  */
@@ -13,7 +13,14 @@
 import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import { fetchMacroWithFallback } from "@/lib/api/fallback-utils";
-import dashboardConfig from "@/config/dashboard.json";
+import { 
+  getDimensionConfig, 
+  getMainIndicator, 
+  getAuxIndicators,
+  getIndicatorConfig,
+  getWatchlistByRegion,
+  type DimensionConfig
+} from "@/lib/config";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -43,20 +50,6 @@ interface NavPoint {
   value: number;
 }
 
-
-interface DashboardConfig {
-  watchlist: {
-    us: Array<{ symbol: string; name: string; category: string }>;
-    cn: Array<{ symbol: string; name: string; category: string }>;
-    hk: Array<{ symbol: string; name: string; category: string }>;
-    global: Array<{ symbol: string; name: string; category: string }>;
-  };
-  macroDimensions: Record<string, { name: string; emoji: string }>;
-}
-
-// Config cast
-const config = dashboardConfig as DashboardConfig;
-
 // Helpers
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
@@ -81,7 +74,6 @@ function scoreFromState(state: State): number {
   return 0;
 }
 
-
 function confidenceBase(usStale: boolean, cnStale: boolean, missingCount: number) {
   let c = 80;
   if (usStale) c -= 10;
@@ -90,97 +82,164 @@ function confidenceBase(usStale: boolean, cnStale: boolean, missingCount: number
   return clamp(c, 20, 90);
 }
 
-// Fetch macro dimensions (same logic as /api/macro-state)
+// Map config indicator IDs to fetchMacroWithFallback keys
+function mapIndicatorToFetchParams(indicatorId: string): { table: "macro_us" | "macro_cn"; field: string; region: "US" | "CN" } {
+  const mapping: Record<string, { table: "macro_us" | "macro_cn"; field: string; region: "US" | "CN" }> = {
+    "us_ism_services_pmi": { table: "macro_us", field: "ism_services", region: "US" },
+    "us_ism_manufacturing_pmi": { table: "macro_us", field: "ism_manufacturing", region: "US" },
+    "cn_pmi_mfg": { table: "macro_cn", field: "pmi", region: "CN" },
+    "cn_pmi_services": { table: "macro_cn", field: "pmi_services", region: "CN" },
+    "us_core_pce_yoy": { table: "macro_us", field: "core_pce_yoy", region: "US" },
+    "us_cpi_yoy": { table: "macro_us", field: "cpi_yoy", region: "US" },
+    "us_core_cpi_yoy": { table: "macro_us", field: "core_cpi_yoy", region: "US" },
+    "cn_cpi_yoy": { table: "macro_cn", field: "cpi_yoy", region: "CN" },
+    "cn_ppi_yoy": { table: "macro_cn", field: "ppi_yoy", region: "CN" },
+    "us_sofr": { table: "macro_us", field: "sofr", region: "US" },
+    "us_fed_funds_rate": { table: "macro_us", field: "fed_funds_rate", region: "US" },
+    "cn_lpr_1y": { table: "macro_cn", field: "lpr_1y", region: "CN" },
+    "cn_mlf_rate": { table: "macro_cn", field: "mlf_rate", region: "CN" },
+    "cn_slf_rate": { table: "macro_cn", field: "slf_rate", region: "CN" },
+    "us_10y_yield": { table: "macro_us", field: "yield_10y", region: "US" },
+    "us_2y_yield": { table: "macro_us", field: "yield_2y", region: "US" },
+    "us_m2_yoy": { table: "macro_us", field: "m2_yoy", region: "US" },
+    "cn_m2_yoy": { table: "macro_cn", field: "m2_yoy", region: "CN" },
+    "cn_shibor_overnight": { table: "macro_cn", field: "shibor_overnight", region: "CN" },
+  };
+  return mapping[indicatorId] || { table: "macro_us", field: indicatorId, region: "US" };
+}
+
+async function fetchIndicator(indicatorId: string) {
+  const params = mapIndicatorToFetchParams(indicatorId);
+  return fetchMacroWithFallback(params.table, params.field, params.region);
+}
+
+function buildDimOutput(dim: Dim, config: DimensionConfig, usData: { value: number | null; asOf: string | null; isStale: boolean; source: string }, cnData: { value: number | null; asOf: string | null; isStale: boolean; source: string }, auxData: Record<string, number | null>): DimOutput {
+  const thresholdsUs = config.indicators.us.thresholds;
+  const thresholdsCn = config.indicators.cn.thresholds;
+
+  const usMainIndicator = config.indicators.us.main;
+  const cnMainIndicator = config.indicators.cn.main;
+  const usAuxIndicatorIds = config.indicators.us.aux;
+  const cnAuxIndicatorIds = config.indicators.cn.aux;
+
+  const usState = stateFromThreshold(usData.value, thresholdsUs, thresholdsUs.higherIsBetter);
+  const cnState = stateFromThreshold(cnData.value, thresholdsCn, thresholdsCn.higherIsBetter);
+
+  const usAuxStr = usAuxIndicatorIds.map(id => `${id}=${auxData[id] ?? "—"}`).join(", ");
+  const cnAuxStr = cnAuxIndicatorIds.map(id => `${id}=${auxData[id] ?? "—"}`).join(", ");
+
+  const usMainConfig = getIndicatorConfig(usMainIndicator);
+  const cnMainConfig = getIndicatorConfig(cnMainIndicator);
+
+  return {
+    dim,
+    name: config.name,
+    us: {
+      value: usData.value,
+      unit: (usMainConfig?.unit as Unit) || "idx",
+      asOf: usData.asOf,
+      stale: usData.isStale,
+      state: usState,
+      trend: "unknown",
+      note: `${usMainConfig?.name_cn || usMainIndicator} · aux={${usAuxStr}}`,
+      source: usData.source,
+    },
+    cn: {
+      value: cnData.value,
+      unit: (cnMainConfig?.unit as Unit) || "%",
+      asOf: cnData.asOf,
+      stale: cnData.isStale,
+      state: cnState,
+      trend: "unknown",
+      note: `${cnMainConfig?.name_cn || cnMainIndicator} · aux={${cnAuxStr}}`,
+      source: cnData.source,
+    },
+  };
+}
+
+// Fetch macro state using config
 async function fetchMacroState(): Promise<MacroState> {
   const updatedAt = new Date().toISOString();
 
+  // Get configs from macro_framework_v1.json
+  const growthConfig = getDimensionConfig("growth");
+  const inflationConfig = getDimensionConfig("inflation");
+  const policyConfig = getDimensionConfig("policy");
+  const liquidityConfig = getDimensionConfig("liquidity");
+
+  const growthMainUs = getMainIndicator("growth", "us");
+  const growthMainCn = getMainIndicator("growth", "cn");
+  const inflationMainUs = getMainIndicator("inflation", "us");
+  const inflationMainCn = getMainIndicator("inflation", "cn");
+  const policyMainUs = getMainIndicator("policy", "us");
+  const policyMainCn = getMainIndicator("policy", "cn");
+  const liquidityMainUs = getMainIndicator("liquidity", "us");
+  const liquidityMainCn = getMainIndicator("liquidity", "cn");
+
+  const growthAuxUs = getAuxIndicators("growth", "us");
+  const growthAuxCn = getAuxIndicators("growth", "cn");
+  const inflationAuxUs = getAuxIndicators("inflation", "us");
+  const inflationAuxCn = getAuxIndicators("inflation", "cn");
+  const policyAuxUs = getAuxIndicators("policy", "us");
+  const policyAuxCn = getAuxIndicators("policy", "cn");
+  const liquidityAuxUs = getAuxIndicators("liquidity", "us");
+  const liquidityAuxCn = getAuxIndicators("liquidity", "cn");
+
+  // Fetch all main indicators
   const [
-    usIsmSvcResult,
-    cnPmiResult,
-    usCorePceResult,
-    usCpiResult,
-    cnCpiResult,
-    usSofrResult,
-    usFedFundsResult,
-    cnLprResult,
-    us10yResult,
-    us2yResult,
-    cnM2Result,
+    usIsmResult, cnPmiResult,
+    usCorePceResult, cnCpiResult,
+    usSofrResult, cnLprResult,
+    us10yResult, cnM2Result,
   ] = await Promise.all([
-    fetchMacroWithFallback("macro_us", "ism_services", "US"),
-    fetchMacroWithFallback("macro_cn", "pmi", "CN"),
-    fetchMacroWithFallback("macro_us", "core_pce_yoy", "US"),
-    fetchMacroWithFallback("macro_us", "cpi_yoy", "US"),
-    fetchMacroWithFallback("macro_cn", "cpi_yoy", "CN"),
-    fetchMacroWithFallback("macro_us", "sofr", "US"),
-    fetchMacroWithFallback("macro_us", "fed_funds_rate", "US"),
-    fetchMacroWithFallback("macro_cn", "lpr_1y", "CN"),
-    fetchMacroWithFallback("macro_us", "yield_10y", "US"),
-    fetchMacroWithFallback("macro_us", "yield_2y", "US"),
-    fetchMacroWithFallback("macro_cn", "m2_yoy", "CN"),
+    fetchIndicator(growthMainUs),
+    fetchIndicator(growthMainCn),
+    fetchIndicator(inflationMainUs),
+    fetchIndicator(inflationMainCn),
+    fetchIndicator(policyMainUs),
+    fetchIndicator(policyMainCn),
+    fetchIndicator(liquidityMainUs),
+    fetchIndicator(liquidityMainCn),
   ]);
 
-  const usIsm = usIsmSvcResult.value;
-  const cnPmi = cnPmiResult.value;
-  const usCorePce = usCorePceResult.value;
-  const usCpi = usCpiResult.value;
-  const cnCpi = cnCpiResult.value;
-  const usSofr = usSofrResult.value;
-  const usFedFunds = usFedFundsResult.value;
-  const cnLpr = cnLprResult.value;
-  const us10y = us10yResult.value;
-  const us2y = us2yResult.value;
-  const cnM2 = cnM2Result.value;
+  // Fetch aux data
+  const auxData: Record<string, number | null> = {};
+  const auxPromises = [
+    ...growthAuxUs.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...growthAuxCn.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...inflationAuxUs.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...inflationAuxCn.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...policyAuxUs.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...policyAuxCn.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...liquidityAuxUs.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+    ...liquidityAuxCn.map(id => fetchIndicator(id).then(r => { auxData[id] = r.value; })),
+  ];
+  await Promise.all(auxPromises);
 
-  const usAsOf = usIsmSvcResult.asOf;
-  const usInfAsOf = usCorePceResult.asOf;
-  const cnAsOf = cnPmiResult.asOf;
-  const usStale = usIsmSvcResult.isStale;
-  const cnStale = cnPmiResult.isStale;
+  // Build dimensions
+  const growth = buildDimOutput("growth", growthConfig,
+    { value: usIsmResult.value, asOf: usIsmResult.asOf, isStale: usIsmResult.isStale, source: usIsmResult.source },
+    { value: cnPmiResult.value, asOf: cnPmiResult.asOf, isStale: cnPmiResult.isStale, source: cnPmiResult.source },
+    auxData
+  );
 
-  // Growth
-  const growthUsState = stateFromThreshold(usIsm, { strong: 52, weak: 48 }, true);
-  const growthCnState = stateFromThreshold(cnPmi, { strong: 50.5, weak: 49 }, true);
+  const inflation = buildDimOutput("inflation", inflationConfig,
+    { value: usCorePceResult.value, asOf: usCorePceResult.asOf, isStale: usCorePceResult.isStale, source: usCorePceResult.source },
+    { value: cnCpiResult.value, asOf: cnCpiResult.asOf, isStale: cnCpiResult.isStale, source: cnCpiResult.source },
+    auxData
+  );
 
-  const growth: DimOutput = {
-    dim: "growth",
-    name: "增长",
-    us: { value: usIsm, unit: "idx", asOf: usAsOf, stale: usStale, state: growthUsState, trend: "unknown", note: "US ISM Services PMI", source: usIsmSvcResult.source },
-    cn: { value: cnPmi, unit: "idx", asOf: cnAsOf, stale: cnStale, state: growthCnState, trend: "unknown", note: "CN PMI", source: cnPmiResult.source },
-  };
+  const policy = buildDimOutput("policy", policyConfig,
+    { value: usSofrResult.value, asOf: usSofrResult.asOf, isStale: usSofrResult.isStale, source: usSofrResult.source },
+    { value: cnLprResult.value, asOf: cnLprResult.asOf, isStale: cnLprResult.isStale, source: cnLprResult.source },
+    auxData
+  );
 
-  // Inflation (US main=Core PCE YoY; CPI as auxiliary)
-  const infUsState = stateFromThreshold(usCorePce, { strong: 2.5, weak: 4.0 }, false);
-  const infCnState = stateFromThreshold(cnCpi, { strong: 2.5, weak: 0.0 }, true);
-
-  const inflation: DimOutput = {
-    dim: "inflation",
-    name: "通胀",
-    us: { value: usCorePce, unit: "%", asOf: usInfAsOf || usAsOf, stale: usCorePceResult.isStale, state: infUsState, trend: "unknown", note: `US Core PCE YoY (main) · CPI YoY(aux)=${usCpi ?? "—"}`, source: usCorePceResult.source },
-    cn: { value: cnCpi, unit: "%", asOf: cnAsOf, stale: cnStale, state: infCnState, trend: "unknown", note: "CN CPI YoY", source: cnCpiResult.source },
-  };
-
-  // Policy
-  const polUsState = stateFromThreshold(usSofr, { strong: 3.0, weak: 5.0 }, false);
-  const polCnState = stateFromThreshold(cnLpr, { strong: 3.0, weak: 4.0 }, false);
-
-  const policy: DimOutput = {
-    dim: "policy",
-    name: "政策",
-    us: { value: usSofr, unit: "%", asOf: usAsOf, stale: usStale, state: polUsState, trend: "unknown", note: `US SOFR (main) · Fed Funds(aux)=${usFedFunds ?? "—"}`, source: usSofrResult.source },
-    cn: { value: cnLpr, unit: "%", asOf: cnAsOf, stale: cnStale, state: polCnState, trend: "unknown", note: "CN LPR 1Y", source: cnLprResult.source },
-  };
-
-  // Liquidity
-  const liqUsState = stateFromThreshold(us10y, { strong: 4.0, weak: 4.7 }, false);
-  const liqCnState = stateFromThreshold(cnM2, { strong: 9.5, weak: 7.5 }, true);
-
-  const liquidity: DimOutput = {
-    dim: "liquidity",
-    name: "流动性",
-    us: { value: us10y, unit: "%", asOf: usAsOf, stale: usStale, state: liqUsState, trend: "unknown", note: `US 10Y (2Y=${us2y ?? "—"})`, source: us10yResult.source },
-    cn: { value: cnM2, unit: "%", asOf: cnAsOf, stale: cnStale, state: liqCnState, trend: "unknown", note: "CN M2 YoY", source: cnM2Result.source },
-  };
+  const liquidity = buildDimOutput("liquidity", liquidityConfig,
+    { value: us10yResult.value, asOf: us10yResult.asOf, isStale: us10yResult.isStale, source: us10yResult.source },
+    { value: cnM2Result.value, asOf: cnM2Result.asOf, isStale: cnM2Result.isStale, source: cnM2Result.source },
+    auxData
+  );
 
   const dims = [growth, inflation, policy, liquidity];
 
@@ -194,6 +253,8 @@ async function fetchMacroState(): Promise<MacroState> {
   const normScore = score / 2;
   const regime: Regime = normScore > 0.3 ? "Risk-ON" : normScore < -0.3 ? "Risk-OFF" : "Neutral";
 
+  const usStale = usIsmResult.isStale;
+  const cnStale = cnPmiResult.isStale;
   const missingCount = dims.reduce((acc, d) => acc + (d.us.value === null ? 1 : 0) + (d.cn.value === null ? 1 : 0), 0);
   const confidence = confidenceBase(usStale, cnStale, missingCount);
 
@@ -246,11 +307,26 @@ async function fetchNav() {
   }
 }
 
+// Get watchlist from config
+function getWatchlistFromConfig() {
+  const usList = getWatchlistByRegion("us").map(item => ({ symbol: item.symbol, name: item.name, category: "EQUITY" }));
+  const cnList = getWatchlistByRegion("cn").map(item => ({ symbol: item.symbol, name: item.name, category: "EQUITY" }));
+  const hkList = getWatchlistByRegion("hk").map(item => ({ symbol: item.symbol, name: item.name, category: "EQUITY" }));
+  const globalList = getWatchlistByRegion("global").map(item => ({ symbol: item.symbol, name: item.name, category: "EQUITY" }));
+
+  return {
+    us: usList.slice(0, 12),
+    cn: cnList.slice(0, 12),
+    hk: hkList.slice(0, 12),
+    global: globalList.slice(0, 12),
+  };
+}
+
 // Main GET handler
 export async function GET() {
   const startTime = Date.now();
 
-  // Parallel fetch: macroState + nav (news optional)
+  // Parallel fetch: macroState + nav
   const [macroState, nav] = await Promise.all([
     fetchMacroState(),
     fetchNav(),
@@ -258,14 +334,25 @@ export async function GET() {
 
   const latency = Date.now() - startTime;
 
+  // Get watchlist from config
+  const watchlist = getWatchlistFromConfig();
+
+  // Macro dimensions from config
+  const macroDimensions: Record<string, { name: string; emoji: string }> = {
+    growth: { name: "增长预期", emoji: "📈" },
+    inflation: { name: "通胀预期", emoji: "🔥" },
+    policy: { name: "政策预期", emoji: "🏛️" },
+    liquidity: { name: "流动性", emoji: "💧" },
+  };
+
   const response = {
     success: true,
     latency,
     timestamp: new Date().toISOString(),
     macroState,
     nav,
-    watchlist: config.watchlist,
-    macroDimensions: config.macroDimensions,
+    watchlist,
+    macroDimensions,
     // Policy×Liquidity verification (derived from macroState)
     policyLiquidity: {
       us: {
@@ -276,6 +363,10 @@ export async function GET() {
         policy: macroState.dimensions.find(d => d.dim === "policy")?.cn || null,
         liquidity: macroState.dimensions.find(d => d.dim === "liquidity")?.cn || null,
       },
+    },
+    configSource: {
+      macroFramework: "config/macro_framework_v1.json",
+      watchlist: "config/watchlist_default.json",
     },
   };
 
