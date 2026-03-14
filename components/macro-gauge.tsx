@@ -206,14 +206,14 @@ export function MacroDashboard() {
 
   const usIndicators: IndicatorProps[] = [
     {
-      title: "ISM制造业",
-      value: usById ? formatValue(usById["us_ism_pmi"]?.value ?? null, "idx") : "—",
+      title: "ISM服务业",
+      value: usById ? formatValue(usById["us_ism_services_pmi"]?.value ?? null, "idx") : "—",
       unit: "",
       trend: "neutral",
       level: usStatus === "LIVE" ? "low" : "medium",
       description:
         usStatus === "LIVE"
-          ? `asOf ${usById?.["us_ism_pmi"]?.asOf || "-"} · ${usById?.["us_ism_pmi"]?.source || "-"}`
+          ? `asOf ${usById?.["us_ism_services_pmi"]?.asOf || "-"} · ${usById?.["us_ism_services_pmi"]?.source || "-"}`
           : "数据源未连接或处理中",
       icon: TrendingUp,
     },

@@ -63,7 +63,7 @@ export async function GET() {
 
   // Fetch all required macro indicators using fallback chain
   const [
-    usIsmResult,
+    usIsmSvcResult,
     cnPmiResult,
     usCpiResult,
     cnCpiResult,
@@ -73,7 +73,7 @@ export async function GET() {
     us2yResult,
     cnM2Result,
   ] = await Promise.all([
-    fetchMacroWithFallback("macro_us", "ism_manufacturing", "US"),
+    fetchMacroWithFallback("macro_us", "ism_services", "US"),
     fetchMacroWithFallback("macro_cn", "pmi", "CN"),
     fetchMacroWithFallback("macro_us", "cpi_yoy", "US"),
     fetchMacroWithFallback("macro_cn", "cpi_yoy", "CN"),
@@ -84,7 +84,7 @@ export async function GET() {
     fetchMacroWithFallback("macro_cn", "m2_yoy", "CN"),
   ]);
 
-  const usIsm = usIsmResult.value;
+  const usIsm = usIsmSvcResult.value;
   const cnPmi = cnPmiResult.value;
   const usCpi = usCpiResult.value;
   const cnCpi = cnCpiResult.value;
@@ -94,9 +94,9 @@ export async function GET() {
   const us2y = us2yResult.value;
   const cnM2 = cnM2Result.value;
 
-  const usAsOf = usIsmResult.asOf;
+  const usAsOf = usIsmSvcResult.asOf;
   const cnAsOf = cnPmiResult.asOf;
-  const usStale = usIsmResult.isStale;
+  const usStale = usIsmSvcResult.isStale;
   const cnStale = cnPmiResult.isStale;
 
   // --- Growth ---
@@ -113,8 +113,8 @@ export async function GET() {
       stale: usStale,
       state: growthUsState,
       trend: "unknown",
-      note: "US ISM PMI (>=52 强, <=48 弱)",
-      source: usIsmResult.source,
+      note: "US ISM Services PMI (>=52 强, <=48 弱)",
+      source: usIsmSvcResult.source,
     },
     cn: {
       value: cnPmi,

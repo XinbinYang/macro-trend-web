@@ -51,7 +51,8 @@ export async function GET() {
 
   // Use unified fallback chain for each indicator
   const [
-    usIsmResult,
+    usIsmMfgResult,
+    usIsmSvcResult,
     usCpiResult,
     usCoreCpiResult,
     cnPmiResult,
@@ -66,6 +67,7 @@ export async function GET() {
   ] = await Promise.all([
     // Growth
     fetchMacroWithFallback("macro_us", "ism_manufacturing", "US"),
+    fetchMacroWithFallback("macro_us", "ism_services", "US"),
     fetchMacroWithFallback("macro_us", "cpi_yoy", "US"),
     fetchMacroWithFallback("macro_us", "core_cpi_yoy", "US"),
     fetchMacroWithFallback("macro_cn", "pmi", "CN"),
@@ -83,7 +85,8 @@ export async function GET() {
 
   const indicators: Indicator[] = [
     // Growth
-    makeIndicator("us_ism_pmi", "US ISM PMI", "idx", usIsmResult.value, usIsmResult.asOf, updatedAt, usIsmResult.source, usIsmResult.isStale, usIsmResult.qualityTag),
+    makeIndicator("us_ism_mfg_pmi", "US ISM Manufacturing PMI", "idx", usIsmMfgResult.value, usIsmMfgResult.asOf, updatedAt, usIsmMfgResult.source, usIsmMfgResult.isStale, usIsmMfgResult.qualityTag),
+    makeIndicator("us_ism_services_pmi", "US ISM Services PMI", "idx", usIsmSvcResult.value, usIsmSvcResult.asOf, updatedAt, usIsmSvcResult.source, usIsmSvcResult.isStale, usIsmSvcResult.qualityTag),
     makeIndicator("cn_pmi_mfg", "CN PMI (Mfg)", "idx", cnPmiResult.value, cnPmiResult.asOf, updatedAt, cnPmiResult.source, cnPmiResult.isStale, cnPmiResult.qualityTag),
 
     // Inflation
