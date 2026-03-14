@@ -18,7 +18,8 @@
     "agent:heartbeat": "tsx scripts/agent-heartbeat.ts",
     "agent:heartbeat:loop": "tsx scripts/agent-heartbeat-loop.ts",
     "supabase:sync": "tsx scripts/supabase-sync-mission.ts A && tsx scripts/supabase-sync-mission.ts B1",
-    "macro:us:yields": "tsx scripts/update_macro_us_yields_from_fred.ts macro_quant.db"
+    "macro:us:yields": "tsx scripts/update_macro_us_yields_from_fred.ts macro_quant.db",
+    "macro:cn:lpr:import": "node scripts/import_cn_lpr_from_master_csv.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
