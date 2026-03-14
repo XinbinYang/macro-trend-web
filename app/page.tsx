@@ -415,7 +415,7 @@ export default function DashboardPage() {
                 <ResponsiveContainer width="99%" height="100%">
                   <LineChart data={nav?.nav || []}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
-                    <XAxis dataKey="date" tickFormatter={(v) => v.slice(0, 7)} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#334155' }} />
+                    <XAxis dataKey="date" tickFormatter={(v) => String(v || "").slice(0, 7)} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#334155' }} />
                     <YAxis tick={{ fill: '#64748b', fontSize: 11 }} axisLine={{ stroke: '#334155' }} domain={['auto', 'auto']} tickFormatter={(v) => v.toFixed(2)} />
                     <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid #334155', borderRadius: '8px', color: '#f8fafc' }} formatter={(v) => typeof v === 'number' ? v.toFixed(4) : v} />
                     <Legend />
