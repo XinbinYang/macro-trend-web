@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import fs from "node:fs";
 import path from "node:path";
+import { SYMBOLS } from "@/lib/config/data-dictionary";
 
 // Beta 7.0 战略配置权重 (用于计算偏离度) - 百分比格式
 const TARGET_WEIGHTS: Record<string, number> = {
@@ -59,7 +60,7 @@ const ASSET_MAPPING: Record<string, string> = {
   "SHFE黄金": "Gold",
   "Gold": "Gold",
   "GLD": "Gold",
-  "GC=F": "Gold",
+  [SYMBOLS.COM_GOLD]: "Gold",
   // 商品集群
   "SHFE铜": "Commodity",
   "SHFE白银": "Commodity",
@@ -79,7 +80,7 @@ const ASSET_MAPPING: Record<string, string> = {
   "GFEX多晶硅": "Commodity",
   "DCE PVC": "Commodity",
   "Nanhua": "Commodity",
-  "CL=F": "Commodity", // 原油
+  [SYMBOLS.COM_OIL]: "Commodity", // 原油
 };
 
 // 经验波动率 (用于风险贡献计算)

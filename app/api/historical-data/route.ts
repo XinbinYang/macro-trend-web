@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getHistoricalData } from "@/lib/api/supabase-assets";
 import { fetchIndexKline } from "@/lib/api/eastmoney-api";
+import { SYMBOLS } from "@/lib/config/data-dictionary";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -39,12 +40,12 @@ export async function GET(request: Request) {
 
     // === Step 2: Try Eastmoney for CN indices ===
     const cnIndexMap: Record<string, string> = {
-      "000300.SH": "000300",
-      "000905.SH": "000905",
+      [SYMBOLS.CN_HS300]: "000300",
+      [SYMBOLS.CN_500]: "000905",
       "000016.SH": "000016",
-      "399006.SZ": "399006",
-      "000688.SH": "000688",
-      "HSI": "HSI",
+      [SYMBOLS.CN_CY500]: "399006",
+      [SYMBOLS.CN_KC50]: "000688",
+      [SYMBOLS.HK_HSI]: "HSI",
     };
 
     const eastmoneyCode = cnIndexMap[symbol];
