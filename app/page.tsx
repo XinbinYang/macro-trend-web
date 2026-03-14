@@ -283,14 +283,29 @@ export default function DashboardPage() {
     driver: "加载中…"
   });
 
+  // Macro state dimensions (preferred source for the 4 cards)
+  const [macroState, setMacroState] = useState<{
+    updatedAt: string;
+    dimensions: Array<{
+      dim: "growth" | "inflation" | "policy" | "liquidity";
+      name: string;
+      us: { value: number | null; unit: string; asOf: string | null; stale: boolean; source?: string };
+      cn: { value: number | null; unit: string; asOf: string | null; stale: boolean; source?: string };
+    }>;
+  } | null>(null);
+  const [macroStateStatus, setMacroStateStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
+
   // Expandable state for macro cards
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
-  // Macro indicators (US/FRED) - evidence source for macro cards
+  // Macro indicators (full list) - still used for detailed macro pages; kept here for future expansion.
+  // NOTE: The 4 headline cards now prefer /api/macro-state to avoid mapping mismatches.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [macroIndicators, setMacroIndicators] = useState<{
     updatedAt: string;
     byId: Record<string, { id: string; name: string; unit: string; value: number | null; status: string; asOf: string | null; source?: string; updatedAt?: string; quality_tag?: "Truth" | "Indicative"; is_stale?: boolean }>;
   } | null>(null);
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [macroIndicatorsStatus, setMacroIndicatorsStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 
   // China macro snapshot (monthly) - AkShare artifact via /api/macro-cn
@@ -361,6 +376,7 @@ export default function DashboardPage() {
     // Fetch computed macro state (regime + dimensions)
     const fetchMacroState = async () => {
       try {
+        setMacroStateStatus("LOADING");
         const res = await fetch('/api/macro-state', { cache: 'no-store' });
         const json = await res.json().catch(() => ({}));
         if (json?.success && json?.regime) {
@@ -370,7 +386,15 @@ export default function DashboardPage() {
             driver: json.regime.driver,
           });
         }
-      } catch {}
+        if (json?.success && Array.isArray(json?.dimensions)) {
+          setMacroState({ updatedAt: json.updatedAt || new Date().toISOString(), dimensions: json.dimensions });
+          setMacroStateStatus("LIVE");
+        } else {
+          setMacroStateStatus("OFF");
+        }
+      } catch {
+        setMacroStateStatus("ERROR");
+      }
     };
     fetchMacroState();
     const stateInterval = setInterval(fetchMacroState, 60_000);
@@ -522,48 +546,29 @@ export default function DashboardPage() {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
             {macroDimensions.map((dim) => {
               const currentBase = regionView === "US" ? dim.us : dim.china;
-              const byId = macroIndicators?.byId;
 
-              // Map indicators
-              // US -> Supabase-backed macro indicators
-              const dimToIndicatorIdUS: Record<string, string> = {
-                growth: "us_ism_pmi",
-                inflation: "us_cpi_yoy",
-                policy: "us_policy_rate",
-                liquidity: "us_10y_yield",
-              };
-
-              // CN -> Supabase-backed macro indicators (via /api/macro-indicators)
-              const dimToIndicatorIdCN: Record<string, string> = {
-                growth: "cn_pmi_mfg",
-                inflation: "cn_cpi_yoy",
-                policy: "cn_lpr_1y",
-                liquidity: "cn_m2_yoy",
-              };
-
-              const indUS = regionView === "US" && byId ? byId[dimToIndicatorIdUS[dim.id]] : null;
-              const indCN = regionView === "CN" && byId ? byId[dimToIndicatorIdCN[dim.id]] : null;
+              // Prefer macro-state dimensions for the 4 cards (less mapping risk)
+              const stateDim = macroState?.dimensions?.find((x) => x.dim === dim.id) || null;
+              const statePoint = regionView === "US" ? stateDim?.us : stateDim?.cn;
 
               const current =
-                regionView === "CN"
-                  ? indCN && indCN.status !== "OFF"
-                    ? {
-                        status: formatValue(indCN.value, indCN.unit),
-                        trend: "neutral" as const,
-                        desc: `${indCN.name}: ${formatValue(indCN.value, indCN.unit)} · asOf ${indCN.asOf || "-"} · ${indCN.source || "supabase"}`,
-                      }
-                    : {
-                        status: macroIndicatorsStatus === "OFF" ? "OFF" : "—",
-                        trend: "neutral" as const,
-                        desc: macroIndicatorsStatus === "OFF" ? "CN source: OFF" : "CN source: LOADING",
-                      }
-                  : indUS && indUS.status !== "OFF"
-                    ? {
-                        status: formatValue(indUS.value, indUS.unit),
-                        trend: "neutral" as const,
-                        desc: `${indUS.name}: ${formatValue(indUS.value, indUS.unit)} · asOf ${indUS.asOf || "-"} · ${indUS.source || "supabase"}`,
-                      }
-                    : currentBase;
+                statePoint && statePoint.value !== null
+                  ? {
+                      status: formatValue(statePoint.value, statePoint.unit),
+                      trend: "neutral" as "up" | "down" | "neutral",
+                      desc: `${dim.name}: ${formatValue(statePoint.value, statePoint.unit)} · asOf ${statePoint.asOf || "-"} · ${statePoint.source || "-"}${statePoint.stale ? " · STALE" : ""}`,
+                    }
+                  : {
+                      status: macroStateStatus === "OFF" ? "OFF" : macroStateStatus === "ERROR" ? "ERR" : "—",
+                      trend: "neutral" as "up" | "down" | "neutral",
+                      desc: macroStateStatus === "OFF" ? "macro-state: OFF" : macroStateStatus === "ERROR" ? "macro-state: ERROR" : "macro-state: LOADING",
+                    };
+
+              // Fallback: if macro-state unavailable, keep old base placeholder
+              if (!stateDim && (macroStateStatus === "OFF" || macroStateStatus === "ERROR")) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
+                const _ = currentBase;
+              }
 
               // (migrated to Supabase-backed macro indicators above)
               const isExpanded = expandedCards[dim.id];
@@ -580,23 +585,27 @@ export default function DashboardPage() {
                     className="w-full text-left"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      {macroIndicatorsStatus === "LIVE" ? (
+                      {macroStateStatus === "LIVE" ? (
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-green-300 border-green-500/30 bg-green-500/10">
                           LIVE
                         </span>
-                      ) : macroIndicatorsStatus === "ERROR" ? (
+                      ) : macroStateStatus === "ERROR" ? (
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-red-300 border-red-500/30 bg-red-500/10">
                           ERROR
                         </span>
+                      ) : macroStateStatus === "OFF" ? (
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-slate-300 border-slate-600/40 bg-slate-800/40">
+                          OFF
+                        </span>
                       ) : (
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded border text-amber-300 border-amber-500/30 bg-amber-500/10">
-                          SAMPLE
+                          LOADING
                         </span>
                       )}
                       <span className="text-[9px] text-slate-500">
-                        {macroIndicators
-                          ? `source: FRED · updated ${new Date(macroIndicators.updatedAt).toLocaleDateString()}`
-                          : "未接入可审计宏观指标"}
+                        {macroState
+                          ? `source: macro-state · updated ${new Date(macroState.updatedAt).toLocaleDateString()}`
+                          : "宏观维度：等待 macro-state"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between mb-2">
