@@ -19,16 +19,19 @@ const CN_RATES_SYMBOLS = ["CN2Y", "CN5Y", "CN10Y", "CN_CREDIT_SPREAD_5Y"];
 function buildAssetConfigFromWatchlist(): AssetConfig[] {
   const assets: AssetConfig[] = [];
   
-  // US assets
+  // US assets — skip US bond symbols (US2Y/US5Y/US10Y/US30Y) because they come from
+  // FRED via usTreasuryCurveQuotes further below; fetching them as Yahoo tickers would
+  // either fail or return stale data.
+  const US_BOND_SKIP = new Set(["US2Y", "US5Y", "US10Y", "US30Y"]);
   const usList = getWatchlistByRegion("us");
   for (const item of usList) {
-    const isBond = item.symbol.startsWith("US") && /[0-9]+Y/.test(item.symbol);
+    if (US_BOND_SKIP.has(item.symbol)) continue; // handled by FRED curve
     assets.push({
-      symbol: item.symbol === "US10Y" ? "^TNX" : item.symbol === "US5Y" ? "^FVX" : item.symbol === "US2Y" ? "^TVYX" : item.symbol === "US30Y" ? "^TYX" : item.symbol,
+      symbol: item.symbol,
       name: item.name,
       region: "US",
-      category: isBond ? "BOND" : "COMMODITY",
-      dataType: isBond ? "EOD" : "REALTIME",
+      category: "EQUITY", // equity / commodity / fx — resolved downstream
+      dataType: "REALTIME",
       dataSource: item.source,
     });
   }
@@ -378,7 +381,8 @@ export async function GET() {
         });
       }
       
-      // CN_CREDIT_SPREAD_5Y - AAA中短票5Y-国债5Y利差 (当前无数据源，返回OFF)
+      // CN_CREDIT_SPREAD_5Y - AAA中短票5Y-国债5Y利差
+      // TODO(next): implement production-grade compute from ChinaMoney (避免 Python + 大 dataframe，提升速度/稳定性)
       cnYieldCurveQuotes.push({
         symbol: "CN_CREDIT_SPREAD_5Y",
         name: "AAA中短票-国债5Y利差",
@@ -387,13 +391,13 @@ export async function GET() {
         changePercent: 0,
         volume: 0,
         timestamp: new Date().toISOString(),
-        source: "OFF (AAA曲线数据源暂不可用)",
+        source: "OFF (pending ChinaMoney-derived compute)",
         region: "CN",
         category: "BOND",
         dataType: "EOD" as const,
         dataSource: "OFF",
         isIndicative: true,
-        note: "AAA中短票5Y收益率数据暂不可获取，无法计算利差",
+        note: "待接入：Chinamoney CYCC82B(AAA) - CYCC000(国债) @5Y",
       });
     } else {
       // Yield curve unavailable - add OFF quotes for watchlist symbols
