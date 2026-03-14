@@ -48,3 +48,23 @@
   - 结果：PASS
   - 口径：文件存在、结构满足审计字段要求
   - 证据：repo `docs/` 目录
+
+### 条目 002 — B1 口径文档：US SOFR + Core PCE YoY（字段规范 + 验收清单）
+- **Decision**：B1 采用“先A止血再B补齐”；对 US 政策利率与通胀主指标，先把字段口径、对齐规则、验收清单写死，避免后续入库后出现口径漂移。
+- **Done**：
+  - 新增口径文档：`docs/MACRO_US_B1_DATA_SPEC_SOFR_CORE_PCE_YOY.md`
+  - 明确：SOFR=FRED:SOFR（日频，business day），Core PCE YoY=由 FRED:PCEPILFE 指数计算 YoY（月频，建议 month-end 对齐）。
+- **Open / Next**：
+  - 执行 Supabase migration `002_add_us_sofr_core_pce.sql`（增列 macro_us.sofr/core_pce_yoy 等）。
+  - 部署后验证 `/api/cron/daily-us-policy` 可用并写入。
+- **Risks**：
+  - 月频(核心PCE)与日频(SOFR)共表：需严格 date 对齐与 last-non-null 读取策略，否则会出现“最新行缺字段→页面变空”。
+- **Rollback**：
+  - 口径文档可直接回滚对应 commit（不影响代码逻辑）。
+- **Commit**：TBD
+- **Checkpoint**：v2026-03-14-b1-spec
+- **Online Acceptance**：
+  - 环境：N/A（文档变更）
+  - 结果：PASS
+  - 口径：文件存在、口径/对齐/验收 checklist 齐备
+  - 证据：`docs/MACRO_US_B1_DATA_SPEC_SOFR_CORE_PCE_YOY.md`
