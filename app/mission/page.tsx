@@ -104,17 +104,19 @@ type DecisionAction = "加仓" | "减仓" | "观望" | "对冲" | "调仓";
 
 type DecisionLog = {
   id: string;
-  createdAt: string;
+  created_at: string;
+  createdAt?: string; // legacy alias
   title: string;
   action: DecisionAction;
   asset: string;
   rationale: string;
-  macroSnapshot: {
+  macro_snapshot: {
     regime: string;
     score: number;
     confidence: number;
     timestamp: string;
   } | null;
+  macroSnapshot?: DecisionLog["macro_snapshot"]; // legacy alias
   tags?: string[];
 };
 
@@ -893,7 +895,7 @@ export default function MissionPage() {
                 const expanded = !!decisionOpenMap[log.id];
                 const rationaleLines = (log.rationale || "").split("\n");
                 const shouldClamp = rationaleLines.length > 3 || (log.rationale || "").length > 160;
-                const timeText = new Date(log.createdAt).toLocaleString();
+                const timeText = new Date(log.created_at || log.createdAt || "").toLocaleString();
                 return (
                   <div
                     key={log.id}
@@ -938,13 +940,13 @@ export default function MissionPage() {
                     <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-slate-800/60">
                       <div className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
                         <span>🌡 宏观快照</span>
-                        {log.macroSnapshot ? (
+                        {(log.macro_snapshot || log.macroSnapshot) ? (
                           <>
-                            <Badge className={regimeBadgeClass(log.macroSnapshot.regime)}>
-                              {log.macroSnapshot.regime}
+                            <Badge className={regimeBadgeClass((log.macro_snapshot || log.macroSnapshot)!.regime)}>
+                              {(log.macro_snapshot || log.macroSnapshot)!.regime}
                             </Badge>
                             <span className="text-slate-500">
-                              置信度 {Math.round((log.macroSnapshot.confidence || 0) * 100)}%
+                              置信度 {Math.round(((log.macro_snapshot || log.macroSnapshot)!.confidence || 0) * 100)}%
                             </span>
                           </>
                         ) : (
