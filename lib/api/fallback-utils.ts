@@ -6,6 +6,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { FRED_SERIES, fetchFredWithFallback, getFredYoY } from "./fred-api";
 import { fetchAIndex, fetchHKIndex } from "./eastmoney-api";
+import { getQuote as getMultiSourceQuote } from "./market-data";
 
 // === Supabase Client ===
 export function getSupabaseAdmin() {
@@ -180,17 +181,19 @@ export async function fetchMacroWithFallback(
       ism_manufacturing: FRED_SERIES.ISM_PMI,
       unemployment_rate: FRED_SERIES.UNEMPLOYMENT,
       fed_funds_rate: FRED_SERIES.FED_FUNDS,
+      sofr: FRED_SERIES.SOFR,
       yield_10y: FRED_SERIES.TREASURY_10Y,
       yield_2y: FRED_SERIES.TREASURY_2Y,
       // YoY computed from index levels below
       cpi_yoy: FRED_SERIES.CPI,
       core_cpi_yoy: FRED_SERIES.CORE_CPI,
+      core_pce_yoy: FRED_SERIES.CORE_PCE,
     };
 
     const fredSeries = fredSeriesMap[field];
     if (fredSeries) {
-      // CPI YoY / Core CPI YoY need to be computed from the index series.
-      if (field === "cpi_yoy" || field === "core_cpi_yoy") {
+      // YoY series need to be computed from the index series.
+      if (field === "cpi_yoy" || field === "core_cpi_yoy" || field === "core_pce_yoy") {
         const yoy = await getFredYoY(fredSeries);
         if (yoy) {
           return {
@@ -362,7 +365,27 @@ export async function fetchMarketQuoteWithFallback(
     }
   }
 
-  // US/Global - Yahoo fallback would go here
-  // For now, return default indicating no data
+  // US/Global - External fallback (multi-source: Polygon/Yahoo)
+  if (region === "US" || region === "GLOBAL") {
+    try {
+      const q = await getMultiSourceQuote(symbol);
+      if (q && q.price !== null && Number.isFinite(q.price)) {
+        return {
+          symbol,
+          name: q.name || symbol,
+          price: q.price,
+          change: q.change ?? null,
+          changePercent: q.changePercent ?? null,
+          timestamp: q.timestamp || new Date().toISOString(),
+          source: q.source || "Yahoo/Polygon",
+          isIndicative: true,
+          isStale: false,
+        };
+      }
+    } catch (e) {
+      console.error(`[Fallback] Market multi-source error for ${symbol}:`, e);
+    }
+  }
+
   return defaultResult;
 }

@@ -1,31 +1,62 @@
+/**
+ * Aggregated Dashboard API
+ * Single entry point for homepage, reducing 5+ parallel requests to 1
+ * 
+ * Returns:
+ * - macroState: 增长×通胀四象限 + 情景概率 + Risk-ON/OFF
+ * - policyLiquidity: 政策×流动性验证条
+ * - watchlist: 核心24个标的 (from config)
+ * - nav: 策略净值
+ * - news: 最新资讯 (optional, behind flag)
+ */
+
 import { NextResponse } from "next/server";
 import { fetchMacroWithFallback } from "@/lib/api/fallback-utils";
+import dashboardConfig from "@/config/dashboard.json";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type Unit = "%" | "idx" | "level";
+// Types
+type Regime = "Risk-ON" | "Neutral" | "Risk-OFF";
 type Dim = "growth" | "inflation" | "policy" | "liquidity";
-type Trend = "improving" | "deteriorating" | "stable" | "unknown";
 type State = "strong" | "weak" | "neutral" | "unknown";
+type Trend = "improving" | "deteriorating" | "stable" | "unknown";
+type Unit = "%" | "idx" | "level";
 
-type DimOutput = {
+interface DimOutput {
   dim: Dim;
   name: string;
   us: { value: number | null; unit: Unit; asOf: string | null; state: State; trend: Trend; note: string; stale: boolean; source: string };
   cn: { value: number | null; unit: Unit; asOf: string | null; state: State; trend: Trend; note: string; stale: boolean; source: string };
-};
+}
 
-type Regime = "Risk-ON" | "Neutral" | "Risk-OFF";
-
-type MacroStateResponse = {
-  success: boolean;
+interface MacroState {
   updatedAt: string;
   regime: { name: Regime; confidence: number; driver: string; score: number };
   dimensions: DimOutput[];
-  debug?: Record<string, unknown>;
-};
+}
 
+interface NavPoint {
+  date: string;
+  value: number;
+}
+
+
+interface DashboardConfig {
+  watchlist: {
+    us: Array<{ symbol: string; name: string; category: string }>;
+    cn: Array<{ symbol: string; name: string; category: string }>;
+    hk: Array<{ symbol: string; name: string; category: string }>;
+    global: Array<{ symbol: string; name: string; category: string }>;
+  };
+  macroDimensions: Record<string, { name: string; emoji: string }>;
+}
+
+// Config cast
+const config = dashboardConfig as DashboardConfig;
+
+// Helpers
 function clamp(n: number, lo: number, hi: number) {
   return Math.max(lo, Math.min(hi, n));
 }
@@ -37,7 +68,6 @@ function stateFromThreshold(value: number | null, thresholds: { strong: number; 
     if (value <= thresholds.weak) return "weak";
     return "neutral";
   }
-  // lower is better
   if (value <= thresholds.strong) return "strong";
   if (value >= thresholds.weak) return "weak";
   return "neutral";
@@ -50,6 +80,7 @@ function scoreFromState(state: State): number {
   return 0;
 }
 
+
 function confidenceBase(usStale: boolean, cnStale: boolean, missingCount: number) {
   let c = 80;
   if (usStale) c -= 10;
@@ -58,10 +89,10 @@ function confidenceBase(usStale: boolean, cnStale: boolean, missingCount: number
   return clamp(c, 20, 90);
 }
 
-export async function GET() {
+// Fetch macro dimensions (same logic as /api/macro-state)
+async function fetchMacroState(): Promise<MacroState> {
   const updatedAt = new Date().toISOString();
 
-  // Fetch all required macro indicators using fallback chain
   const [
     usIsmSvcResult,
     cnPmiResult,
@@ -106,120 +137,48 @@ export async function GET() {
   const usStale = usIsmSvcResult.isStale;
   const cnStale = cnPmiResult.isStale;
 
-  // --- Growth ---
+  // Growth
   const growthUsState = stateFromThreshold(usIsm, { strong: 52, weak: 48 }, true);
   const growthCnState = stateFromThreshold(cnPmi, { strong: 50.5, weak: 49 }, true);
 
   const growth: DimOutput = {
     dim: "growth",
     name: "增长",
-    us: {
-      value: usIsm,
-      unit: "idx",
-      asOf: usAsOf,
-      stale: usStale,
-      state: growthUsState,
-      trend: "unknown",
-      note: "US ISM Services PMI (>=52 强, <=48 弱)",
-      source: usIsmSvcResult.source,
-    },
-    cn: {
-      value: cnPmi,
-      unit: "idx",
-      asOf: cnAsOf,
-      stale: cnStale,
-      state: growthCnState,
-      trend: "unknown",
-      note: "CN PMI (>=50.5 强, <=49 弱)",
-      source: cnPmiResult.source,
-    },
+    us: { value: usIsm, unit: "idx", asOf: usAsOf, stale: usStale, state: growthUsState, trend: "unknown", note: "US ISM Services PMI", source: usIsmSvcResult.source },
+    cn: { value: cnPmi, unit: "idx", asOf: cnAsOf, stale: cnStale, state: growthCnState, trend: "unknown", note: "CN PMI", source: cnPmiResult.source },
   };
 
-  // --- Inflation (US main=Core PCE YoY; CPI as auxiliary) ---
+  // Inflation (US main=Core PCE YoY; CPI as auxiliary)
   const infUsState = stateFromThreshold(usCorePce, { strong: 2.5, weak: 4.0 }, false);
   const infCnState = stateFromThreshold(cnCpi, { strong: 2.5, weak: 0.0 }, true);
 
   const inflation: DimOutput = {
     dim: "inflation",
     name: "通胀",
-    us: {
-      value: usCorePce,
-      unit: "%",
-      asOf: usInfAsOf || usAsOf,
-      stale: usCorePceResult.isStale,
-      state: infUsState,
-      trend: "unknown",
-      note: `US Core PCE YoY (main, <=2.5 佳, >=4.0 压力) · CPI YoY(aux)=${usCpi ?? "—"}`,
-      source: usCorePceResult.source,
-    },
-    cn: {
-      value: cnCpi,
-      unit: "%",
-      asOf: cnAsOf,
-      stale: cnStale,
-      state: infCnState,
-      trend: "unknown",
-      note: "CN CPI YoY (低通胀/通缩风险)",
-      source: cnCpiResult.source,
-    },
+    us: { value: usCorePce, unit: "%", asOf: usInfAsOf || usAsOf, stale: usCorePceResult.isStale, state: infUsState, trend: "unknown", note: `US Core PCE YoY (main) · CPI YoY(aux)=${usCpi ?? "—"}`, source: usCorePceResult.source },
+    cn: { value: cnCpi, unit: "%", asOf: cnAsOf, stale: cnStale, state: infCnState, trend: "unknown", note: "CN CPI YoY", source: cnCpiResult.source },
   };
 
-  // --- Policy ---
+  // Policy
   const polUsState = stateFromThreshold(usSofr, { strong: 3.0, weak: 5.0 }, false);
   const polCnState = stateFromThreshold(cnLpr, { strong: 3.0, weak: 4.0 }, false);
 
   const policy: DimOutput = {
     dim: "policy",
     name: "政策",
-    us: {
-      value: usSofr,
-      unit: "%",
-      asOf: usAsOf,
-      stale: usStale,
-      state: polUsState,
-      trend: "unknown",
-      note: `US SOFR (main, 越低越宽松) · Fed Funds(aux)=${usFedFunds ?? "—"}`,
-      source: usSofrResult.source,
-    },
-    cn: {
-      value: cnLpr,
-      unit: "%",
-      asOf: cnAsOf,
-      stale: cnStale,
-      state: polCnState,
-      trend: "unknown",
-      note: "CN LPR 1Y (越低越宽松)",
-      source: cnLprResult.source,
-    },
+    us: { value: usSofr, unit: "%", asOf: usAsOf, stale: usStale, state: polUsState, trend: "unknown", note: `US SOFR (main) · Fed Funds(aux)=${usFedFunds ?? "—"}`, source: usSofrResult.source },
+    cn: { value: cnLpr, unit: "%", asOf: cnAsOf, stale: cnStale, state: polCnState, trend: "unknown", note: "CN LPR 1Y", source: cnLprResult.source },
   };
 
-  // --- Liquidity ---
+  // Liquidity
   const liqUsState = stateFromThreshold(us10y, { strong: 4.0, weak: 4.7 }, false);
   const liqCnState = stateFromThreshold(cnM2, { strong: 9.5, weak: 7.5 }, true);
 
   const liquidity: DimOutput = {
     dim: "liquidity",
     name: "流动性",
-    us: {
-      value: us10y,
-      unit: "%",
-      asOf: usAsOf,
-      stale: usStale,
-      state: liqUsState,
-      trend: "unknown",
-      note: `US 10Y (参考2Y=${us2y ?? "—"})`,
-      source: us10yResult.source,
-    },
-    cn: {
-      value: cnM2,
-      unit: "%",
-      asOf: cnAsOf,
-      stale: cnStale,
-      state: liqCnState,
-      trend: "unknown",
-      note: "CN M2 YoY (越高越宽松)",
-      source: cnM2Result.source,
-    },
+    us: { value: us10y, unit: "%", asOf: usAsOf, stale: usStale, state: liqUsState, trend: "unknown", note: `US 10Y (2Y=${us2y ?? "—"})`, source: us10yResult.source },
+    cn: { value: cnM2, unit: "%", asOf: cnAsOf, stale: cnStale, state: liqCnState, trend: "unknown", note: "CN M2 YoY", source: cnM2Result.source },
   };
 
   const dims = [growth, inflation, policy, liquidity];
@@ -243,8 +202,7 @@ export async function GET() {
   if (missingCount > 0) driverParts.push(`缺数:${missingCount}`);
   if (usStale || cnStale) driverParts.push(`STALE:${[usStale && "US", cnStale && "CN"].filter(Boolean).join(",")}`);
 
-  const res: MacroStateResponse = {
-    success: true,
+  return {
     updatedAt,
     regime: {
       name: regime,
@@ -253,10 +211,73 @@ export async function GET() {
       score: Number(normScore.toFixed(3)),
     },
     dimensions: dims,
-    debug: {
-      fallbackChain: "Supabase(last-non-null, 12mo) -> FRED/AkShare",
+  };
+}
+
+// Fetch NAV (simplified)
+async function fetchNav() {
+  try {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/nav?strategy=beta70`, { 
+      cache: 'no-store' 
+    });
+    const json = await res.json();
+    
+    if (json.success && json.data?.nav) {
+      return {
+        status: json.data.status === "SAMPLE" ? "SAMPLE" : "LIVE",
+        asOf: json.data.asOf || "",
+        nav: json.data.nav.map((item: { date: string; value: number }) => ({
+          date: item.date,
+          value: item.value,
+        })),
+        metrics: json.data.metrics || null,
+      };
+    }
+    return { status: "OFFLINE", asOf: "", nav: [] as NavPoint[], metrics: null };
+  } catch (error) {
+    console.error("[Dashboard] NAV fetch error:", error);
+    return { status: "OFFLINE", asOf: "", nav: [] as NavPoint[], metrics: null };
+  }
+}
+
+// Main GET handler
+export async function GET() {
+  const startTime = Date.now();
+
+  // Parallel fetch: macroState + nav (news optional)
+  const [macroState, nav] = await Promise.all([
+    fetchMacroState(),
+    fetchNav(),
+  ]);
+
+  const latency = Date.now() - startTime;
+
+  const response = {
+    success: true,
+    latency,
+    timestamp: new Date().toISOString(),
+    macroState,
+    nav,
+    watchlist: config.watchlist,
+    macroDimensions: config.macroDimensions,
+    // Policy×Liquidity verification (derived from macroState)
+    policyLiquidity: {
+      us: {
+        policy: macroState.dimensions.find(d => d.dim === "policy")?.us || null,
+        liquidity: macroState.dimensions.find(d => d.dim === "liquidity")?.us || null,
+      },
+      cn: {
+        policy: macroState.dimensions.find(d => d.dim === "policy")?.cn || null,
+        liquidity: macroState.dimensions.find(d => d.dim === "liquidity")?.cn || null,
+      },
     },
   };
 
-  return NextResponse.json(res, { status: 200, headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(response, {
+    status: 200,
+    headers: {
+      "Cache-Control": "no-store",
+      "X-Dashboard-Latency": String(latency),
+    },
+  });
 }

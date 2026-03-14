@@ -53,11 +53,13 @@ export async function GET() {
   const [
     usIsmMfgResult,
     usIsmSvcResult,
+    usCorePceResult,
     usCpiResult,
     usCoreCpiResult,
     cnPmiResult,
     cnCpiResult,
-    usPolicyResult,
+    usSofrResult,
+    usFedFundsResult,
     cnLprResult,
     us10yResult,
     us2yResult,
@@ -68,11 +70,13 @@ export async function GET() {
     // Growth
     fetchMacroWithFallback("macro_us", "ism_manufacturing", "US"),
     fetchMacroWithFallback("macro_us", "ism_services", "US"),
+    fetchMacroWithFallback("macro_us", "core_pce_yoy", "US"),
     fetchMacroWithFallback("macro_us", "cpi_yoy", "US"),
     fetchMacroWithFallback("macro_us", "core_cpi_yoy", "US"),
     fetchMacroWithFallback("macro_cn", "pmi", "CN"),
     fetchMacroWithFallback("macro_cn", "cpi_yoy", "CN"),
     // Policy
+    fetchMacroWithFallback("macro_us", "sofr", "US"),
     fetchMacroWithFallback("macro_us", "fed_funds_rate", "US"),
     fetchMacroWithFallback("macro_cn", "lpr_1y", "CN"),
     // Rates / Liquidity
@@ -90,12 +94,14 @@ export async function GET() {
     makeIndicator("cn_pmi_mfg", "CN PMI (Mfg)", "idx", cnPmiResult.value, cnPmiResult.asOf, updatedAt, cnPmiResult.source, cnPmiResult.isStale, cnPmiResult.qualityTag),
 
     // Inflation
-    makeIndicator("us_cpi_yoy", "US CPI YoY", "%", usCpiResult.value, usCpiResult.asOf, updatedAt, usCpiResult.source, usCpiResult.isStale, usCpiResult.qualityTag),
+    makeIndicator("us_core_pce_yoy", "US Core PCE YoY (main)", "%", usCorePceResult.value, usCorePceResult.asOf, updatedAt, usCorePceResult.source, usCorePceResult.isStale, usCorePceResult.qualityTag),
+    makeIndicator("us_cpi_yoy", "US CPI YoY (aux)", "%", usCpiResult.value, usCpiResult.asOf, updatedAt, usCpiResult.source, usCpiResult.isStale, usCpiResult.qualityTag),
     makeIndicator("us_core_cpi_yoy", "US Core CPI YoY", "%", usCoreCpiResult.value, usCoreCpiResult.asOf, updatedAt, usCoreCpiResult.source, usCoreCpiResult.isStale, usCoreCpiResult.qualityTag),
     makeIndicator("cn_cpi_yoy", "CN CPI YoY", "%", cnCpiResult.value, cnCpiResult.asOf, updatedAt, cnCpiResult.source, cnCpiResult.isStale, cnCpiResult.qualityTag),
 
     // Policy
-    makeIndicator("us_policy_rate", "US Policy Rate", "%", usPolicyResult.value, usPolicyResult.asOf, updatedAt, usPolicyResult.source, usPolicyResult.isStale, usPolicyResult.qualityTag),
+    makeIndicator("us_sofr", "US SOFR (main)", "%", usSofrResult.value, usSofrResult.asOf, updatedAt, usSofrResult.source, usSofrResult.isStale, usSofrResult.qualityTag),
+    makeIndicator("us_fed_funds", "US Fed Funds (aux)", "%", usFedFundsResult.value, usFedFundsResult.asOf, updatedAt, usFedFundsResult.source, usFedFundsResult.isStale, usFedFundsResult.qualityTag),
     makeIndicator("cn_lpr_1y", "CN LPR 1Y", "%", cnLprResult.value, cnLprResult.asOf, updatedAt, cnLprResult.source, cnLprResult.isStale, cnLprResult.qualityTag),
 
     // Liquidity / Rates

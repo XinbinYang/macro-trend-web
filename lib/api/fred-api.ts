@@ -10,7 +10,8 @@ const FRED_API_KEY = process.env.FRED_API_KEY || "";
 export const FRED_SERIES = {
   // Interest Rates
   FED_FUNDS: "FEDFUNDS",           // Federal Funds Rate
-  TREASURY_30Y: "DGS30",          // 30-Year Treasury
+  SOFR: "SOFR",                    // Secured Overnight Financing Rate
+  TREASURY_30Y: "DGS30",           // 30-Year Treasury
   TREASURY_10Y: "DGS10",           // 10-Year Treasury
   TREASURY_5Y: "DGS5",             // 5-Year Treasury
   TREASURY_2Y: "DGS2",             // 2-Year Treasury
@@ -21,7 +22,9 @@ export const FRED_SERIES = {
   CPI_YOY: "CPIAUCSL",             // CPI YoY (computed client-side from CPI index)
   CORE_CPI: "CPILFESL",            // Core CPI (Index Level)
   CORE_CPI_YOY: "CPILFESL",        // Core CPI YoY (computed)
-  PCE: "PCEPI",                    // PCE Price Index
+  PCE: "PCEPI",                    // Headline PCE Price Index
+  CORE_PCE: "PCEPILFE",            // Core PCE Price Index (Index Level)
+  CORE_PCE_YOY: "PCEPILFE",        // Core PCE YoY (computed)
   
   // Economic Activity
   GDP: "GDP",                      // Gross Domestic Product
@@ -124,10 +127,11 @@ export async function getFredChange(
   return { current, previous, change, changePercent };
 }
 
-// Compute YoY% from an index series (monthly series typical for CPI)
+// Compute YoY% from an index series (monthly series typical for CPI/PCE)
+// Uses fetchFredWithFallback so it still works when FRED_API_KEY is not configured (mock data).
 export async function getFredYoY(seriesId: string): Promise<{ current: number; previous: number; yoy: number; asOf: string } | null> {
   // ask for 13 points to cover 12 months back
-  const data = await fetchFredSeries(seriesId, 13);
+  const data = await fetchFredWithFallback(seriesId, 13);
   if (!data || data.length < 13) return null;
   const curr = data[data.length - 1];
   const prev = data[data.length - 13];
@@ -244,9 +248,55 @@ const mockFredData: Record<string, { date: string; value: number }[]> = {
     { date: "2026-01-01", value: 4.15 },
     { date: "2026-02-01", value: 4.10 },
   ],
+  // Provide >=13 monthly points so YoY computation works even without FRED_API_KEY.
   [FRED_SERIES.CPI]: [
+    { date: "2025-02-01", value: 300.2 },
+    { date: "2025-03-01", value: 300.8 },
+    { date: "2025-04-01", value: 301.5 },
+    { date: "2025-05-01", value: 302.2 },
+    { date: "2025-06-01", value: 303.0 },
+    { date: "2025-07-01", value: 303.7 },
+    { date: "2025-08-01", value: 304.5 },
+    { date: "2025-09-01", value: 305.2 },
+    { date: "2025-10-01", value: 306.0 },
+    { date: "2025-11-01", value: 306.7 },
+    { date: "2025-12-01", value: 307.5 },
     { date: "2026-01-01", value: 312.5 },
     { date: "2026-02-01", value: 314.2 },
+  ],
+  [FRED_SERIES.CORE_CPI]: [
+    { date: "2025-02-01", value: 294.0 },
+    { date: "2025-03-01", value: 294.4 },
+    { date: "2025-04-01", value: 294.9 },
+    { date: "2025-05-01", value: 295.3 },
+    { date: "2025-06-01", value: 295.8 },
+    { date: "2025-07-01", value: 296.2 },
+    { date: "2025-08-01", value: 296.7 },
+    { date: "2025-09-01", value: 297.1 },
+    { date: "2025-10-01", value: 297.6 },
+    { date: "2025-11-01", value: 298.0 },
+    { date: "2025-12-01", value: 298.5 },
+    { date: "2026-01-01", value: 306.1 },
+    { date: "2026-02-01", value: 307.0 },
+  ],
+  [FRED_SERIES.CORE_PCE]: [
+    { date: "2025-02-01", value: 121.3 },
+    { date: "2025-03-01", value: 121.5 },
+    { date: "2025-04-01", value: 121.7 },
+    { date: "2025-05-01", value: 121.9 },
+    { date: "2025-06-01", value: 122.1 },
+    { date: "2025-07-01", value: 122.3 },
+    { date: "2025-08-01", value: 122.5 },
+    { date: "2025-09-01", value: 122.7 },
+    { date: "2025-10-01", value: 122.9 },
+    { date: "2025-11-01", value: 123.1 },
+    { date: "2025-12-01", value: 123.3 },
+    { date: "2026-01-01", value: 126.8 },
+    { date: "2026-02-01", value: 127.2 },
+  ],
+  [FRED_SERIES.SOFR]: [
+    { date: "2026-01-01", value: 5.20 },
+    { date: "2026-02-01", value: 5.18 },
   ],
   [FRED_SERIES.UNEMPLOYMENT]: [
     { date: "2026-01-01", value: 4.1 },
