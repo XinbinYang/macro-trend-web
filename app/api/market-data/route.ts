@@ -314,8 +314,33 @@ async function fetchAllQuotesWithFallback() {
           config.category
         );
 
+        // FX fallback: if Supabase returned OFF (no row for pair like "EURUSD.FX"),
+        // retry with the Yahoo vendor symbol (e.g., "EURUSD=X", "JPY=X")
+        if (
+          config.category === "FX" &&
+          config.pair &&
+          config.ticker !== config.pair &&
+          (fallbackResult.source === "OFF" || fallbackResult.price === null)
+        ) {
+          const yahooResult = await fetchMarketQuoteWithFallback(
+            config.ticker,
+            config.region,
+            "FX"
+          );
+          if (yahooResult.price !== null && yahooResult.source !== "OFF") {
+            return {
+              ...yahooResult,
+              symbol: config.symbol,
+              name: config.name,
+              region: config.region,
+              category: config.category,
+            };
+          }
+        }
+
         return {
           ...fallbackResult,
+          symbol: config.symbol,
           name: config.name,
           region: config.region,
           category: config.category,
