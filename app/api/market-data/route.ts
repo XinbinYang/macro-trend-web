@@ -11,6 +11,7 @@ import { NextResponse } from "next/server";
 import { fetchAShareWithFallback } from "@/lib/api/eastmoney-api";
 import { fetchFredWithFallback, FRED_SERIES, buildFredMacroSummary } from "@/lib/api/fred-api";
 import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
+import { SYMBOLS } from "@/lib/config/data-dictionary";
 
 function isStaleDaily(asOf: string | null) {
   if (!asOf) return true;
@@ -38,36 +39,36 @@ const ASSET_CONFIG: AssetConfigItem[] = [
   { symbol: "NDX", ticker: "NDX", name: "纳斯达克100", region: "US", category: "EQUITY" },
   { symbol: "DJI", ticker: "DJI", name: "道指30", region: "US", category: "EQUITY" },
   // VIX/RUT currently not in Supabase truth table; will fallback indicative
-  { symbol: "VIX", ticker: "^VIX", name: "VIX恐慌指数", region: "US", category: "EQUITY" },
-  { symbol: "RUT", ticker: "^RUT", name: "罗素2000", region: "US", category: "EQUITY" },
+  { symbol: "VIX", ticker: SYMBOLS.US_VIX, name: "VIX恐慌指数", region: "US", category: "EQUITY" },
+  { symbol: "RUT", ticker: SYMBOLS.US_RUT, name: "罗素2000", region: "US", category: "EQUITY" },
 
   // CN Equities (Supabase truth keys where available)
   { symbol: "HS300", ticker: "HS300", name: "沪深300", region: "CN", category: "EQUITY" },
   { symbol: "ZZ500", ticker: "ZZ500", name: "中证500", region: "CN", category: "EQUITY" },
   { symbol: "000016.SH", ticker: "000016.SH", name: "上证50", region: "CN", category: "EQUITY" },
-  { symbol: "399006.SZ", ticker: "399006.SZ", name: "创业板指", region: "CN", category: "EQUITY" },
-  { symbol: "000688.SH", ticker: "000688.SH", name: "科创50", region: "CN", category: "EQUITY" },
+  { symbol: SYMBOLS.CN_CY500, ticker: SYMBOLS.CN_CY500, name: "创业板指", region: "CN", category: "EQUITY" },
+  { symbol: SYMBOLS.CN_KC50, ticker: SYMBOLS.CN_KC50, name: "科创50", region: "CN", category: "EQUITY" },
 
   // HK Equities (Supabase truth keys where available)
-  { symbol: "HSI", ticker: "HSI", name: "恒生指数", region: "HK", category: "EQUITY" },
-  { symbol: "^HSTECH", ticker: "HSTECH", name: "恒生科技指数", region: "HK", category: "EQUITY" },
+  { symbol: "HSI", ticker: SYMBOLS.HK_HSI, name: "恒生指数", region: "HK", category: "EQUITY" },
+  { symbol: SYMBOLS.HK_HSTECH, ticker: "HSTECH", name: "恒生科技指数", region: "HK", category: "EQUITY" },
 
   // Commodities
-  { symbol: "GC=F", ticker: "GC=F", name: "黄金期货", region: "GLOBAL", category: "COMMODITY" },
-  { symbol: "CL=F", ticker: "CL=F", name: "WTI原油", region: "GLOBAL", category: "COMMODITY" },
-  { symbol: "DJP", ticker: "DJP", name: "商品指数", region: "GLOBAL", category: "COMMODITY" },
+  { symbol: SYMBOLS.COM_GOLD, ticker: SYMBOLS.COM_GOLD, name: "黄金期货", region: "GLOBAL", category: "COMMODITY" },
+  { symbol: SYMBOLS.COM_OIL, ticker: SYMBOLS.COM_OIL, name: "WTI原油", region: "GLOBAL", category: "COMMODITY" },
+  { symbol: SYMBOLS.COM_DJP, ticker: SYMBOLS.COM_DJP, name: "商品指数", region: "GLOBAL", category: "COMMODITY" },
   { symbol: "GLD", ticker: "GLD", name: "黄金ETF", region: "GLOBAL", category: "COMMODITY" },
 
   // Bonds (yields from FRED)
   // NOTE: US2Y/US5Y/US10Y/US30Y are yields from FRED, NOT futures prices
-  { symbol: "US10Y", ticker: "US10Y", name: "美债10Y收益率", region: "US", category: "BOND" },
-  { symbol: "US2Y", ticker: "US2Y", name: "美债2Y收益率", region: "US", category: "BOND" },
-  { symbol: "US5Y", ticker: "US5Y", name: "美债5Y收益率", region: "US", category: "BOND" },
-  { symbol: "US30Y", ticker: "US30Y", name: "美债30Y收益率", region: "US", category: "BOND" },
+  { symbol: SYMBOLS.US_10Y, ticker: SYMBOLS.US_10Y, name: "美债10Y收益率", region: "US", category: "BOND" },
+  { symbol: SYMBOLS.US_2Y, ticker: SYMBOLS.US_2Y, name: "美债2Y收益率", region: "US", category: "BOND" },
+  { symbol: SYMBOLS.US_5Y, ticker: SYMBOLS.US_5Y, name: "美债5Y收益率", region: "US", category: "BOND" },
+  { symbol: SYMBOLS.US_30Y, ticker: SYMBOLS.US_30Y, name: "美债30Y收益率", region: "US", category: "BOND" },
 
   // FX
   // Supabase assets_fx.pair uses "*.FX"; vendor symbols use Yahoo "...=X" where applicable.
-  { symbol: "DXY", ticker: "DX=F", name: "美元指数DXY", region: "GLOBAL", category: "FX", pair: "USDX.FX" },
+  { symbol: "DXY", ticker: SYMBOLS.FX_DXY, name: "美元指数DXY", region: "GLOBAL", category: "FX", pair: "USDX.FX" },
   { symbol: "EURUSD", ticker: "EURUSD=X", name: "欧元/美元", region: "GLOBAL", category: "FX", pair: "EURUSD.FX" },
   { symbol: "USDJPY", ticker: "JPY=X", name: "美元/日元", region: "GLOBAL", category: "FX", pair: "USDJPY.FX" },
 ];

@@ -4,6 +4,7 @@ import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
 import { fetchAIndex, fetchHKIndex } from "@/lib/api/eastmoney-api";
 import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
 import { getSupabaseClient } from "@/lib/supabase-client";
+import { SYMBOLS } from "@/lib/config/data-dictionary";
 import {
   getWatchlistByRegion,
   type AssetConfig,
@@ -13,7 +14,7 @@ import {
 // FX pair mapping: Yahoo symbol -> Supabase FX pair column
 // DXY (美元指数): Yahoo = "DX=F", Supabase pair = "USDX.FX"
 const FX_PAIRS: Record<string, string> = {
-  "DX=F": "USDX.FX",
+  [SYMBOLS.FX_DXY]: "USDX.FX",
   "EURUSD": "EURUSD.FX",
   "USDJPY": "USDJPY.FX",
 };
@@ -25,7 +26,12 @@ const CACHE_TTL_MS = 55_000; // 55 seconds
 let _cacheStore: { data: unknown; ts: number } | null = null;
 
 // CN rates symbols that represent yield curve points
-const CN_RATES_SYMBOLS = ["CN2Y", "CN5Y", "CN10Y", "CN_CREDIT_SPREAD_5Y"];
+const CN_RATES_SYMBOLS: string[] = [
+  SYMBOLS.CN_2Y,
+  SYMBOLS.CN_5Y,
+  SYMBOLS.CN_10Y,
+  SYMBOLS.CN_CREDIT_SPREAD_5Y,
+];
 
 // Build asset config from watchlist_default.json
 function buildAssetConfigFromWatchlist(): AssetConfig[] {
@@ -34,7 +40,12 @@ function buildAssetConfigFromWatchlist(): AssetConfig[] {
   // US assets — skip US bond symbols (US2Y/US5Y/US10Y/US30Y) because they come from
   // FRED via usTreasuryCurveQuotes further below; fetching them as Yahoo tickers would
   // either fail or return stale data.
-  const US_BOND_SKIP = new Set(["US2Y", "US5Y", "US10Y", "US30Y"]);
+  const US_BOND_SKIP = new Set<string>([
+    SYMBOLS.US_2Y,
+    SYMBOLS.US_5Y,
+    SYMBOLS.US_10Y,
+    SYMBOLS.US_30Y,
+  ]);
   const usList = getWatchlistByRegion("us");
   for (const item of usList) {
     if (US_BOND_SKIP.has(item.symbol)) continue; // handled by FRED curve
@@ -78,7 +89,10 @@ function buildAssetConfigFromWatchlist(): AssetConfig[] {
   // Global assets
   const globalList = getWatchlistByRegion("global");
   for (const item of globalList) {
-    const isFX = item.symbol.includes("=") || item.symbol === "DX=F" || item.symbol === "EURUSD";
+    const isFX =
+      item.symbol.includes("=") ||
+      item.symbol === SYMBOLS.FX_DXY ||
+      item.symbol === "EURUSD";
     assets.push({
       symbol: item.symbol,
       name: item.name,
@@ -94,12 +108,12 @@ function buildAssetConfigFromWatchlist(): AssetConfig[] {
 
 // CN/HK EOD indices (for backward compatibility)
 const AKSHARE_EOD_DATA: Array<{ symbol: string; name: string; region: "CN" | "HK"; source: string }> = [
-  { symbol: "000300.SH", name: "沪深300", region: "CN", source: "indicative" },
-  { symbol: "000905.SH", name: "中证500", region: "CN", source: "indicative" },
+  { symbol: SYMBOLS.CN_HS300, name: "沪深300", region: "CN", source: "indicative" },
+  { symbol: SYMBOLS.CN_500, name: "中证500", region: "CN", source: "indicative" },
   { symbol: "000016.SH", name: "上证50", region: "CN", source: "indicative" },
-  { symbol: "399006.SZ", name: "创业板指", region: "CN", source: "indicative" },
-  { symbol: "000688.SH", name: "科创50", region: "CN", source: "indicative" },
-  { symbol: "HSI", name: "恒生指数", region: "HK", source: "indicative" },
+  { symbol: SYMBOLS.CN_CY500, name: "创业板指", region: "CN", source: "indicative" },
+  { symbol: SYMBOLS.CN_KC50, name: "科创50", region: "CN", source: "indicative" },
+  { symbol: SYMBOLS.HK_HSI, name: "恒生指数", region: "HK", source: "indicative" },
 ];
 
 export async function GET(request: Request) {
@@ -232,7 +246,7 @@ export async function GET(request: Request) {
         }
 
         const isCNIndex = /^\d{6}\.(SH|SZ)$/i.test(d.symbol);
-        const isHSI = d.symbol === "HSI";
+        const isHSI = d.symbol === SYMBOLS.HK_HSI;
 
         if (isHSI) {
           try {
@@ -433,7 +447,7 @@ export async function GET(request: Request) {
 
         if (row.yield_2y !== null && row.yield_2y !== undefined) {
           cnYieldCurveQuotes.push({
-            symbol: "CN2Y",
+            symbol: SYMBOLS.CN_2Y,
             name: "中债2年收益率",
             price: Number(row.yield_2y),
             change: 0,
@@ -451,7 +465,7 @@ export async function GET(request: Request) {
         }
         if (row.yield_5y !== null && row.yield_5y !== undefined) {
           cnYieldCurveQuotes.push({
-            symbol: "CN5Y",
+            symbol: SYMBOLS.CN_5Y,
             name: "中债5年收益率",
             price: Number(row.yield_5y),
             change: 0,
@@ -469,7 +483,7 @@ export async function GET(request: Request) {
         }
         if (row.yield_10y !== null && row.yield_10y !== undefined) {
           cnYieldCurveQuotes.push({
-            symbol: "CN10Y",
+            symbol: SYMBOLS.CN_10Y,
             name: "中债10年收益率",
             price: Number(row.yield_10y),
             change: 0,
@@ -487,7 +501,7 @@ export async function GET(request: Request) {
         }
         if (row.credit_spread_5y !== null && row.credit_spread_5y !== undefined) {
           cnYieldCurveQuotes.push({
-            symbol: "CN_CREDIT_SPREAD_5Y",
+            symbol: SYMBOLS.CN_CREDIT_SPREAD_5Y,
             name: "AAA中短票-国债5Y利差",
             price: Number(row.credit_spread_5y),
             change: 0,
@@ -527,13 +541,13 @@ export async function GET(request: Request) {
         isIndicative: cnBondData.status !== "LIVE",
       });
 
-      if (maturities["2Y"] !== undefined) cnYieldCurveQuotes.push(mk("CN2Y", "中债2年收益率", maturities["2Y"]));
-      if (maturities["5Y"] !== undefined) cnYieldCurveQuotes.push(mk("CN5Y", "中债5年收益率", maturities["5Y"]));
-      if (maturities["10Y"] !== undefined) cnYieldCurveQuotes.push(mk("CN10Y", "中债10年收益率", maturities["10Y"]));
+      if (maturities["2Y"] !== undefined) cnYieldCurveQuotes.push(mk(SYMBOLS.CN_2Y, "中债2年收益率", maturities["2Y"]));
+      if (maturities["5Y"] !== undefined) cnYieldCurveQuotes.push(mk(SYMBOLS.CN_5Y, "中债5年收益率", maturities["5Y"]));
+      if (maturities["10Y"] !== undefined) cnYieldCurveQuotes.push(mk(SYMBOLS.CN_10Y, "中债10年收益率", maturities["10Y"]));
 
       // credit spread not available in legacy path
       cnYieldCurveQuotes.push({
-        symbol: "CN_CREDIT_SPREAD_5Y",
+        symbol: SYMBOLS.CN_CREDIT_SPREAD_5Y,
         name: "AAA中短票-国债5Y利差",
         price: 0,
         change: 0,
@@ -552,12 +566,17 @@ export async function GET(request: Request) {
 
     // 3) If still empty: OFF
     if (cnYieldCurveQuotes.length === 0) {
-      const watchlistRates = ["CN2Y", "CN5Y", "CN10Y", "CN_CREDIT_SPREAD_5Y"];
+      const watchlistRates = [
+        SYMBOLS.CN_2Y,
+        SYMBOLS.CN_5Y,
+        SYMBOLS.CN_10Y,
+        SYMBOLS.CN_CREDIT_SPREAD_5Y,
+      ];
       const rateNames: Record<string, string> = {
-        CN2Y: "中债2年收益率",
-        CN5Y: "中债5年收益率",
-        CN10Y: "中债10年收益率",
-        CN_CREDIT_SPREAD_5Y: "AAA中短票-国债5Y利差",
+        [SYMBOLS.CN_2Y]: "中债2年收益率",
+        [SYMBOLS.CN_5Y]: "中债5年收益率",
+        [SYMBOLS.CN_10Y]: "中债10年收益率",
+        [SYMBOLS.CN_CREDIT_SPREAD_5Y]: "AAA中短票-国债5Y利差",
       };
       for (const symbol of watchlistRates) {
         cnYieldCurveQuotes.push({
