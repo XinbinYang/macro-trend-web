@@ -224,10 +224,30 @@ export default function MacroPage() {
     const run = async () => {
       try {
         const origin = window.location.origin;
-        const us = await fetchMacroIndicatorsAbs(origin);
-        if (us) setUsById(indexById(us.indicators) as Record<string, { value: number | null; asOf: string | null; source: string }>);
+        const res = await fetchMacroIndicatorsAbs(origin);
+        if (res) {
+          const byId = indexById(res.indicators) as Record<string, { value: number | null; asOf: string | null; source: string }>;
+          setUsById(byId);
+          // CN snapshot: prefer Supabase-backed /api/macro-indicators ids, fallback to legacy /api/macro-cn
+          setCn({
+            region: "CN",
+            status: "LIVE",
+            updatedAt: res.updatedAt,
+            asOf: null,
+            series: {
+              pmi_mfg: byId.cn_pmi_mfg ? { value: byId.cn_pmi_mfg.value, asOf: byId.cn_pmi_mfg.asOf, source: byId.cn_pmi_mfg.source } : undefined,
+              cpi_yoy: byId.cn_cpi_yoy ? { value: byId.cn_cpi_yoy.value, asOf: byId.cn_cpi_yoy.asOf, source: byId.cn_cpi_yoy.source } : undefined,
+              m2_yoy: byId.cn_m2_yoy ? { value: byId.cn_m2_yoy.value, asOf: byId.cn_m2_yoy.asOf, source: byId.cn_m2_yoy.source, unit: "%" } : undefined,
+              lpr_1y: byId.cn_lpr_1y ? { value: byId.cn_lpr_1y.value, asOf: byId.cn_lpr_1y.asOf, source: byId.cn_lpr_1y.source } : undefined,
+              unemployment_urban: byId.cn_unemployment ? { value: byId.cn_unemployment.value, asOf: byId.cn_unemployment.asOf, source: byId.cn_unemployment.source, unit: "%" } : undefined,
+              social_financing: undefined,
+            },
+            notes: "CN macro uses Supabase-backed /api/macro-indicators when available",
+          } as CnMacroSnapshot);
+        }
       } catch {}
 
+      // Legacy CN macro snapshot fallback
       try {
         const cnRes = await fetchCnMacroSnapshot();
         if (cnRes?.data) setCn(cnRes.data);
