@@ -11,6 +11,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { headers } from "next/headers";
 import { fetchMacroWithFallback } from "@/lib/api/fallback-utils";
 import dashboardConfig from "@/config/dashboard.json";
 
@@ -217,11 +218,16 @@ async function fetchMacroState(): Promise<MacroState> {
 // Fetch NAV (simplified)
 async function fetchNav() {
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/nav?strategy=beta70`, { 
-      cache: 'no-store' 
+    const h = headers();
+    const host = h.get("host");
+    const proto = h.get("x-forwarded-proto") || "http";
+    const base = process.env.NEXT_PUBLIC_APP_URL || (host ? `${proto}://${host}` : "http://localhost:3000");
+
+    const res = await fetch(`${base}/api/nav?strategy=beta70`, {
+      cache: "no-store",
     });
     const json = await res.json();
-    
+
     if (json.success && json.data?.nav) {
       return {
         status: json.data.status === "SAMPLE" ? "SAMPLE" : "LIVE",

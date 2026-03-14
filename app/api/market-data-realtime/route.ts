@@ -122,7 +122,81 @@ export async function GET() {
         const isHSI = d.symbol === "HSI";
 
         if (isHSI) {
-          const q = await fetchHKIndex("100.HSI");
+          try {
+            const q = await fetchHKIndex("100.HSI");
+            if (!q) {
+              return {
+                symbol: d.symbol,
+                name: d.name,
+                price: 0,
+                change: 0,
+                changePercent: 0,
+                volume: 0,
+                timestamp: new Date().toISOString(),
+                source: "OFF",
+                region: d.region,
+                category: "EQUITY",
+                dataType: "EOD" as const,
+                dataSource: "OFF",
+                isIndicative: true,
+              };
+            }
+
+            return {
+              symbol: d.symbol,
+              name: q.name || d.name,
+              price: q.price,
+              change: q.change,
+              changePercent: q.changePercent,
+              volume: 0,
+              timestamp: new Date().toISOString(),
+              source: "Eastmoney",
+              region: d.region,
+              category: "EQUITY",
+              dataType: "EOD" as const,
+              dataSource: "indicative",
+              isIndicative: true,
+            };
+          } catch {
+            return {
+              symbol: d.symbol,
+              name: d.name,
+              price: 0,
+              change: 0,
+              changePercent: 0,
+              volume: 0,
+              timestamp: new Date().toISOString(),
+              source: "OFF",
+              region: d.region,
+              category: "EQUITY",
+              dataType: "EOD" as const,
+              dataSource: "OFF",
+              isIndicative: true,
+            };
+          }
+        }
+
+        const code = isCNIndex ? d.symbol.split(".")[0] : null;
+        if (!code) {
+          return {
+            symbol: d.symbol,
+            name: d.name,
+            price: 0,
+            change: 0,
+            changePercent: 0,
+            volume: 0,
+            timestamp: new Date().toISOString(),
+            source: "OFF",
+            region: d.region,
+            category: "EQUITY",
+            dataType: "EOD" as const,
+            dataSource: "OFF",
+            isIndicative: true,
+          };
+        }
+
+        try {
+          const q = await fetchAIndex(code);
           if (!q) {
             return {
               symbol: d.symbol,
@@ -156,10 +230,7 @@ export async function GET() {
             dataSource: "indicative",
             isIndicative: true,
           };
-        }
-
-        const code = isCNIndex ? d.symbol.split(".")[0] : null;
-        if (!code) {
+        } catch {
           return {
             symbol: d.symbol,
             name: d.name,
@@ -176,41 +247,6 @@ export async function GET() {
             isIndicative: true,
           };
         }
-
-        const q = await fetchAIndex(code);
-        if (!q) {
-          return {
-            symbol: d.symbol,
-            name: d.name,
-            price: 0,
-            change: 0,
-            changePercent: 0,
-            volume: 0,
-            timestamp: new Date().toISOString(),
-            source: "OFF",
-            region: d.region,
-            category: "EQUITY",
-            dataType: "EOD" as const,
-            dataSource: "OFF",
-            isIndicative: true,
-          };
-        }
-
-        return {
-          symbol: d.symbol,
-          name: q.name || d.name,
-          price: q.price,
-          change: q.change,
-          changePercent: q.changePercent,
-          volume: 0,
-          timestamp: new Date().toISOString(),
-          source: "Eastmoney",
-          region: d.region,
-          category: "EQUITY",
-          dataType: "EOD" as const,
-          dataSource: "indicative",
-          isIndicative: true,
-        };
       })
     );
 
