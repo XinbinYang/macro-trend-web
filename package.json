@@ -17,7 +17,8 @@
     "mission:log": "tsx scripts/mission-log.ts",
     "agent:heartbeat": "tsx scripts/agent-heartbeat.ts",
     "agent:heartbeat:loop": "tsx scripts/agent-heartbeat-loop.ts",
-    "supabase:sync": "tsx scripts/supabase-sync-mission.ts A && tsx scripts/supabase-sync-mission.ts B1"
+    "supabase:sync": "tsx scripts/supabase-sync-mission.ts A && tsx scripts/supabase-sync-mission.ts B1",
+    "macro:us:yields": "tsx scripts/update_macro_us_yields_from_fred.ts macro_quant.db"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
