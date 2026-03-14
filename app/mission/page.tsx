@@ -2,8 +2,41 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { AlertTriangle, Bot, Flag, RefreshCw, Target, Workflow, Zap, Clock, CheckCircle2, Circle, PlayCircle, Ban } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  AlertTriangle,
+  Bot,
+  Flag,
+  RefreshCw,
+  Target,
+  Workflow,
+  Zap,
+  Clock,
+  CheckCircle2,
+  Circle,
+  PlayCircle,
+  Ban,
+} from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 type TaskStatus = "TODO" | "DOING" | "DONE" | "BLOCKED";
@@ -65,6 +98,24 @@ type CronStatusPayload = {
     source?: string | null;
     updated_at?: string | null;
   };
+};
+
+type DecisionAction = "加仓" | "减仓" | "观望" | "对冲" | "调仓";
+
+type DecisionLog = {
+  id: string;
+  createdAt: string;
+  title: string;
+  action: DecisionAction;
+  asset: string;
+  rationale: string;
+  macroSnapshot: {
+    regime: string;
+    score: number;
+    confidence: number;
+    timestamp: string;
+  } | null;
+  tags?: string[];
 };
 
 // Owner ↔ Agent alias mapping (used for task highlight/filter)
@@ -366,6 +417,83 @@ export default function MissionPage() {
   const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
   const fetchedRef = useRef(false);
 
+  // Decision Log state
+  const [decisionLogs, setDecisionLogs] = useState<DecisionLog[]>([]);
+  const [decisionLoading, setDecisionLoading] = useState(false);
+  const [decisionError, setDecisionError] = useState<string | null>(null);
+  const [decisionOpenMap, setDecisionOpenMap] = useState<Record<string, boolean>>({});
+  const [formTitle, setFormTitle] = useState("");
+  const [formAction, setFormAction] = useState<DecisionAction>("观望");
+  const [formAsset, setFormAsset] = useState("");
+  const [formRationale, setFormRationale] = useState("");
+
+  const fetchDecisionLogs = async () => {
+    setDecisionLoading(true);
+    setDecisionError(null);
+    try {
+      const res = await fetch("/api/mission/decision-log", { cache: "no-store" });
+      const json = await res.json();
+      if (json?.success && Array.isArray(json?.data)) {
+        setDecisionLogs(json.data as DecisionLog[]);
+      } else {
+        setDecisionLogs([]);
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "加载失败";
+      setDecisionError(msg);
+    } finally {
+      setDecisionLoading(false);
+    }
+  };
+
+  const submitDecisionLog = async (closeDialog?: () => void) => {
+    setDecisionError(null);
+    try {
+      const payload = {
+        title: formTitle,
+        action: formAction,
+        asset: formAsset,
+        rationale: formRationale,
+      };
+      const res = await fetch("/api/mission/decision-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.success) {
+        throw new Error(json?.error || "提交失败");
+      }
+
+      setFormTitle("");
+      setFormAction("观望");
+      setFormAsset("");
+      setFormRationale("");
+      closeDialog?.();
+      await fetchDecisionLogs();
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "提交失败";
+      setDecisionError(msg);
+    }
+  };
+
+  const actionBadgeClass = (action: DecisionAction) => {
+    if (action === "加仓") return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+    if (action === "减仓") return "bg-red-500/15 text-red-400 border-red-500/30";
+    if (action === "观望") return "bg-slate-500/15 text-slate-300 border-slate-500/30";
+    if (action === "对冲") return "bg-amber-500/15 text-amber-400 border-amber-500/30";
+    return "bg-blue-500/15 text-blue-400 border-blue-500/30";
+  };
+
+  const regimeBadgeClass = (regime: string) => {
+    const r = (regime || "").toLowerCase();
+    if (r.includes("risk-on") || r.includes("risk on"))
+      return "bg-emerald-500/15 text-emerald-400 border-emerald-500/30";
+    if (r.includes("risk-off") || r.includes("risk off"))
+      return "bg-red-500/15 text-red-400 border-red-500/30";
+    return "bg-slate-500/15 text-slate-300 border-slate-500/30";
+  };
+
   const fetchMission = async () => {
     try {
       const res = await fetch("/api/mission", { cache: "no-store" });
@@ -413,6 +541,7 @@ export default function MissionPage() {
     fetchMission();
     fetchAgentStatus();
     fetchCronStatus();
+    fetchDecisionLogs();
 
     const timer = setInterval(() => {
       fetchMission();
@@ -514,7 +643,7 @@ export default function MissionPage() {
             <span className="text-slate-500">→</span>
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-slate-950/60 border border-slate-700"><Workflow className="w-4 h-4 text-emerald-400" /><span className="text-xs text-slate-400">PROGRESS</span><div className="w-24 h-2 bg-slate-700 rounded-full overflow-hidden"><div className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-500" style={{ width: `${Math.round((data.summary.done / Math.max(1, data.tasks.length)) * 100)}%` }} /></div><span className="text-sm font-medium text-emerald-300">{Math.round((data.summary.done / Math.max(1, data.tasks.length)) * 100)}%</span></div>
           </div>
-          <button onClick={() => { fetchMission(); fetchAgentStatus(); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></button>
+          <button onClick={() => { fetchMission(); fetchAgentStatus(); fetchDecisionLogs(); }} className="inline-flex items-center gap-2 rounded-lg border border-slate-600 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-700"><RefreshCw className="w-4 h-4" /></button>
         </div>
         
         {/* Emoji Structured Summary */}
@@ -648,6 +777,204 @@ export default function MissionPage() {
           <CardContent><div className="space-y-2">{data.blockers.map((item, idx) => <div key={idx} className="rounded-lg border border-red-800/40 bg-red-950/30 px-4 py-3 flex items-start gap-3"><span className="text-red-400 text-lg">🔴</span><div><div className="text-sm text-red-200 font-medium">{item}</div><div className="text-xs text-red-400/70 mt-1">需要解决后才能继续执行</div></div></div>)}</div></CardContent>
         </Card>
       )}
+
+      {/* Decision Log Section (appended at bottom, do not modify existing UI above) */}
+      <Card className="bg-slate-900/50 border-slate-800">
+        <CardHeader>
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <CardTitle className="text-slate-100 flex items-center gap-2">
+              🧾 决策日志 / Decision Log
+              <span className="text-xs text-slate-500 font-normal ml-2">(自动关联当时宏观快照)</span>
+            </CardTitle>
+
+            <Dialog>
+              <DialogTrigger>
+                <Button
+                  variant="outline"
+                  className="border-slate-700 bg-slate-950/40 hover:bg-slate-900"
+                >
+                  记录决策
+                </Button>
+              </DialogTrigger>
+
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>记录调仓决策</DialogTitle>
+                  <DialogDescription>
+                    提交后会自动写入当前宏观状态快照（若抓取失败则为空）。
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">标题</Label>
+                    <Input
+                      value={formTitle}
+                      onChange={(e) => setFormTitle(e.target.value)}
+                      placeholder="如：减仓美股"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">动作</Label>
+                    <Select
+                      value={formAction}
+                      onValueChange={(v) => setFormAction(v as DecisionAction)}
+                    >
+                      <SelectTrigger className="w-full justify-between border-slate-700 bg-slate-900/50 text-slate-100">
+                        <SelectValue placeholder="选择动作" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="加仓">加仓</SelectItem>
+                        <SelectItem value="减仓">减仓</SelectItem>
+                        <SelectItem value="观望">观望</SelectItem>
+                        <SelectItem value="对冲">对冲</SelectItem>
+                        <SelectItem value="调仓">调仓</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">资产</Label>
+                    <Input
+                      value={formAsset}
+                      onChange={(e) => setFormAsset(e.target.value)}
+                      placeholder="如：US Equity / Gold / CN Bond"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-slate-300">理由</Label>
+                    <textarea
+                      value={formRationale}
+                      onChange={(e) => setFormRationale(e.target.value)}
+                      placeholder="写下你的决策理由（支持多行）"
+                      className="min-h-[120px] w-full rounded-md border border-slate-700 bg-slate-900/50 px-3 py-2 text-sm text-slate-100 ring-offset-slate-950 placeholder:text-slate-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 focus-visible:ring-offset-2"
+                    />
+                  </div>
+
+                  {decisionError && (
+                    <div className="text-xs text-red-400 bg-red-950/30 border border-red-900/40 rounded-lg px-3 py-2">
+                      {decisionError}
+                    </div>
+                  )}
+                </div>
+
+                <DialogFooter>
+                  <DialogClose>
+                    <Button
+                      variant="outline"
+                      className="border-slate-700 bg-transparent hover:bg-slate-900"
+                    >
+                      取消
+                    </Button>
+                  </DialogClose>
+                  <Button
+                    onClick={() => submitDecisionLog()}
+                    className="bg-amber-500 text-slate-950 hover:bg-amber-400"
+                    disabled={!formTitle.trim() || !formAsset.trim() || !formRationale.trim()}
+                  >
+                    提交
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+
+        <CardContent>
+          {decisionLoading ? (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-6 text-slate-400 text-sm">
+              正在加载决策记录...
+            </div>
+          ) : decisionLogs.length > 0 ? (
+            <div className="space-y-3">
+              {decisionLogs.map((log) => {
+                const expanded = !!decisionOpenMap[log.id];
+                const rationaleLines = (log.rationale || "").split("\n");
+                const shouldClamp = rationaleLines.length > 3 || (log.rationale || "").length > 160;
+                const timeText = new Date(log.createdAt).toLocaleString();
+                return (
+                  <div
+                    key={log.id}
+                    className="rounded-xl border border-slate-800 bg-slate-950/40 p-4 space-y-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="text-slate-100 font-medium flex items-center gap-2 flex-wrap">
+                          <span>{log.title}</span>
+                          <Badge className={actionBadgeClass(log.action)}>{log.action}</Badge>
+                        </div>
+                        <div className="text-xs text-slate-500 flex items-center gap-2 flex-wrap">
+                          <span>📦 {log.asset}</span>
+                          <span>•</span>
+                          <span>⏱ {timeText}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="text-xs text-slate-500">理由</div>
+                      <div
+                        className={`text-sm text-slate-200 whitespace-pre-wrap ${!expanded && shouldClamp ? "line-clamp-3" : ""}`}
+                      >
+                        {log.rationale}
+                      </div>
+                      {shouldClamp && (
+                        <button
+                          className="text-xs text-amber-400 hover:text-amber-300"
+                          onClick={() =>
+                            setDecisionOpenMap((prev) => ({
+                              ...prev,
+                              [log.id]: !prev[log.id],
+                            }))
+                          }
+                        >
+                          {expanded ? "收起" : "展开"}
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-3 flex-wrap pt-2 border-t border-slate-800/60">
+                      <div className="text-xs text-slate-400 flex items-center gap-2 flex-wrap">
+                        <span>🌡 宏观快照</span>
+                        {log.macroSnapshot ? (
+                          <>
+                            <Badge className={regimeBadgeClass(log.macroSnapshot.regime)}>
+                              {log.macroSnapshot.regime}
+                            </Badge>
+                            <span className="text-slate-500">
+                              置信度 {Math.round((log.macroSnapshot.confidence || 0) * 100)}%
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </div>
+                      {log.tags && log.tags.length > 0 && (
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {log.tags.slice(0, 6).map((t) => (
+                            <Badge
+                              key={t}
+                              className="bg-slate-500/10 text-slate-300 border-slate-500/20"
+                            >
+                              #{t}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-6 text-slate-400 text-sm">
+              暂无决策记录。点击右上角「记录决策」开始写入。
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <style jsx global>{`
         @keyframes pulse-border {
