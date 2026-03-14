@@ -21,7 +21,7 @@ import {
   ResponsiveContainer,
   ReferenceLine,
 } from "recharts";
-import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
+import { fetchMacroIndicatorsAbs, indexById } from "@/lib/adapters/macroIndicators";
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
 
 // Types
@@ -127,6 +127,20 @@ interface CnBondData {
   status: "LIVE" | "DELAYED" | "STALE" | "OFF";
 }
 
+// Phase 2: Helper for confidence bar color
+const getConfidenceColor = (confidence: number) => {
+  if (confidence > 70) return "bg-emerald-500";
+  if (confidence >= 40) return "bg-amber-500";
+  return "bg-red-500";
+};
+
+// Phase 2: Helper for trend badge color
+const getTrendBadgeColor = (trendLabel: string) => {
+  if (trendLabel.includes("↑")) return "bg-emerald-500/20 text-emerald-400 border-emerald-500/30";
+  if (trendLabel.includes("↓")) return "bg-red-500/20 text-red-400 border-red-500/30";
+  return "bg-slate-700/50 text-slate-400 border-slate-600";
+};
+
 // Helper functions
 const getStatusColor = (status: string) => {
   const colors: Record<string, string> = {
@@ -198,6 +212,17 @@ export default function MacroPage() {
   const [usById, setUsById] = useState<Record<string, { value: number | null; asOf: string | null; source: string }> | null>(null);
   const [cn, setCn] = useState<CnMacroSnapshot | null>(null);
   const [regime, setRegime] = useState<RegimeData | null>(null);
+  const [macroState, setMacroState] = useState<{
+    success: boolean;
+    updatedAt: string;
+    regime: { name: string; confidence: number; driver: string; score: number };
+    dimensions: Array<{
+      dim: string;
+      name: string;
+      us: { value: number | null; state: string; summary: string; evidence: string[]; confidence: number; trendLabel: string };
+      cn: { value: number | null; state: string; summary: string; evidence: string[]; confidence: number; trendLabel: string };
+    }>;
+  } | null>(null);
   const [history, setHistory] = useState<RegimeHistoryItem[]>([]);
   const [monitorItems, setMonitorItems] = useState<MonitorItem[]>([]);
   const [cnBondData, setCnBondData] = useState<CnBondData | null>(null);
@@ -257,6 +282,14 @@ export default function MacroPage() {
         const res = await safeFetchJSON<{ success: boolean; data: RegimeData }>("/api/macro-regime");
         if (res?.success && res?.data) setRegime(res.data);
       } catch {}
+
+      // Phase 2: Fetch macro-state for explainable dimensions
+      try {
+        const msRes = await safeFetchJSON<typeof macroState>("/api/macro-state?no_cache=1");
+        if (msRes?.success && msRes?.dimensions) setMacroState(msRes);
+      } catch (e) {
+        console.warn("[MacroPage] Failed to fetch macro-state:", e);
+      }
 
       try {
         const res = await safeFetchJSON<{ success: boolean; data: { history: RegimeHistoryItem[] } }>("/api/macro-history");
@@ -636,39 +669,135 @@ export default function MacroPage() {
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6 mt-6">
-          {/* Four Dimension Cards */}
+          {/* Four Dimension Cards - Phase 2 Enhanced */}
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {[
-              { title: "增长 Growth", us: usById?.us_ism_pmi ? formatValue(usById.us_ism_pmi.value, "idx") : "—", cn: cn?.series?.pmi_mfg ? formatValue(cn.series.pmi_mfg.value, "idx") : "—", icon: TrendingUp, usLabel: "ISM", cnLabel: "PMI" },
-              { title: "通胀 Inflation", us: usById?.us_cpi_yoy ? formatValue(usById.us_cpi_yoy.value, "%") : "—", cn: cn?.series?.cpi_yoy ? formatValue(cn.series.cpi_yoy.value, "%") : "—", icon: Activity, usLabel: "CPI YoY", cnLabel: "CPI" },
-              { title: "政策 Policy", us: usById?.us_fedfunds ? formatValue(usById.us_fedfunds.value, "%") : "—", cn: cn?.series?.lpr_1y ? formatValue(cn.series.lpr_1y.value, "%") : "—", icon: Target, usLabel: "Fed", cnLabel: "LPR" },
-              { title: "流动性 Liquidity", us: usById?.us_10y ? formatValue(usById.us_10y.value, "%") : "—", cn: cn?.series?.m2_yoy ? formatValue(cn.series.m2_yoy.value, "%") : "—", icon: Globe, usLabel: "10Y", cnLabel: "M2" },
-            ].map((item) => (
-              <Card key={item.title} className="bg-slate-900/50 border-slate-800 hover:border-slate-700 transition-colors">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm text-slate-100 flex items-center gap-2">
-                    <item.icon className="w-4 h-4 text-slate-400" />
-                    {item.title}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex justify-between items-center p-2 bg-slate-950/50 rounded">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🇺🇸</span>
-                      <span className="text-xs text-slate-500">{item.usLabel}</span>
-                    </div>
-                    <span className="text-slate-200 font-mono font-medium">{item.us}</span>
-                  </div>
-                  <div className="flex justify-between items-center p-2 bg-slate-950/50 rounded">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">🇨🇳</span>
-                      <span className="text-xs text-slate-500">{item.cnLabel}</span>
-                    </div>
-                    <span className="text-slate-200 font-mono font-medium">{item.cn}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {/* Phase 2: Map dimension keys to index */}
+            {(() => {
+              const dimMap: Record<string, number> = { growth: 0, inflation: 1, policy: 2, liquidity: 3 };
+              const items = [
+                { title: "增长 Growth", dimKey: "growth", usLabel: "ISM", cnLabel: "PMI", icon: TrendingUp },
+                { title: "通胀 Inflation", dimKey: "inflation", usLabel: "Core PCE", cnLabel: "CPI", icon: Activity },
+                { title: "政策 Policy", dimKey: "policy", usLabel: "SOFR", cnLabel: "LPR", icon: Target },
+                { title: "流动性 Liquidity", dimKey: "liquidity", usLabel: "10Y", cnLabel: "M2", icon: Globe },
+              ];
+              
+              return items.map((item) => {
+                const dimIdx = dimMap[item.dimKey];
+                const dimData = macroState?.dimensions?.[dimIdx];
+                const usData = dimData?.us;
+                const cnData = dimData?.cn;
+                
+                return (
+                  <Card key={item.title} className="bg-slate-900/50 border-slate-800 hover:border-slate-700 transition-colors">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm text-slate-100 flex items-center gap-2">
+                        <item.icon className="w-4 h-4 text-slate-400" />
+                        {item.title}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {/* US Section */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center p-2 bg-slate-950/50 rounded">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">🇺🇸</span>
+                            <span className="text-xs text-slate-500">{item.usLabel}</span>
+                          </div>
+                          <span className="text-slate-200 font-mono font-medium">
+                            {usData?.value !== null && usData?.value !== undefined ? usData.value.toFixed(1) : "—"}
+                          </span>
+                        </div>
+                        {/* Phase 2: Summary */}
+                        {usData?.summary && (
+                          <div className="text-xs text-slate-200 font-medium px-1 leading-snug">
+                            {usData.summary}
+                          </div>
+                        )}
+                        {/* Phase 2: Trend Badge + Confidence */}
+                        {usData?.trendLabel && (
+                          <div className="flex items-center gap-2">
+                            <Badge className={`text-[10px] border ${getTrendBadgeColor(usData.trendLabel)}`}>
+                              {usData.trendLabel}
+                            </Badge>
+                            <div className="flex-1 flex items-center gap-1">
+                              <div className="h-1.5 flex-1 bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${getConfidenceColor(usData.confidence)} transition-all`} 
+                                  style={{ width: `${usData.confidence}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-slate-400 w-8">{usData.confidence}%</span>
+                            </div>
+                          </div>
+                        )}
+                        {/* Phase 2: Evidence折叠 */}
+                        {usData?.evidence && usData.evidence.length > 0 && (
+                          <details className="text-[10px]">
+                            <summary className="cursor-pointer text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                              📋 证据
+                            </summary>
+                            <div className="mt-1 pl-2 space-y-0.5 text-slate-400">
+                              {usData.evidence.map((ev, i) => (
+                                <div key={i}>• {ev}</div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                      
+                      {/* CN Section */}
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center p-2 bg-slate-950/50 rounded">
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg">🇨🇳</span>
+                            <span className="text-xs text-slate-500">{item.cnLabel}</span>
+                          </div>
+                          <span className="text-slate-200 font-mono font-medium">
+                            {cnData?.value !== null && cnData?.value !== undefined ? cnData.value.toFixed(1) : "—"}
+                          </span>
+                        </div>
+                        {/* Phase 2: Summary */}
+                        {cnData?.summary && (
+                          <div className="text-xs text-slate-200 font-medium px-1 leading-snug">
+                            {cnData.summary}
+                          </div>
+                        )}
+                        {/* Phase 2: Trend Badge + Confidence */}
+                        {cnData?.trendLabel && (
+                          <div className="flex items-center gap-2">
+                            <Badge className={`text-[10px] border ${getTrendBadgeColor(cnData.trendLabel)}`}>
+                              {cnData.trendLabel}
+                            </Badge>
+                            <div className="flex-1 flex items-center gap-1">
+                              <div className="h-1.5 flex-1 bg-slate-800 rounded-full overflow-hidden">
+                                <div 
+                                  className={`h-full ${getConfidenceColor(cnData.confidence)} transition-all`} 
+                                  style={{ width: `${cnData.confidence}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] text-slate-400 w-8">{cnData.confidence}%</span>
+                            </div>
+                          </div>
+                        )}
+                        {/* Phase 2: Evidence折叠 */}
+                        {cnData?.evidence && cnData.evidence.length > 0 && (
+                          <details className="text-[10px]">
+                            <summary className="cursor-pointer text-slate-500 hover:text-slate-300 flex items-center gap-1">
+                              📋 证据
+                            </summary>
+                            <div className="mt-1 pl-2 space-y-0.5 text-slate-400">
+                              {cnData.evidence.map((ev, i) => (
+                                <div key={i}>• {ev}</div>
+                              ))}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              });
+            })()}
           </div>
 
           {/* Quick Navigation Cards */}

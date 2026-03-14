@@ -16,11 +16,28 @@ type Dim = "growth" | "inflation" | "policy" | "liquidity";
 type Trend = "improving" | "deteriorating" | "stable" | "unknown";
 type State = "strong" | "weak" | "neutral" | "unknown";
 
+type DimSide = {
+  // Existing fields
+  value: number | null;
+  unit: Unit;
+  asOf: string | null;
+  state: State;
+  trend: Trend;
+  note: string;
+  stale: boolean;
+  source: string;
+  // Phase 2 new fields
+  summary: string;
+  evidence: string[];
+  confidence: number;
+  trendLabel: string;
+};
+
 type DimOutput = {
   dim: Dim;
   name: string;
-  us: { value: number | null; unit: Unit; asOf: string | null; state: State; trend: Trend; note: string; stale: boolean; source: string };
-  cn: { value: number | null; unit: Unit; asOf: string | null; state: State; trend: Trend; note: string; stale: boolean; source: string };
+  us: DimSide;
+  cn: DimSide;
 };
 
 type Regime = "Risk-ON" | "Neutral" | "Risk-OFF";
@@ -63,6 +80,232 @@ function confidenceBase(usStale: boolean, cnStale: boolean, missingCount: number
   if (cnStale) c -= 10;
   c -= missingCount * 8;
   return clamp(c, 20, 90);
+}
+
+// Phase 2: Generate summary based on dimension, region, state and value
+function generateSummary(dim: Dim, region: "us" | "cn", state: State, value: number | null): string {
+  if (value === null) return "数据暂缺，无法判断";
+  
+  const formattedValue = typeof value === "number" ? value.toFixed(1) : "—";
+  
+  if (dim === "growth") {
+    if (region === "us") {
+      if (state === "strong") return `美国经济扩张（ISM服务业PMI ${formattedValue}，高于荣枯线52）`;
+      if (state === "neutral") return `美国经济温和（ISM服务业PMI ${formattedValue}，接近荣枯线）`;
+      if (state === "weak") return `美国经济收缩压力（ISM服务业PMI ${formattedValue}，低于荣枯线48）`;
+    } else {
+      if (state === "strong") return `中国经济扩张（制造业PMI ${formattedValue}，高于荣枯线50.5）`;
+      if (state === "neutral") return `中国经济温和（制造业PMI ${formattedValue}）`;
+      if (state === "weak") return `中国经济偏弱（制造业PMI ${formattedValue}，低于50）`;
+    }
+  }
+  
+  if (dim === "inflation") {
+    if (region === "us") {
+      if (value <= 2.5) return `美国通胀受控（Core PCE ${formattedValue}%，接近Fed目标2%）`;
+      if (value < 4.0) return `美国通胀偏高（Core PCE ${formattedValue}%，高于Fed目标2%）`;
+      return `美国通胀严峻（Core PCE ${formattedValue}%，显著超出Fed目标）`;
+    } else {
+      if (value >= 2.5) return `中国通胀温和回升（CPI同比${formattedValue}%）`;
+      if (value > 0) return `中国通胀低迷（CPI同比${formattedValue}%，低于目标3%）`;
+      return `中国面临通缩压力（CPI同比${formattedValue}%）`;
+    }
+  }
+  
+  if (dim === "policy") {
+    if (region === "us") {
+      if (value <= 3.0) return `美联储政策宽松（SOFR ${formattedValue}%，处于中性区间以下）`;
+      if (value < 5.5) return `美联储政策中性偏紧（SOFR ${formattedValue}%）`;
+      return `美联储政策高度限制性（SOFR ${formattedValue}%，处于高位）`;
+    } else {
+      if (value <= 3.0) return `中国货币政策宽松（LPR 1Y ${formattedValue}%）`;
+      if (value < 4.0) return `中国货币政策中性（LPR 1Y ${formattedValue}%）`;
+      return `中国货币政策偏紧（LPR 1Y ${formattedValue}%）`;
+    }
+  }
+  
+  if (dim === "liquidity") {
+    if (region === "us") {
+      if (value <= 4.0) return `美债利率温和（10Y ${formattedValue}%），流动性宽裕`;
+      if (value < 4.7) return `美债利率中性（10Y ${formattedValue}%），流动性中性`;
+      return `美债利率高企（10Y ${formattedValue}%），流动性偏紧`;
+    } else {
+      if (value >= 9.5) return `中国流动性充裕（M2同比${formattedValue}%）`;
+      if (value > 7.5) return `中国流动性中性（M2同比${formattedValue}%）`;
+      return `中国流动性偏紧（M2同比${formattedValue}%）`;
+    }
+  }
+  
+  return "数据暂缺，无法判断";
+}
+
+// Phase 2: Generate evidence array based on dim, region, main value and aux data
+function generateEvidence(dim: Dim, region: "us" | "cn", value: number | null, asOf: string | null, auxData: Record<string, number | null>): string[] {
+  const evidence: string[] = [];
+  const dateStr = asOf ? asOf.split("T")[0] : "未知日期";
+  
+  if (dim === "growth") {
+    if (region === "us") {
+      const mainLabel = "ISM服务业PMI";
+      const target = "52";
+      if (value !== null) {
+        const deviation = (value - 52).toFixed(1);
+        const sign = value >= 52 ? "+" : "";
+        evidence.push(`${mainLabel}: ${value.toFixed(1)}（荣枯线: ${target}，偏差: ${sign}${deviation}）`);
+      }
+      const mfg = auxData["us_ism_manufacturing_pmi"];
+      if (mfg !== null && mfg !== undefined) {
+        evidence.push(`ISM制造业PMI: ${mfg.toFixed(1)}（辅助参考）`);
+      }
+      const unemp = auxData["us_unemployment_rate"];
+      if (unemp !== null && unemp !== undefined) {
+        evidence.push(`失业率: ${unemp.toFixed(1)}%（辅助参考）`);
+      }
+    } else {
+      const mainLabel = "制造业PMI";
+      const target = "50";
+      if (value !== null) {
+        const deviation = (value - 50).toFixed(1);
+        const sign = value >= 50 ? "+" : "";
+        evidence.push(`${mainLabel}: ${value.toFixed(1)}（荣枯线: ${target}，偏差: ${sign}${deviation}）`);
+      }
+      const services = auxData["cn_pmi_services"];
+      if (services !== null && services !== undefined) {
+        evidence.push(`非制造业PMI: ${services.toFixed(1)}（辅助参考）`);
+      }
+    }
+  }
+  
+  if (dim === "inflation") {
+    if (region === "us") {
+      const mainLabel = "Core PCE YoY";
+      const target = "2.0%";
+      if (value !== null) {
+        const deviation = (value - 2.0).toFixed(2);
+        const sign = value > 2.0 ? "+" : "";
+        evidence.push(`${mainLabel}: ${value.toFixed(2)}%（Fed目标: ${target}，偏差: ${sign}${deviation}%）`);
+      }
+      const cpi = auxData["us_cpi_yoy"];
+      if (cpi !== null && cpi !== undefined) {
+        evidence.push(`CPI YoY: ${cpi.toFixed(1)}%（辅助参考）`);
+      }
+      const coreCpi = auxData["us_core_cpi_yoy"];
+      if (coreCpi !== null && coreCpi !== undefined) {
+        evidence.push(`Core CPI YoY: ${coreCpi.toFixed(1)}%（辅助参考）`);
+      }
+    } else {
+      const mainLabel = "CPI YoY";
+      const target = "3.0%";
+      if (value !== null) {
+        const deviation = (value - 3.0).toFixed(1);
+        const sign = value > 3.0 ? "+" : "";
+        evidence.push(`${mainLabel}: ${value.toFixed(1)}%（目标: ${target}，偏差: ${sign}${deviation}%）`);
+      }
+      const ppi = auxData["cn_ppi_yoy"];
+      if (ppi !== null && ppi !== undefined) {
+        evidence.push(`PPI YoY: ${ppi.toFixed(1)}%（辅助参考）`);
+      }
+    }
+  }
+  
+  if (dim === "policy") {
+    if (region === "us") {
+      const mainLabel = "SOFR";
+      if (value !== null) {
+        evidence.push(`${mainLabel}: ${value.toFixed(2)}%`);
+      }
+      const fedFunds = auxData["us_fed_funds_rate"];
+      if (fedFunds !== null && fedFunds !== undefined) {
+        evidence.push(`联邦基金利率: ${fedFunds.toFixed(2)}%（辅助参考）`);
+      }
+    } else {
+      const mainLabel = "LPR 1Y";
+      if (value !== null) {
+        evidence.push(`${mainLabel}: ${value.toFixed(2)}%`);
+      }
+      const mlf = auxData["cn_mlf_rate"];
+      if (mlf !== null && mlf !== undefined) {
+        evidence.push(`MLF利率: ${mlf.toFixed(2)}%（辅助参考）`);
+      }
+      const slf = auxData["cn_slf_rate"];
+      if (slf !== null && slf !== undefined) {
+        evidence.push(`SLF利率: ${slf.toFixed(2)}%（辅助参考）`);
+      }
+    }
+  }
+  
+  if (dim === "liquidity") {
+    if (region === "us") {
+      const mainLabel = "10Y Yield";
+      if (value !== null) {
+        evidence.push(`${mainLabel}: ${value.toFixed(2)}%`);
+      }
+      const y2 = auxData["us_2y_yield"];
+      if (y2 !== null && y2 !== undefined) {
+        evidence.push(`2Y Yield: ${y2.toFixed(2)}%（辅助参考）`);
+      }
+    } else {
+      const mainLabel = "M2 YoY";
+      if (value !== null) {
+        evidence.push(`${mainLabel}: ${value.toFixed(1)}%`);
+      }
+      const shibor = auxData["cn_shibor_overnight"];
+      if (shibor !== null && shibor !== undefined) {
+        evidence.push(`隔夜SHIBOR: ${shibor.toFixed(2)}%（辅助参考）`);
+      }
+    }
+  }
+  
+  evidence.push(`数据日期: ${dateStr}`);
+  
+  return evidence.slice(0, 3);
+}
+
+// Phase 2: Calculate confidence for a dimension side
+function calculateDimConfidence(value: number | null, isStale: boolean, auxData: Record<string, number | null>): number {
+  let c = 80;
+  
+  if (isStale) c -= 15;
+  if (value === null) c -= 25;
+  
+  const auxValues = Object.values(auxData).filter(v => v !== null && v !== undefined);
+  if (auxValues.length === 0 && value !== null) c -= 10;
+  
+  return clamp(c, 10, 95);
+}
+
+// Phase 2: Calculate trend label based on state, value and thresholds
+function calculateTrendLabel(dim: Dim, region: "us" | "cn", state: State, value: number | null, thresholds: { strong: number; weak: number }): string {
+  if (value === null) return "? 数据缺失";
+  
+  const { strong, weak } = thresholds;
+  
+  if (region === "us") {
+    if (dim === "growth" || dim === "liquidity") {
+      if (state === "strong" && value >= strong + 2) return "↑ 走强";
+      if (state === "weak" && value <= weak - 2) return "↓ 走弱";
+      return "→ 横盘";
+    } else {
+      if (state === "strong" && value <= strong - 0.5) return "↑ 走强";
+      if (state === "weak" && value >= weak + 0.5) return "↓ 走弱";
+      return "→ 横盘";
+    }
+  } else {
+    if (dim === "growth" || dim === "liquidity") {
+      if (state === "strong" && value >= strong) return "↑ 走强";
+      if (state === "weak" && value <= weak) return "↓ 走弱";
+      return "→ 横盘";
+    } else {
+      if (dim === "inflation") {
+        if (state === "strong" && value >= 2.5) return "↑ 走强";
+        if (state === "weak" && value <= 0) return "↓ 走弱";
+        return "→ 横盘";
+      }
+      if (state === "strong" && value <= strong) return "↑ 走强";
+      if (state === "weak" && value >= weak) return "↓ 走弱";
+      return "→ 横盘";
+    }
+  }
 }
 
 // Map config indicator IDs to fetchMacroWithFallback keys
@@ -126,6 +369,22 @@ function buildDimOutput(dim: Dim, config: DimensionConfig, usData: { value: numb
     ? `${usMainConfig?.name_cn || usMainIndicator}(main) · aux={${usAuxStr}}`
     : `${usMainConfig?.name_cn || usMainIndicator} · aux={${usAuxStr}}`;
 
+  // Phase 2: Build aux data subset for each side
+  const usAuxData: Record<string, number | null> = {};
+  const cnAuxData: Record<string, number | null> = {};
+  usAuxIndicatorIds.forEach(id => { usAuxData[id] = auxData[id]; });
+  cnAuxIndicatorIds.forEach(id => { cnAuxData[id] = auxData[id]; });
+
+  // Phase 2: Generate new fields
+  const usSummary = generateSummary(dim, "us", usState, usData.value);
+  const cnSummary = generateSummary(dim, "cn", cnState, cnData.value);
+  const usEvidence = generateEvidence(dim, "us", usData.value, usData.asOf, usAuxData);
+  const cnEvidence = generateEvidence(dim, "cn", cnData.value, cnData.asOf, cnAuxData);
+  const usDimConfidence = calculateDimConfidence(usData.value, usData.isStale, usAuxData);
+  const cnDimConfidence = calculateDimConfidence(cnData.value, cnData.isStale, cnAuxData);
+  const usTrendLabel = calculateTrendLabel(dim, "us", usState, usData.value, thresholdsUs);
+  const cnTrendLabel = calculateTrendLabel(dim, "cn", cnState, cnData.value, thresholdsCn);
+
   return {
     dim,
     name: config.name,
@@ -138,6 +397,11 @@ function buildDimOutput(dim: Dim, config: DimensionConfig, usData: { value: numb
       trend: "unknown",
       note,
       source: usData.source,
+      // Phase 2 new fields
+      summary: usSummary,
+      evidence: usEvidence,
+      confidence: usDimConfidence,
+      trendLabel: usTrendLabel,
     },
     cn: {
       value: cnData.value,
@@ -148,6 +412,11 @@ function buildDimOutput(dim: Dim, config: DimensionConfig, usData: { value: numb
       trend: "unknown",
       note: `${cnMainConfig?.name_cn || cnMainIndicator} · aux={${cnAuxStr}}`,
       source: cnData.source,
+      // Phase 2 new fields
+      summary: cnSummary,
+      evidence: cnEvidence,
+      confidence: cnDimConfidence,
+      trendLabel: cnTrendLabel,
     },
   };
 }
