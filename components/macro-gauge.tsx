@@ -230,14 +230,14 @@ export function MacroDashboard() {
       icon: Activity,
     },
     {
-      title: "联邦利率",
-      value: usById ? formatValue(usById["us_policy_rate"]?.value ?? null, "%") : "—",
+      title: "政策利率(SOFR)",
+      value: usById ? formatValue(usById["us_sofr"]?.value ?? null, "%") : "—",
       unit: "%",
       trend: "neutral",
       level: usStatus === "LIVE" ? "low" : "medium",
       description:
         usStatus === "LIVE"
-          ? `asOf ${usById?.["us_policy_rate"]?.asOf || "-"} · ${usById?.["us_policy_rate"]?.source || "-"}`
+          ? `asOf ${usById?.["us_sofr"]?.asOf || "-"} · ${usById?.["us_sofr"]?.source || "-"}`
           : "数据源未连接或处理中",
       icon: DollarSign,
     },
