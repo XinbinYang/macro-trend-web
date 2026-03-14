@@ -26,18 +26,26 @@ export async function GET() {
     const json = await res.json();
     const data = json?.data ?? json;
 
-    if (!data || typeof data.regime !== "string") {
+    // regime 可能是字符串或对象 { name, confidence, ... }
+    const regimeName: string = typeof data.regime === "string"
+      ? data.regime
+      : (data.regime?.name ?? null);
+
+    if (!data || !regimeName) {
       throw new Error("Invalid macro-state response");
     }
 
-    const snapshotDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD HKT 近似
+    // HKT 日期（UTC+8）
+    const now = new Date();
+    const hktDate = new Date(now.getTime() + 8 * 60 * 60 * 1000);
+    const snapshotDate = hktDate.toISOString().slice(0, 10);
 
     // 2. 构建快照记录
     const record = {
       snapshot_date: snapshotDate,
-      regime: data.regime,
-      score: data.score ?? null,
-      confidence: data.confidence ?? null,
+      regime: regimeName,
+      score: data.score ?? data.regime?.score ?? null,
+      confidence: data.confidence ?? data.regime?.confidence ?? null,
       dimensions: data.dimensions ?? null,
       raw_snapshot: data,
     };
