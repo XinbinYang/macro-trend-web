@@ -1,8 +1,22 @@
-import fs from "fs";
-import path from "path";
 import { randomUUID } from "crypto";
+import { NextResponse } from "next/server";
 
 export const runtime = "nodejs";
+
+// Supabase client (service role for write, anon for read fallback)
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://xmdvozykqwolmfaycgyz.supabase.co";
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+
+function sbHeaders(write = false) {
+  const key = write && SUPABASE_SERVICE_KEY ? SUPABASE_SERVICE_KEY : SUPABASE_ANON_KEY;
+  return {
+    "Content-Type": "application/json",
+    "apikey": key,
+    "Authorization": `Bearer ${key}`,
+    "Prefer": write ? "return=representation" : "return=representation",
+  };
+}
 
 type DecisionAction = "加仓" | "减仓" | "观望" | "对冲" | "调仓";
 
@@ -15,69 +29,50 @@ interface MacroSnapshot {
 
 interface DecisionLog {
   id: string;
-  createdAt: string;
+  created_at: string;
   title: string;
   action: DecisionAction;
   asset: string;
   rationale: string;
-  macroSnapshot: MacroSnapshot | null;
+  macro_snapshot: MacroSnapshot | null;
   tags?: string[];
-}
-
-const FILE_PATH = path.join(process.cwd(), "data/mission/decision-log.json");
-
-function readAll(): DecisionLog[] {
-  try {
-    if (!fs.existsSync(FILE_PATH)) return [];
-    const raw = fs.readFileSync(FILE_PATH, "utf8");
-    const parsed = JSON.parse(raw || "[]");
-    return Array.isArray(parsed) ? (parsed as DecisionLog[]) : [];
-  } catch {
-    return [];
-  }
-}
-
-function writeAll(items: DecisionLog[]) {
-  fs.mkdirSync(path.dirname(FILE_PATH), { recursive: true });
-  fs.writeFileSync(FILE_PATH, JSON.stringify(items, null, 2), "utf8");
 }
 
 async function fetchMacroSnapshot(): Promise<MacroSnapshot | null> {
   try {
-    const base = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const base = process.env.NEXT_PUBLIC_APP_URL || "https://macro-trend-web.vercel.app";
     const res = await fetch(`${base}/api/macro-state`, { cache: "no-store" });
     if (!res.ok) return null;
     const json = await res.json();
-
-    // Accept either {success,data} or a direct macro object.
     const candidate = json?.data ?? json;
     if (!candidate) return null;
-
-    const regime = candidate.regime;
-    const score = candidate.score;
-    const confidence = candidate.confidence;
-    const timestamp = candidate.timestamp;
-
-    if (
-      typeof regime !== "string" ||
-      typeof score !== "number" ||
-      typeof confidence !== "number" ||
-      typeof timestamp !== "string"
-    ) {
-      return null;
-    }
-
-    return { regime, score, confidence, timestamp };
+    const { regime, score, confidence, timestamp } = candidate;
+    if (typeof regime !== "string" || typeof score !== "number" || typeof confidence !== "number") return null;
+    return { regime, score, confidence, timestamp: timestamp || new Date().toISOString() };
   } catch {
     return null;
   }
 }
 
 export async function GET() {
-  const items = readAll().sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-  return Response.json({ success: true, data: items });
+  try {
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/decision_logs?order=created_at.desc`,
+      { headers: sbHeaders(false), cache: "no-store" }
+    );
+    if (!res.ok) {
+      const err = await res.text();
+      // Table may not exist yet
+      if (res.status === 404 || err.includes("does not exist") || err.includes("relation")) {
+        return NextResponse.json({ success: true, data: [] });
+      }
+      return NextResponse.json({ success: false, error: err }, { status: 200 });
+    }
+    const data = await res.json();
+    return NextResponse.json({ success: true, data: Array.isArray(data) ? data : [] });
+  } catch (e) {
+    return NextResponse.json({ success: false, error: String(e) }, { status: 200 });
+  }
 }
 
 export async function POST(req: Request) {
@@ -85,50 +80,58 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
-    return Response.json(
-      { success: false, error: "Invalid JSON body" },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const payload = (typeof body === "object" && body !== null)
-    ? (body as Record<string, unknown>)
-    : {};
-
+  const payload = (typeof body === "object" && body !== null) ? (body as Record<string, unknown>) : {};
   const title = String(payload?.title ?? "").trim();
   const action = payload?.action as DecisionAction;
   const asset = String(payload?.asset ?? "").trim();
   const rationale = String(payload?.rationale ?? "").trim();
   const tags = Array.isArray(payload?.tags)
     ? (payload.tags as unknown[]).map((t) => String(t)).filter(Boolean)
-    : undefined;
+    : null;
 
   const allowed: DecisionAction[] = ["加仓", "减仓", "观望", "对冲", "调仓"];
   if (!title || !allowed.includes(action) || !asset || !rationale) {
-    return Response.json(
-      { success: false, error: "Missing or invalid fields" },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: "Missing or invalid fields" }, { status: 400 });
   }
 
   const macroSnapshot = await fetchMacroSnapshot();
 
   const newItem: DecisionLog = {
     id: randomUUID(),
-    createdAt: new Date().toISOString(),
+    created_at: new Date().toISOString(),
     title,
     action,
     asset,
     rationale,
-    macroSnapshot,
+    macro_snapshot: macroSnapshot,
     ...(tags && tags.length ? { tags } : {}),
   };
 
-  const items = readAll();
-  const next = [newItem, ...items].sort(
-    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/decision_logs`,
+    {
+      method: "POST",
+      headers: sbHeaders(true),
+      body: JSON.stringify(newItem),
+    }
   );
-  writeAll(next);
 
-  return Response.json({ success: true, data: newItem });
+  if (!res.ok) {
+    const err = await res.text();
+    // Table doesn't exist — return success with note (graceful degradation)
+    if (err.includes("does not exist") || err.includes("relation") || res.status === 404) {
+      return NextResponse.json({
+        success: false,
+        error: "decision_logs table not found. Please run the migration.",
+        data: newItem,
+      }, { status: 200 });
+    }
+    return NextResponse.json({ success: false, error: err }, { status: 200 });
+  }
+
+  const saved = await res.json();
+  return NextResponse.json({ success: true, data: Array.isArray(saved) ? saved[0] : newItem });
 }
