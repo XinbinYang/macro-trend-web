@@ -34,7 +34,7 @@ interface MacroCNRow {
   source: string | null;
 }
 
-function buildCnPayload(data: MacroCNRow | null): CnPayload {
+function buildCnPayload(data: MacroCNRow | null, socialFinancingOverride?: { value: number; asOf: string; source: string }): CnPayload {
   if (!data) {
     return {
       region: "CN",
@@ -66,9 +66,15 @@ function buildCnPayload(data: MacroCNRow | null): CnPayload {
   if (data.lpr_1y !== null) series.lpr_1y = { value: parseFloat(data.lpr_1y), asOf, source: src, unit: "%" };
   if (data.lpr_5y !== null) series.lpr_5y = { value: parseFloat(data.lpr_5y), asOf, source: src, unit: "%" };
 
-  // Social financing (flow) - unit is typically 100mn RMB in common releases; keep as raw number + label.
+  // Social financing (flow) - prefer override if latest macro row is LPR-only.
   const sf = (data as unknown as { social_financing_flow?: number | null }).social_financing_flow ?? null;
-  series.social_financing = { value: sf, asOf, source: sf === null ? "Supabase" : src, unit: "亿元" };
+  if (sf !== null && sf !== undefined) {
+    series.social_financing = { value: sf, asOf, source: src, unit: "亿元" };
+  } else if (socialFinancingOverride) {
+    series.social_financing = { value: socialFinancingOverride.value, asOf: socialFinancingOverride.asOf, source: socialFinancingOverride.source, unit: "亿元" };
+  } else {
+    series.social_financing = { value: null, asOf, source: "Supabase", unit: "亿元" };
+  }
 
   return {
     region: "CN",
@@ -81,15 +87,31 @@ function buildCnPayload(data: MacroCNRow | null): CnPayload {
 }
 
 async function getLatestCnRowWithAnyField(supabase: ReturnType<typeof getSupabaseClient>) {
-  // Prefer the latest row that has at least one of the core macro fields (so a LPR-only row won't blank PMI/CPI/M2).
+  // Prefer the latest row that has at least one of the core macro fields.
+  // Exclude LPR-only rows so PMI/CPI/M2/失业/社融不会被“最新政策行”误伤。
   const { data, error } = await supabase
     .from("macro_cn")
     .select("*")
-    .or("pmi.not.is.null,cpi_yoy.not.is.null,m2_yoy.not.is.null,unemployment.not.is.null,lpr_1y.not.is.null")
+    .or(
+      "pmi.not.is.null,cpi_yoy.not.is.null,m2_yoy.not.is.null,unemployment.not.is.null,social_financing_flow.not.is.null"
+    )
     .order("date", { ascending: false })
     .limit(1);
   if (error) throw error;
   return (data?.[0] as MacroCNRow | null) || null;
+}
+
+async function getLatestSocialFinancingFlow(supabase: ReturnType<typeof getSupabaseClient>) {
+  const { data, error } = await supabase
+    .from("macro_cn")
+    .select("date,social_financing_flow,source")
+    .not("social_financing_flow", "is", null)
+    .order("date", { ascending: false })
+    .limit(1);
+  if (error) throw error;
+  const r = (data?.[0] as { date: string; social_financing_flow: number; source: string | null } | undefined) || null;
+  if (!r) return null;
+  return { value: r.social_financing_flow, asOf: r.date.split("T")[0], source: r.source || "Supabase" };
 }
 
 export async function GET() {
@@ -131,7 +153,8 @@ export async function GET() {
       );
     }
 
-    const payload = buildCnPayload(latest);
+    const sf = await getLatestSocialFinancingFlow(supabase).catch(() => null);
+    const payload = buildCnPayload(latest, sf || undefined);
     const stale = payload.status === "STALE";
 
     return NextResponse.json(
