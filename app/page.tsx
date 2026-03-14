@@ -135,6 +135,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [marketData, setMarketData] = useState<{ us: MarketQuote[]; cn: MarketQuote[]; hk: MarketQuote[]; global: MarketQuote[] } | null>(null);
+  // Market data status is intentionally not stored in state (avoid client-side hard fails).
+  // If you want a UI badge later, re-introduce a state and surface it in the header.
   const [regionView, setRegionView] = useState<"US" | "CN">("US");
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
 
@@ -147,9 +149,20 @@ export default function DashboardPage() {
       if (data.success) setDashboardData(data);
 
       // Market data (still separate - heavy real-time data)
-      const mktRes = await fetch("/api/market-data-realtime");
+      const mktRes = await fetch("/api/market-data-realtime", { cache: "no-store" });
       const mktData = await mktRes.json();
-      if (mktData.success) setMarketData(mktData.data);
+      if (mktData?.success) {
+        const d = mktData.data || {};
+        // Defensive aliasing: tolerate legacy keys (china/hongkong)
+        setMarketData({
+          us: Array.isArray(d.us) ? d.us : [],
+          cn: Array.isArray(d.cn) ? d.cn : Array.isArray(d.china) ? d.china : [],
+          hk: Array.isArray(d.hk) ? d.hk : Array.isArray(d.hongkong) ? d.hongkong : [],
+          global: Array.isArray(d.global) ? d.global : [],
+        });
+      } else {
+        setMarketData({ us: [], cn: [], hk: [], global: [] });
+      }
     } catch (error) {
       console.error("Failed to fetch dashboard:", error);
     } finally {
