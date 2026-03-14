@@ -46,6 +46,17 @@ interface MissionPayload {
   blockers: string[];
 }
 
+type CronStatusPayload = {
+  ok: boolean;
+  latest: null | {
+    date: string;
+    yield_2y: string | number | null;
+    yield_10y: string | number | null;
+    source?: string | null;
+    updated_at?: string | null;
+  };
+};
+
 // Owner ↔ Agent alias mapping (used for task highlight/filter)
 const OWNER_AGENT_MAP: Record<string, string[]> = {
   "main": ["GPT-5.4", "main", "GPT-5.4 / main"],
@@ -341,6 +352,7 @@ export default function MissionPage() {
   const [data, setData] = useState<MissionPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [liveAgents, setLiveAgents] = useState<LiveAgentStatus[]>([]);
+  const [cronStatus, setCronStatus] = useState<CronStatusPayload | null>(null);
   const [selectedOwner, setSelectedOwner] = useState<string | null>(null);
   const fetchedRef = useRef(false);
 
@@ -375,15 +387,27 @@ export default function MissionPage() {
     }
   };
 
+  const fetchCronStatus = async () => {
+    try {
+      const res = await fetch("/api/cron/status", { cache: "no-store" });
+      const json = (await res.json()) as CronStatusPayload;
+      setCronStatus(json);
+    } catch {
+      setCronStatus({ ok: false, latest: null });
+    }
+  };
+
   useEffect(() => {
     if (fetchedRef.current) return;
     fetchedRef.current = true;
     fetchMission();
     fetchAgentStatus();
+    fetchCronStatus();
 
     const timer = setInterval(() => {
       fetchMission();
       fetchAgentStatus();
+      fetchCronStatus();
     }, 30000);
 
     const channel = supabase
@@ -484,7 +508,7 @@ export default function MissionPage() {
         </div>
         
         {/* Emoji Structured Summary */}
-        <div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+        <div className="mt-3 pt-3 border-t border-slate-700 grid grid-cols-2 md:grid-cols-6 gap-2 text-xs">
           <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
             <span>🟢</span><span>完成</span><span className="text-emerald-400 font-bold">{data.summary.done}</span>
           </div>
@@ -499,6 +523,11 @@ export default function MissionPage() {
           </div>
           <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
             <span>⚠️</span><span>STALE</span><span className={`font-bold ${staleAgentsCount > 0 ? "text-red-400" : "text-slate-400"}`}>{staleAgentsCount}</span>
+          </div>
+          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
+            <span>⏰</span>
+            <span>Cron</span>
+            <span className={`font-bold ${cronStatus?.ok ? "text-emerald-400" : "text-slate-400"}`}>{cronStatus?.ok ? "OK" : "—"}</span>
           </div>
         </div>
       </div>
