@@ -24,6 +24,11 @@
   - Supabase 执行迁移：`drizzle/migrations/002_add_us_sofr_core_pce.sql`
   - 线上路由可用：`/api/cron/daily-us-policy`（部署后从 404 恢复）
 
+## 🧾 汇报格式（对杨总默认 A 档）
+- **Emoji 结构化 + 单条≤500字**；结论先行 3–5 点
+- 技术细节/日志/代码一律用 `<details>` 折叠；避免刷屏
+- 状态锚：🟢 正常 / 🟡 注意 / 🔴 紧急
+
 ## 🧪 标准验收（每次上线必须过）
 - API：
   - `/api/market-data-realtime?no_cache=1` 200（无 client exception）
