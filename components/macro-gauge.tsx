@@ -7,6 +7,9 @@ import { useEffect, useState } from "react";
 import { fetchMacroIndicatorsAbs, indexById, formatValue } from "@/lib/adapters/macroIndicators";
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
 
+// NOTE: Homepage macro cards must use stable indicator ids from /api/macro-indicators.
+// Old ids like us_cpi/us_fedfunds/us_unrate were removed when we standardized the schema.
+
 interface IndicatorProps {
   title: string;
   value: string | number;
@@ -151,17 +154,11 @@ export function MacroDashboard() {
     },
     {
       title: "社融规模(代理)",
-      value:
-        cn?.series.social_financing?.value === null || cn?.series.social_financing?.value === undefined
-          ? "—"
-          : cn.series.social_financing.value.toFixed(4),
-      unit: cn?.series.social_financing?.unit || "万亿",
+      value: "—",
+      unit: "万亿",
       trend: "neutral",
-      level: cnStatus === "LIVE" ? "medium" : "medium",
-      description:
-        cnStatus === "LIVE"
-          ? `asOf ${cn?.series.social_financing?.asOf || "-"} · ${cn?.series.social_financing?.source || "-"}${cnFreshness === "STALE" ? " · STALE" : ""}`
-          : "数据源未连接或处理中",
+      level: "medium",
+      description: "待接入：建议来源为 人行/央行口径（AkShare）或您上传 Master；接入前保持 OFF，避免误导。",
       icon: Droplets,
     },
     {
@@ -193,37 +190,37 @@ export function MacroDashboard() {
     },
     {
       title: "CPI同比",
-      value: usById ? formatValue(usById["us_cpi"]?.value ?? null, "idx") : "—",
-      unit: "",
+      value: usById ? formatValue(usById["us_cpi_yoy"]?.value ?? null, "%") : "—",
+      unit: "%",
       trend: "neutral",
       level: usStatus === "LIVE" ? "low" : "medium",
       description:
         usStatus === "LIVE"
-          ? `asOf ${usById?.["us_cpi"]?.asOf || "-"} · ${usById?.["us_cpi"]?.source || "-"}`
+          ? `asOf ${usById?.["us_cpi_yoy"]?.asOf || "-"} · ${usById?.["us_cpi_yoy"]?.source || "-"}`
           : "数据源未连接或处理中",
       icon: Activity,
     },
     {
       title: "联邦利率",
-      value: usById ? formatValue(usById["us_fedfunds"]?.value ?? null, "%") : "—",
+      value: usById ? formatValue(usById["us_policy_rate"]?.value ?? null, "%") : "—",
       unit: "%",
       trend: "neutral",
       level: usStatus === "LIVE" ? "low" : "medium",
       description:
         usStatus === "LIVE"
-          ? `asOf ${usById?.["us_fedfunds"]?.asOf || "-"} · ${usById?.["us_fedfunds"]?.source || "-"}`
+          ? `asOf ${usById?.["us_policy_rate"]?.asOf || "-"} · ${usById?.["us_policy_rate"]?.source || "-"}`
           : "数据源未连接或处理中",
       icon: DollarSign,
     },
     {
       title: "失业率",
-      value: usById ? formatValue(usById["us_unrate"]?.value ?? null, "%") : "—",
+      value: usById ? formatValue(usById["us_unemployment"]?.value ?? null, "%") : "—",
       unit: "%",
       trend: "neutral",
       level: usStatus === "LIVE" ? "low" : "medium",
       description:
         usStatus === "LIVE"
-          ? `asOf ${usById?.["us_unrate"]?.asOf || "-"} · ${usById?.["us_unrate"]?.source || "-"}`
+          ? `asOf ${usById?.["us_unemployment"]?.asOf || "-"} · ${usById?.["us_unemployment"]?.source || "-"}`
           : "数据源未连接或处理中",
       icon: Gauge,
     },
