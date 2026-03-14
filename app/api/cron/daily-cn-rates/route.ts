@@ -42,7 +42,9 @@ async function fetchYieldCurve(bondType: "CYCC000" | "CYCC82B", daysBack: number
       endDate: endStr,
       termId: "1",
       pageNum: 1,
-      pageSize: 500,
+      // NOTE: ChinaMoney endpoint may return 403 for large pageSize when called from serverless.
+      // 50 is sufficient to cover key tenors (2/5/10Y) for the latest date.
+      pageSize: 50,
     });
     return buildDateTenorMap(resp);
   } catch (e) {
