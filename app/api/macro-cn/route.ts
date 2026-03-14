@@ -134,7 +134,7 @@ export async function GET() {
         },
         {
           status: 200,
-          headers: { "Cache-Control": "public, max-age=3600" },
+          headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" },
         }
       );
     }
@@ -148,7 +148,7 @@ export async function GET() {
         },
         {
           status: 200,
-          headers: { "Cache-Control": "public, max-age=3600" },
+          headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" },
         }
       );
     }
@@ -166,13 +166,13 @@ export async function GET() {
       },
       {
         status: 200,
-        headers: { "Cache-Control": "public, max-age=3600" },
+        headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" },
       }
     );
   } catch (e) {
     return NextResponse.json(
       { success: false, status: "OFF", error: (e as Error).message },
-      { status: 200, headers: { "Cache-Control": "no-store" } }
+      { status: 200, headers: { "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600" } }
     );
   }
 }

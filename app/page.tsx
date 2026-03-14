@@ -144,14 +144,16 @@ export default function DashboardPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      // Single API call for dashboard data
-      const res = await fetch("/api/dashboard", { cache: "no-store" });
-      const data: DashboardData = await res.json();
+      // Parallel fetch for dashboard and market data
+      const [dashboardRes, realtimeRes] = await Promise.all([
+        fetch("/api/dashboard", { cache: "no-store" }),
+        fetch("/api/market-data-realtime", { cache: "no-store" }),
+      ]);
+
+      const data: DashboardData = await dashboardRes.json();
       if (data.success) setDashboardData(data);
 
-      // Market data (still separate - heavy real-time data)
-      const mktRes = await fetch("/api/market-data-realtime", { cache: "no-store" });
-      const mktData = await mktRes.json();
+      const mktData = await realtimeRes.json();
       if (mktData?.success) {
         const d = mktData.data || {};
         // Defensive aliasing: tolerate legacy keys (china/hongkong)

@@ -1,3 +1,4 @@
+// DEAD_CODE: deprecated, do not call
 import { NextResponse } from "next/server";
 
 interface EconomicEvent {

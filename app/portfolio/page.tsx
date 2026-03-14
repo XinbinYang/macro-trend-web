@@ -183,6 +183,47 @@ export default function PortfolioPage() {
   const [macroRegime, setMacroRegime] = useState<MacroRegimeData | null>(null);
   const [macroLoading, setMacroLoading] = useState(false);
 
+  // Combined fetch function using Promise.all for parallel execution
+  const fetchAllData = async () => {
+    setNavLoading(true);
+    setRiskLoading(true);
+    setVolLoading(true);
+    setMacroLoading(true);
+
+    try {
+      const [navRes, riskRes, volRes, macroRes] = await Promise.all([
+        fetch("/api/nav?strategy=beta70"),
+        fetch("/api/risk-exposure"),
+        fetch("/api/volatility"),
+        fetch("/api/macro-regime"),
+      ]);
+
+      const [navJson, riskJson, volJson, macroJson] = await Promise.all([
+        navRes.json(),
+        riskRes.json(),
+        volRes.json(),
+        macroRes.json(),
+      ]);
+
+      if (navJson.success) setNavData(navJson.data);
+      if (riskJson.success) {
+        setRiskExposure(riskJson.data);
+        if (riskJson.rebalance && Array.isArray(riskJson.rebalance)) {
+          setRebalanceData(riskJson.rebalance);
+        }
+      }
+      if (volJson.success) setVolatilityData(volJson.data);
+      if (macroJson.success) setMacroRegime(macroJson.data);
+    } catch (e) {
+      console.error("Failed to fetch data:", e);
+    } finally {
+      setNavLoading(false);
+      setRiskLoading(false);
+      setVolLoading(false);
+      setMacroLoading(false);
+    }
+  };
+
   useEffect(() => {
     const userData = localStorage.getItem("user");
     if (!userData) {
@@ -206,76 +247,13 @@ export default function PortfolioPage() {
       localStorage.setItem("portfolio", JSON.stringify(defaultPortfolio));
     }
     
-    // 加载所有数据
-    fetchNAVData();
-    fetchRiskExposure();
-    fetchVolatilityData();
-    fetchMacroRegime();
+    // 加载所有数据 - parallel fetch
+    fetchAllData();
   }, [router]);
 
-  const fetchNAVData = async () => {
-    setNavLoading(true);
-    try {
-      const res = await fetch("/api/nav?strategy=beta70");
-      const json = await res.json();
-      if (json.success) {
-        setNavData(json.data);
-      }
-    } catch (e) {
-      console.error("Failed to load NAV:", e);
-    } finally {
-      setNavLoading(false);
-    }
-  };
-
-  const fetchRiskExposure = async () => {
-    setRiskLoading(true);
-    try {
-      const res = await fetch("/api/risk-exposure");
-      const json = await res.json();
-      if (json.success) {
-        setRiskExposure(json.data);
-        // 提取再平衡建议
-        if (json.rebalance && Array.isArray(json.rebalance)) {
-          setRebalanceData(json.rebalance);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load risk exposure:", e);
-    } finally {
-      setRiskLoading(false);
-    }
-  };
-
-  const fetchVolatilityData = async () => {
-    setVolLoading(true);
-    try {
-      const res = await fetch("/api/volatility");
-      const json = await res.json();
-      if (json.success) {
-        setVolatilityData(json.data);
-      }
-    } catch (e) {
-      console.error("Failed to load volatility data:", e);
-    } finally {
-      setVolLoading(false);
-    }
-  };
-
-  // 三大中枢联动：获取宏观状态
-  const fetchMacroRegime = async () => {
-    setMacroLoading(true);
-    try {
-      const res = await fetch("/api/macro-regime");
-      const json = await res.json();
-      if (json.success) {
-        setMacroRegime(json.data);
-      }
-    } catch (e) {
-      console.error("Failed to load macro regime:", e);
-    } finally {
-      setMacroLoading(false);
-    }
+  // 刷新所有数据
+  const refreshAllData = () => {
+    fetchAllData();
   };
 
   const handleLogout = () => {
@@ -451,14 +429,6 @@ export default function PortfolioPage() {
     date: d.date.slice(5), // MM-DD
     value: d.value,
   })) || [];
-
-  // 刷新所有数据
-  const refreshAllData = () => {
-    fetchNAVData();
-    fetchRiskExposure();
-    fetchVolatilityData();
-    fetchMacroRegime();
-  };
 
   if (!user) return null;
 

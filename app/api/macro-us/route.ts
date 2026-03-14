@@ -108,7 +108,7 @@ export async function GET() {
       {
         status: 200,
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": "public, s-maxage=120, stale-while-revalidate=600",
         },
       }
     );
