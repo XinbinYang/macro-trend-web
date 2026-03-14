@@ -200,6 +200,24 @@ export async function fetchHKIndex(secid: string): Promise<{
   }
 }
 
+/**
+ * Convenience wrapper for common HK indices.
+ * - HSI   -> 100.HSI
+ * - HSCEI -> 100.HSCEI
+ * - HSTECH -> 124.HSTECH (verified)
+ */
+export async function fetchHKIndexBySymbol(symbol: string) {
+  const map: Record<string, string> = {
+    HSI: "100.HSI",
+    HSCEI: "100.HSCEI",
+    "^HSTECH": "124.HSTECH",
+    HSTECH: "124.HSTECH",
+  };
+  const secid = map[symbol];
+  if (!secid) return null;
+  return fetchHKIndex(secid);
+}
+
 function toEastMoneyIndexSecid(code: string): string {
   // Common index mapping:
   // - 000xxx (SH indices like HS300/SH50) -> 1.

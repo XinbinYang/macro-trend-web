@@ -5,7 +5,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { FRED_SERIES, fetchFredWithFallback, getFredYoY } from "./fred-api";
-import { fetchAIndex, fetchHKIndex } from "./eastmoney-api";
+import { fetchAIndex, fetchHKIndex, fetchHKIndexBySymbol } from "./eastmoney-api";
 import { getQuote as getMultiSourceQuote } from "./market-data";
 
 // === Supabase Client ===
@@ -327,8 +327,13 @@ export async function fetchMarketQuoteWithFallback(
   if (region === "CN" || region === "HK") {
     // Use Eastmoney for CN/HK indices
     try {
-      if (region === "HK" && symbol === "HSI") {
-        const q = await fetchHKIndex("100.HSI");
+      if (region === "HK") {
+        // HK indices via Eastmoney special secid codes
+        // HSI/HSCEI/^HSTECH
+        const q =
+          symbol === "HSI"
+            ? await fetchHKIndex("100.HSI")
+            : await fetchHKIndexBySymbol(symbol);
         if (q) {
           return {
             symbol,

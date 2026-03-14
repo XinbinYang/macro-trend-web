@@ -163,17 +163,23 @@ export function resolveRegion(region: string): "us" | "cn" | "hk" | "global" {
 
 export function getWatchlistByRegion(region: "us" | "cn" | "hk" | "global"): WatchlistRepresentative[] {
   const config = watchlist.regions[region];
-  // Map symbols to representative configs with names
   const result: WatchlistRepresentative[] = [];
   
   for (const symbol of config.symbols) {
     // Try to find in risk units first
+    let found = false;
     for (const ru of Object.values(watchlist.riskUnits)) {
-      const found = ru.representatives.find(r => r.symbol === symbol);
-      if (found) {
-        result.push(found);
+      const rep = ru.representatives.find(r => r.symbol === symbol);
+      if (rep) {
+        result.push(rep);
+        found = true;
         break;
       }
+    }
+    // If symbol exists in region but not in any riskUnit, still include it
+    // with a synthetic entry so it's not silently dropped
+    if (!found) {
+      result.push({ symbol, name: symbol, source: "unknown" });
     }
   }
   

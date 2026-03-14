@@ -3,10 +3,10 @@ import { getCnBondData } from "@/lib/api/bond-cn";
 import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
 import { fetchAIndex, fetchHKIndex } from "@/lib/api/eastmoney-api";
 import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
-import { 
-  getWatchlistByRegion, 
+import {
+  getWatchlistByRegion,
   type AssetConfig,
-  type MarketQuote
+  type MarketQuote,
 } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
@@ -19,16 +19,19 @@ const CN_RATES_SYMBOLS = ["CN2Y", "CN5Y", "CN10Y", "CN_CREDIT_SPREAD_5Y"];
 function buildAssetConfigFromWatchlist(): AssetConfig[] {
   const assets: AssetConfig[] = [];
   
-  // US assets
+  // US assets — skip US bond symbols (US2Y/US5Y/US10Y/US30Y) because they come from
+  // FRED via usTreasuryCurveQuotes further below; fetching them as Yahoo tickers would
+  // either fail or return stale data.
+  const US_BOND_SKIP = new Set(["US2Y", "US5Y", "US10Y", "US30Y"]);
   const usList = getWatchlistByRegion("us");
   for (const item of usList) {
-    const isBond = item.symbol.startsWith("US") && /[0-9]+Y/.test(item.symbol);
+    if (US_BOND_SKIP.has(item.symbol)) continue; // handled by FRED curve
     assets.push({
-      symbol: item.symbol === "US10Y" ? "^TNX" : item.symbol === "US5Y" ? "^FVX" : item.symbol === "US2Y" ? "^TVYX" : item.symbol === "US30Y" ? "^TYX" : item.symbol,
+      symbol: item.symbol,
       name: item.name,
       region: "US",
-      category: isBond ? "BOND" : "COMMODITY",
-      dataType: isBond ? "EOD" : "REALTIME",
+      category: "EQUITY", // equity / commodity / fx — resolved downstream
+      dataType: "REALTIME",
       dataSource: item.source,
     });
   }
@@ -92,15 +95,42 @@ export async function GET() {
     // Build asset config from watchlist config
     const ASSET_CONFIG = buildAssetConfigFromWatchlist();
 
-    // Use fallback chain to fetch data
-    const enrichedQuotes = await Promise.all(
-      ASSET_CONFIG.map(async (config) => {
-        const fallbackResult = await fetchMarketQuoteWithFallback(
-          config.symbol,
-          config.region,
-          config.category
+    // Speed knobs (safe defaults): cap concurrency + hard-timeout each quote fetch.
+    const MAX_CONCURRENCY = Number(process.env.MARKET_QUOTE_CONCURRENCY || 6);
+    const PER_QUOTE_TIMEOUT_MS = Number(process.env.MARKET_QUOTE_TIMEOUT_MS || 4500);
+
+    const withTimeout = async <T,>(p: Promise<T>, ms: number): Promise<T> => {
+      return await Promise.race([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms)
+        ),
+      ]);
+    };
+
+    const mapLimit = async <T, R>(items: T[], limit: number, fn: (x: T, i: number) => Promise<R>): Promise<R[]> => {
+      const out: R[] = new Array(items.length);
+      let idx = 0;
+
+      const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+        while (true) {
+          const i = idx++;
+          if (i >= items.length) break;
+          out[i] = await fn(items[i], i);
+        }
+      });
+
+      await Promise.all(workers);
+      return out;
+    };
+
+    const enrichedQuotes = await mapLimit(ASSET_CONFIG, MAX_CONCURRENCY, async (config) => {
+      try {
+        const fallbackResult = await withTimeout(
+          fetchMarketQuoteWithFallback(config.symbol, config.region, config.category),
+          PER_QUOTE_TIMEOUT_MS
         );
-        
+
         return {
           symbol: config.symbol,
           name: config.name,
@@ -113,11 +143,33 @@ export async function GET() {
           region: config.region,
           category: config.category,
           dataType: config.dataType,
-          dataSource: fallbackResult.price !== null ? (fallbackResult.isIndicative ? "indicative" : "LIVE") : "OFF",
+          dataSource:
+            fallbackResult.price !== null
+              ? fallbackResult.isIndicative
+                ? "indicative"
+                : "LIVE"
+              : "OFF",
           isIndicative: fallbackResult.isIndicative,
         };
-      })
-    );
+      } catch (e) {
+        return {
+          symbol: config.symbol,
+          name: config.name,
+          price: 0,
+          change: 0,
+          changePercent: 0,
+          volume: 0,
+          timestamp: new Date().toISOString(),
+          source: `OFF (${(e as Error).message})`,
+          region: config.region,
+          category: config.category,
+          dataType: config.dataType,
+          dataSource: "OFF",
+          isIndicative: true,
+          note: `quote fetch failed: ${(e as Error).message}`,
+        };
+      }
+    });
 
     // CN/HK 宽基指数：优先 Supabase -> Eastmoney fallback
     const akshareQuotes: MarketQuote[] = await Promise.all(
@@ -378,7 +430,8 @@ export async function GET() {
         });
       }
       
-      // CN_CREDIT_SPREAD_5Y - AAA中短票5Y-国债5Y利差 (当前无数据源，返回OFF)
+      // CN_CREDIT_SPREAD_5Y - AAA中短票5Y-国债5Y利差
+      // TODO(next): implement production-grade compute from ChinaMoney (避免 Python + 大 dataframe，提升速度/稳定性)
       cnYieldCurveQuotes.push({
         symbol: "CN_CREDIT_SPREAD_5Y",
         name: "AAA中短票-国债5Y利差",
@@ -387,13 +440,13 @@ export async function GET() {
         changePercent: 0,
         volume: 0,
         timestamp: new Date().toISOString(),
-        source: "OFF (AAA曲线数据源暂不可用)",
+        source: "OFF (pending ChinaMoney-derived compute)",
         region: "CN",
         category: "BOND",
         dataType: "EOD" as const,
         dataSource: "OFF",
         isIndicative: true,
-        note: "AAA中短票5Y收益率数据暂不可获取，无法计算利差",
+        note: "待接入：Chinamoney CYCC82B(AAA) - CYCC000(国债) @5Y",
       });
     } else {
       // Yield curve unavailable - add OFF quotes for watchlist symbols
