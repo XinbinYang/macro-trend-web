@@ -30,6 +30,10 @@
     {
       "path": "/api/cron/daily-regime-snapshot",
       "schedule": "0 16 * * 1-5"
+    },
+    {
+      "path": "/api/cron/monthly-us-liquidity",
+      "schedule": "0 0 1 * *"
     }
   ]
 }

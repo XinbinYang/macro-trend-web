@@ -11,11 +11,11 @@ function supabaseReadClient() {
   return createClient(url, key);
 }
 
-function cronHealth(label: string, date: string | null, updatedAt: string | null) {
+function cronHealth(label: string, date: string | null, updatedAt: string | null, maxAgeDays: number = 7) {
   if (!date) return { label, status: "NO_DATA" as const, date: null, updatedAt: null, ageDays: null };
   const d = new Date(date).getTime();
   const ageDays = Number.isFinite(d) ? Math.round((Date.now() - d) / 86400000) : null;
-  const status = ageDays !== null && ageDays <= 7 ? "OK" : "STALE";
+  const status = ageDays !== null && ageDays <= maxAgeDays ? "OK" : "STALE";
   return { label, status: status as "OK" | "STALE", date: String(date).slice(0, 10), updatedAt, ageDays };
 }
 
@@ -81,6 +81,29 @@ export async function GET() {
     }
 
     crons.push(regimeSnap);
+
+    // 5) Monthly US Liquidity (monthly-us-liquidity cron) — M2 YoY + FCI proxy
+    let liquiditySnap = cronHealth("monthly-us-liquidity (M2+FCI)", null, null, 35);
+    try {
+      const { data: m2Row } = await sb
+        .from("macro_us")
+        .select("date,m2_yoy,m2_updated_at")
+        .not("m2_yoy", "is", null)
+        .order("date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (m2Row) {
+        liquiditySnap = cronHealth(
+          "monthly-us-liquidity (M2+FCI)",
+          (m2Row as { date?: string; m2_updated_at?: string }).date ?? null,
+          (m2Row as { date?: string; m2_updated_at?: string }).m2_updated_at ?? null,
+          35
+        );
+      }
+    } catch (err) {
+      console.warn("[cron-status] M2/FCI check failed:", (err as Error).message);
+    }
+    crons.push(liquiditySnap);
 
     const allOk = crons.every(c => c.status === "OK");
 
