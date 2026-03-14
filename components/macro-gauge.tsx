@@ -243,13 +243,13 @@ export function MacroDashboard() {
     },
     {
       title: "失业率",
-      value: usById ? formatValue(usById["us_unemployment"]?.value ?? null, "%") : "—",
+      value: usById ? formatValue(usById["us_unemployment_rate"]?.value ?? null, "%") : "—",
       unit: "%",
       trend: "neutral",
       level: usStatus === "LIVE" ? "low" : "medium",
       description:
         usStatus === "LIVE"
-          ? `asOf ${usById?.["us_unemployment"]?.asOf || "-"} · ${usById?.["us_unemployment"]?.source || "-"}`
+          ? `asOf ${usById?.["us_unemployment_rate"]?.asOf || "-"} · ${usById?.["us_unemployment_rate"]?.source || "-"}`
           : "数据源未连接或处理中",
       icon: Gauge,
     },

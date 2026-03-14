@@ -8,7 +8,7 @@
       "indicators": {
         "us": {
           "main": "us_ism_services_pmi",
-          "aux": ["us_ism_manufacturing_pmi"],
+          "aux": ["us_ism_manufacturing_pmi", "us_unemployment_rate"],
           "thresholds": {
             "strong": 52,
             "weak": 48,
@@ -119,6 +119,16 @@
       "cadence": "monthly",
       "quality_tag": "Truth",
       "notes": "Manufacturing sector expansion/contraction indicator"
+    },
+    "us_unemployment_rate": {
+      "id": "us_unemployment_rate",
+      "name": "US Unemployment Rate",
+      "name_cn": "美国失业率",
+      "unit": "%",
+      "source": "FRED",
+      "cadence": "monthly",
+      "quality_tag": "Truth",
+      "notes": "Civilian unemployment rate (UNRATE)"
     },
     "cn_pmi_mfg": {
       "id": "cn_pmi_mfg",

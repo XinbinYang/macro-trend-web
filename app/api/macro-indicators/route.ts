@@ -61,6 +61,7 @@ function mapIndicatorToFetchParams(indicatorId: string): { table: "macro_us" | "
     "cn_ppi_yoy": { table: "macro_cn", field: "ppi_yoy", region: "CN" },
     "us_sofr": { table: "macro_us", field: "sofr", region: "US" },
     "us_fed_funds_rate": { table: "macro_us", field: "fed_funds_rate", region: "US" },
+    "us_unemployment_rate": { table: "macro_us", field: "unemployment_rate", region: "US" },
     "cn_lpr_1y": { table: "macro_cn", field: "lpr_1y", region: "CN" },
     "cn_mlf_rate": { table: "macro_cn", field: "mlf_rate", region: "CN" },
     "cn_slf_rate": { table: "macro_cn", field: "slf_rate", region: "CN" },
