@@ -1,4 +1,12 @@
 # CURRENT_FOCUS (Do not let agents drift)
+## ✅ 2026-03-14 20:54 HKT 检查点
+- Phase 1 灭漂移 + 不断粮：✅ 完成（OFF=0, 3 cron 全绿）
+- Phase 2 宏观四维度可解释：✅ 上线（summary/evidence/confidence/trendLabel）
+- Phase 2 首页 Decision Brief：✅ 上线（Regime状态栏 + 六大风险单元 + 异常提醒）
+- 全站性能优化：✅ 缓存命中 <220ms（提速 16-25x）
+- 模型配置：✅ Claude-Sonnet-4.6 已加入
+
+
 
 ## ✅ 已完成（2026-03-14 18:48 HKT）
 - **US B1 闭环**：Supabase 002 迁移已执行 → `/api/cron/daily-us-policy` 写入成功（sofr=3.65, core_pce_yoy=3.0557） → `/api/macro-state` 线上验收通过（policy/inflation 主指标恢复显示，source=Supabase，stale=false）。
