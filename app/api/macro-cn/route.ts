@@ -29,6 +29,8 @@ interface MacroCNRow {
   unemployment: string | null;
   lpr_1y: string | null;
   lpr_5y: string | null;
+  // new field
+  social_financing_flow?: number | null;
   source: string | null;
 }
 
@@ -64,8 +66,9 @@ function buildCnPayload(data: MacroCNRow | null): CnPayload {
   if (data.lpr_1y !== null) series.lpr_1y = { value: parseFloat(data.lpr_1y), asOf, source: src, unit: "%" };
   if (data.lpr_5y !== null) series.lpr_5y = { value: parseFloat(data.lpr_5y), asOf, source: src, unit: "%" };
 
-  // Add placeholder fields that frontend expects but don't exist in Supabase
-  series.social_financing = { value: null, asOf, source: "Supabase", unit: "万亿" };
+  // Social financing (flow) - unit is typically 100mn RMB in common releases; keep as raw number + label.
+  const sf = (data as unknown as { social_financing_flow?: number | null }).social_financing_flow ?? null;
+  series.social_financing = { value: sf, asOf, source: sf === null ? "Supabase" : src, unit: "亿元" };
 
   return {
     region: "CN",
