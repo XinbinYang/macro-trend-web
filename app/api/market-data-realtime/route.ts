@@ -19,7 +19,10 @@ const FX_PAIRS: Record<string, string> = {
 };
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
+
+// In-memory cache (per serverless instance)
+const CACHE_TTL_MS = 55_000; // 55 seconds
+let _cacheStore: { data: unknown; ts: number } | null = null;
 
 // CN rates symbols that represent yield curve points
 const CN_RATES_SYMBOLS = ["CN2Y", "CN5Y", "CN10Y", "CN_CREDIT_SPREAD_5Y"];
@@ -99,7 +102,22 @@ const AKSHARE_EOD_DATA: Array<{ symbol: string; name: string; region: "CN" | "HK
   { symbol: "HSI", name: "恒生指数", region: "HK", source: "indicative" },
 ];
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Check for no_cache query parameter
+  const { searchParams } = new URL(request.url);
+  const noCache = searchParams.get("no_cache") === "1";
+
+  // In-memory cache check
+  if (_cacheStore && Date.now() - _cacheStore.ts < CACHE_TTL_MS && !noCache) {
+    return NextResponse.json(_cacheStore.data, {
+      status: 200,
+      headers: {
+        "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
+        "X-Cache": "HIT"
+      },
+    });
+  }
+
   try {
     // Build asset config from watchlist config
     const ASSET_CONFIG = buildAssetConfigFromWatchlist();
@@ -589,46 +607,57 @@ export async function GET() {
       return acc;
     }, {} as Record<string, number>);
 
-    return NextResponse.json(
-      {
-        success: true,
-        sources,
-        dataTypes,
-        timestamp: new Date().toISOString(),
-        data: {
-          // canonical keys
-          us: usAssets,
-          cn: cnAssets,
-          hk: hkAssets,
-          global: globalAssets,
-          // backward-compatible aliases
-          china: cnAssets,
-          hongkong: hkAssets,
-        },
-        bond: {
-          china: {
-            futures: bondFutureQuotes,
-            yieldCurve: cnBondData.yieldCurve
-              ? Object.entries(cnBondData.yieldCurve.maturities).map(([maturity, yield_]) => ({
-                  maturity,
-                  yield: yield_ as number,
-                  change: 0,
-                }))
-              : [],
-            source: cnBondData.source,
-            status: cnBondData.status,
-          },
-        },
-        configSource: "config/watchlist_default.json",
-        disclaimer: {
-          indicative: "Real-time/展示层数据仅供参考(Indicative)，不用于回测真值与策略净值。",
-          truth: "策略回测/净值/信号必须来自 Master + 官方结算镜像(Spot/Settle 双轨)。",
+    // Prepare response data
+    const responseData = {
+      success: true,
+      sources,
+      dataTypes,
+      timestamp: new Date().toISOString(),
+      data: {
+        // canonical keys
+        us: usAssets,
+        cn: cnAssets,
+        hk: hkAssets,
+        global: globalAssets,
+        // backward-compatible aliases
+        china: cnAssets,
+        hongkong: hkAssets,
+      },
+      bond: {
+        china: {
+          futures: bondFutureQuotes,
+          yieldCurve: cnBondData.yieldCurve
+            ? Object.entries(cnBondData.yieldCurve.maturities).map(([maturity, yield_]) => ({
+                maturity,
+                yield: yield_ as number,
+                change: 0,
+              }))
+            : [],
+          source: cnBondData.source,
+          status: cnBondData.status,
         },
       },
+      configSource: "config/watchlist_default.json",
+      disclaimer: {
+        indicative: "Real-time/展示层数据仅供参考(Indicative)，不用于回测真值与策略净值。",
+        truth: "策略回测/净值/信号必须来自 Master + 官方结算镜像(Spot/Settle 双轨)。",
+      },
+    };
+
+    // Update in-memory cache before returning
+    _cacheStore = { data: responseData, ts: Date.now() };
+
+    // Determine Cache-Control based on no_cache parameter
+    const cacheControl = noCache 
+      ? "no-store" 
+      : "public, s-maxage=60, stale-while-revalidate=300";
+
+    return NextResponse.json(
+      responseData,
       {
         status: 200,
         headers: {
-          "Cache-Control": "no-store",
+          "Cache-Control": cacheControl,
         },
       }
     );

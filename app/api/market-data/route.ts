@@ -75,17 +75,18 @@ const ASSET_CONFIG: AssetConfigItem[] = [
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const type = searchParams.get("type") || "snapshot";
+  const noCache = searchParams.get("no_cache") === "1";
 
   try {
     switch (type) {
       case "snapshot":
-        return await getMarketSnapshot();
+        return await getMarketSnapshot(noCache);
       case "a-share":
-        return await getAShareData();
+        return await getAShareData(noCache);
       case "macro":
-        return await getMacroData();
+        return await getMacroData(noCache);
       case "all":
-        return await getAllData();
+        return await getAllData(noCache);
       default:
         return NextResponse.json({ error: "Unknown type" }, { status: 400 });
     }
@@ -98,8 +99,7 @@ export async function GET(request: Request) {
   }
 }
 
-async function getMarketSnapshot() {
-  // Use unified fallback chain for all assets
+async function getMarketSnapshot(noCache: boolean = false) {
   const quotes = await fetchAllQuotesWithFallback();
   
   // Categorize by region
@@ -111,6 +111,10 @@ async function getMarketSnapshot() {
   // Count sources
   const supabaseCount = quotes.filter(q => !q.isIndicative).length;
   const fallbackCount = quotes.filter(q => q.isIndicative && q.price !== null).length;
+  
+  const cacheControl = noCache 
+    ? "no-store" 
+    : "public, s-maxage=60, stale-while-revalidate=300";
   
   return NextResponse.json({
     timestamp: new Date().toISOString(),
@@ -128,22 +132,26 @@ async function getMarketSnapshot() {
       indicative: "Fallback data (FRED/Yahoo/Eastmoney) is indicative only, not for backtesting",
       truth: "Strategy backtest must use Master + official settlement data",
     },
-  });
+  }, { headers: { "Cache-Control": cacheControl } });
 }
 
-async function getAShareData() {
+async function getAShareData(noCache: boolean = false) {
   // First try Supabase via fallback
   const quotes = await fetchAllQuotesWithFallback();
   const cnAssets = quotes.filter(q => q.region === "CN");
   
   const hasSupabaseData = cnAssets.some(q => !q.isIndicative);
   
+  const cacheControl = noCache 
+    ? "no-store" 
+    : "public, s-maxage=60, stale-while-revalidate=300";
+  
   if (hasSupabaseData) {
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       source: "supabase",
       data: cnAssets,
-    });
+    }, { headers: { "Cache-Control": cacheControl } });
   }
   
   // Fallback to Eastmoney
@@ -152,10 +160,10 @@ async function getAShareData() {
     timestamp: new Date().toISOString(),
     source: data.length > 0 && data[0].price !== 3.856 ? "eastmoney" : "mock",
     data,
-  });
+  }, { headers: { "Cache-Control": cacheControl } });
 }
 
-async function getMacroData() {
+async function getMacroData(noCache: boolean = false) {
   // Fetch key macro indicators via fallback chain
   const [
     fedFunds,
@@ -173,6 +181,10 @@ async function getMacroData() {
 
   const isRealData = fedFunds.length > 0 && fedFunds[0].value !== 4.5;
 
+  const cacheControl = noCache 
+    ? "no-store" 
+    : "public, s-maxage=60, stale-while-revalidate=300";
+
   return NextResponse.json({
     timestamp: new Date().toISOString(),
     source: isRealData ? "fred" : "mock",
@@ -183,13 +195,13 @@ async function getMacroData() {
       unemployment: unemployment[0],
     },
     summary: fredSummary,
-  });
+  }, { headers: { "Cache-Control": cacheControl } });
 }
 
-async function getAllData() {
+async function getAllData(noCache: boolean = false) {
   const [snapshot, macro] = await Promise.all([
-    getMarketSnapshot(),
-    getMacroData(),
+    getMarketSnapshot(noCache),
+    getMacroData(noCache),
   ]);
 
   const snapshotData = await snapshot.json();

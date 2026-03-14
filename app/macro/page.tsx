@@ -223,6 +223,7 @@ export default function MacroPage() {
       cn: { value: number | null; state: string; summary: string; evidence: string[]; confidence: number; trendLabel: string };
     }>;
   } | null>(null);
+  const [macroStateLoading, setMacroStateLoading] = useState(true);
   const [history, setHistory] = useState<RegimeHistoryItem[]>([]);
   const [monitorItems, setMonitorItems] = useState<MonitorItem[]>([]);
   const [cnBondData, setCnBondData] = useState<CnBondData | null>(null);
@@ -285,10 +286,13 @@ export default function MacroPage() {
 
       // Phase 2: Fetch macro-state for explainable dimensions
       try {
+        setMacroStateLoading(true);
         const msRes = await safeFetchJSON<typeof macroState>("/api/macro-state?no_cache=1");
         if (msRes?.success && msRes?.dimensions) setMacroState(msRes);
       } catch (e) {
         console.warn("[MacroPage] Failed to fetch macro-state:", e);
+      } finally {
+        setMacroStateLoading(false);
       }
 
       try {
@@ -671,23 +675,38 @@ export default function MacroPage() {
         <TabsContent value="overview" className="space-y-6 mt-6">
           {/* Four Dimension Cards - Phase 2 Enhanced */}
           <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-4">
-            {/* Phase 2: Map dimension keys to index */}
-            {(() => {
-              const dimMap: Record<string, number> = { growth: 0, inflation: 1, policy: 2, liquidity: 3 };
-              const items = [
-                { title: "增长 Growth", dimKey: "growth", usLabel: "ISM", cnLabel: "PMI", icon: TrendingUp },
-                { title: "通胀 Inflation", dimKey: "inflation", usLabel: "Core PCE", cnLabel: "CPI", icon: Activity },
-                { title: "政策 Policy", dimKey: "policy", usLabel: "SOFR", cnLabel: "LPR", icon: Target },
-                { title: "流动性 Liquidity", dimKey: "liquidity", usLabel: "10Y", cnLabel: "M2", icon: Globe },
-              ];
-              
-              return items.map((item) => {
-                const dimIdx = dimMap[item.dimKey];
-                const dimData = macroState?.dimensions?.[dimIdx];
-                const usData = dimData?.us;
-                const cnData = dimData?.cn;
-                
-                return (
+            {macroStateLoading ? (
+              <>
+                {[1, 2, 3, 4].map((i) => (
+                  <Card key={i} className="bg-slate-900/50 border-slate-800">
+                    <CardHeader className="pb-2">
+                      <Skeleton className="h-4 w-24" />
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <Skeleton className="h-20 w-full" />
+                      <Skeleton className="h-20 w-full" />
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            ) : (
+              <>
+                {(() => {
+                  const dimMap: Record<string, number> = { growth: 0, inflation: 1, policy: 2, liquidity: 3 };
+                  const items = [
+                    { title: "增长 Growth", dimKey: "growth", usLabel: "ISM", cnLabel: "PMI", icon: TrendingUp },
+                    { title: "通胀 Inflation", dimKey: "inflation", usLabel: "Core PCE", cnLabel: "CPI", icon: Activity },
+                    { title: "政策 Policy", dimKey: "policy", usLabel: "SOFR", cnLabel: "LPR", icon: Target },
+                    { title: "流动性 Liquidity", dimKey: "liquidity", usLabel: "10Y", cnLabel: "M2", icon: Globe },
+                  ];
+                  
+                  return items.map((item) => {
+                    const dimIdx = dimMap[item.dimKey];
+                    const dimData = macroState?.dimensions?.[dimIdx];
+                    const usData = dimData?.us;
+                    const cnData = dimData?.cn;
+                    
+                    return (
                   <Card key={item.title} className="bg-slate-900/50 border-slate-800 hover:border-slate-700 transition-colors">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm text-slate-100 flex items-center gap-2">
@@ -798,6 +817,8 @@ export default function MacroPage() {
                 );
               });
             })()}
+              </>
+            )}
           </div>
 
           {/* Quick Navigation Cards */}

@@ -9,7 +9,6 @@ import {
 } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 type Unit = "%" | "idx" | "level";
 type Dim = "growth" | "inflation" | "policy" | "liquidity";
@@ -421,7 +420,11 @@ function buildDimOutput(dim: Dim, config: DimensionConfig, usData: { value: numb
   };
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  // Check for no_cache query parameter
+  const { searchParams } = new URL(request.url);
+  const noCache = searchParams.get("no_cache") === "1";
+
   const updatedAt = new Date().toISOString();
 
   // Get dimension configs
@@ -549,5 +552,10 @@ export async function GET() {
     },
   };
 
-  return NextResponse.json(res, { status: 200, headers: { "Cache-Control": "no-store" } });
+  // Determine Cache-Control based on no_cache parameter
+  const cacheControl = noCache 
+    ? "no-store" 
+    : "public, s-maxage=120, stale-while-revalidate=600";
+
+  return NextResponse.json(res, { status: 200, headers: { "Cache-Control": cacheControl } });
 }
