@@ -23,6 +23,7 @@ import {
 } from "recharts";
 import { fetchMacroIndicatorsAbs, indexById } from "@/lib/adapters/macroIndicators";
 import { fetchCnMacroSnapshot, type CnMacroSnapshot } from "@/lib/api/macro-cn";
+import { EventResponsePanel } from "@/components/EventResponsePanel";
 
 // Types
 interface AssetPreference {
@@ -1484,6 +1485,11 @@ export default function MacroPage() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* 四维度事件响应面板 */}
+      <div className="mt-8">
+        <EventResponsePanel />
+      </div>
     </div>
   );
 }
