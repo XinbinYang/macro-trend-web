@@ -61,22 +61,41 @@ for (const r of rows) {
   }
 }
 
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// Fetch existing macro_cn rows for these month-end dates, then merge to avoid wiping other CN macro fields.
+const monthEnds = Array.from(byYm.keys()).map((ym) => `${monthEnd(ym)}T00:00:00+00:00`);
+const existingByDate = new Map();
+for (let i = 0; i < monthEnds.length; i += 200) {
+  const slice = monthEnds.slice(i, i + 200);
+  const { data, error } = await supabase.from("macro_cn").select("*").in("date", slice);
+  if (error) throw new Error(error.message);
+  for (const r of data || []) {
+    existingByDate.set(String(r.date), r);
+  }
+}
+
+const nowIso = new Date().toISOString();
 const payload = Array.from(byYm.entries())
   .sort((a, b) => (a[0] < b[0] ? -1 : 1))
   .map(([ym, v]) => {
     const d = monthEnd(ym);
+    const dateIso = `${d}T00:00:00+00:00`;
+    const ex = existingByDate.get(dateIso) || {};
+
     return {
-      date: `${d}T00:00:00+00:00`,
+      ...ex,
+      date: dateIso,
+      // only overwrite LPR fields
       lpr_1y: v.lpr_1y,
       lpr_5y: v.lpr_5y,
-      source: "master_wind_manual",
-      updated_at: new Date().toISOString(),
+      // keep previous source if it was a higher-priority upstream; otherwise mark as this master import
+      source: ex.source || "master_wind_manual",
+      updated_at: nowIso,
     };
   });
 
-console.log(`[LPR] parsed rows=${rows.length}, months=${payload.length}`);
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+console.log(`[LPR] parsed rows=${rows.length}, months=${payload.length} (merge existing macro_cn)`);
 
 // upsert in batches
 const BATCH = 500;
