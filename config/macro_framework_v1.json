@@ -31,8 +31,8 @@
       "emoji": "🔥",
       "indicators": {
         "us": {
-          "main": "us_core_cpi_yoy",
-          "aux": ["us_cpi_yoy"],
+          "main": "us_core_pce_yoy",
+          "aux": ["us_cpi_yoy", "us_core_cpi_yoy"],
           "thresholds": {
             "strong": 2.5,
             "weak": 4.0,
@@ -55,11 +55,11 @@
       "emoji": "🏛️",
       "indicators": {
         "us": {
-          "main": "us_fed_funds_rate",
-          "aux": [],
+          "main": "us_sofr",
+          "aux": ["us_fed_funds_rate"],
           "thresholds": {
             "strong": 3.0,
-            "weak": 5.0,
+            "weak": 5.5,
             "higherIsBetter": false
           }
         },
@@ -155,10 +155,10 @@
       "name": "US Core PCE YoY",
       "name_cn": "美国核心PCE同比",
       "unit": "%",
-      "source": "PENDING_SCHEMA",
+      "source": "FRED",
       "cadence": "monthly",
       "quality_tag": "Indicative",
-      "notes": "(P0止血) macro_us 暂无 core_pce_yoy 列；待补齐入库链路后启用"
+      "notes": "Fed's preferred inflation metric (computed from PCEPILFE index)"
     },
     "us_cpi_yoy": {
       "id": "us_cpi_yoy",
@@ -205,10 +205,10 @@
       "name": "US SOFR",
       "name_cn": "美国担保隔夜融资利率",
       "unit": "%",
-      "source": "PENDING_SCHEMA",
+      "source": "FRED",
       "cadence": "daily",
       "quality_tag": "Indicative",
-      "notes": "(P0止血) macro_us 暂无 sofr 列；待补齐入库链路后启用"
+      "notes": "Secured Overnight Financing Rate (Fed's preferred repo rate)"
     },
     "us_fed_funds_rate": {
       "id": "us_fed_funds_rate",
