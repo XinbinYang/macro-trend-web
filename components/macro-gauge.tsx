@@ -75,6 +75,9 @@ export function MacroDashboard() {
   const [cnFreshness, setCnFreshness] = useState<"LIVE" | "STALE" | null>(null);
   const [cnStatus, setCnStatus] = useState<"LOADING" | "LIVE" | "OFF" | "ERROR">("LOADING");
 
+  // Supabase-backed CN indicators via /api/macro-indicators (preferred)
+  const [cnById, setCnById] = useState<Record<string, { value: number | null; asOf: string | null; source: string }> | null>(null);
+
   useEffect(() => {
     const fetchUs = async () => {
       try {
@@ -97,18 +100,35 @@ export function MacroDashboard() {
     const fetchCn = async () => {
       try {
         setCnStatus("LOADING");
+        const origin = window.location.origin;
+        const res = await fetchMacroIndicatorsAbs(origin);
+        if (res) {
+          const by = indexById(res.indicators) as Record<string, { value: number | null; asOf: string | null; source: string }>;
+          setCnById(by);
+          setCnFreshness(null);
+          setCnStatus("LIVE");
+          // also keep legacy snapshot for fields not yet in macro-indicators
+          const snap = await fetchCnMacroSnapshot();
+          if (snap?.data) setCn(snap.data);
+          return;
+        }
+
+        // fallback to legacy /api/macro-cn
         const snap = await fetchCnMacroSnapshot();
         if (!snap || !snap.data) {
           setCn(null);
+          setCnById(null);
           setCnFreshness(null);
           setCnStatus("OFF");
           return;
         }
         setCn(snap.data);
+        setCnById(null);
         setCnFreshness(snap.freshness || null);
         setCnStatus(snap.data.status === "LIVE" ? "LIVE" : "OFF");
       } catch {
         setCn(null);
+        setCnById(null);
         setCnStatus("ERROR");
       }
     };
@@ -130,25 +150,25 @@ export function MacroDashboard() {
   const cnIndicators: IndicatorProps[] = [
     {
       title: "制造业PMI",
-      value: fmt(cn?.series.pmi_mfg?.value, "idx"),
+      value: cnById ? formatValue(cnById["cn_pmi_mfg"]?.value ?? null, "idx") : fmt(cn?.series.pmi_mfg?.value, "idx"),
       unit: "",
       trend: "neutral",
       level: cnStatus === "LIVE" ? "low" : "medium",
       description:
         cnStatus === "LIVE"
-          ? `asOf ${cn?.series.pmi_mfg?.asOf || "-"} · ${cn?.series.pmi_mfg?.source || "-"}${cnFreshness === "STALE" ? " · STALE" : ""}`
+          ? `asOf ${(cnById?.["cn_pmi_mfg"]?.asOf || cn?.series.pmi_mfg?.asOf || "-")} · ${(cnById?.["cn_pmi_mfg"]?.source || cn?.series.pmi_mfg?.source || "-")}${cnFreshness === "STALE" ? " · STALE" : ""}`
           : "数据源未连接或处理中",
       icon: TrendingUp,
     },
     {
       title: "CPI同比",
-      value: fmt(cn?.series.cpi_yoy?.value, "%"),
+      value: cnById ? formatValue(cnById["cn_cpi_yoy"]?.value ?? null, "%") : fmt(cn?.series.cpi_yoy?.value, "%"),
       unit: "%",
       trend: "neutral",
       level: cnStatus === "LIVE" ? "low" : "medium",
       description:
         cnStatus === "LIVE"
-          ? `asOf ${cn?.series.cpi_yoy?.asOf || "-"} · ${cn?.series.cpi_yoy?.source || "-"}${cnFreshness === "STALE" ? " · STALE" : ""}`
+          ? `asOf ${(cnById?.["cn_cpi_yoy"]?.asOf || cn?.series.cpi_yoy?.asOf || "-")} · ${(cnById?.["cn_cpi_yoy"]?.source || cn?.series.cpi_yoy?.source || "-")}${cnFreshness === "STALE" ? " · STALE" : ""}`
           : "数据源未连接或处理中",
       icon: Activity,
     },
@@ -163,13 +183,13 @@ export function MacroDashboard() {
     },
     {
       title: "LPR利率(1Y)",
-      value: fmt(cn?.series.lpr_1y?.value, "%"),
+      value: cnById ? formatValue(cnById["cn_lpr_1y"]?.value ?? null, "%") : fmt(cn?.series.lpr_1y?.value, "%"),
       unit: "%",
       trend: "neutral",
       level: cnStatus === "LIVE" ? "low" : "medium",
       description:
         cnStatus === "LIVE"
-          ? `asOf ${cn?.series.lpr_1y?.asOf || "-"} · ${cn?.series.lpr_1y?.source || "-"}${cnFreshness === "STALE" ? " · STALE" : ""}`
+          ? `asOf ${(cnById?.["cn_lpr_1y"]?.asOf || cn?.series.lpr_1y?.asOf || "-")} · ${(cnById?.["cn_lpr_1y"]?.source || cn?.series.lpr_1y?.source || "-")}${cnFreshness === "STALE" ? " · STALE" : ""}`
           : "数据源未连接或处理中",
       icon: DollarSign,
     },
