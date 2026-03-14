@@ -11,7 +11,7 @@ import { NextResponse } from "next/server";
 import { fetchAShareWithFallback } from "@/lib/api/eastmoney-api";
 import { fetchFredWithFallback, FRED_SERIES, buildFredMacroSummary } from "@/lib/api/fred-api";
 import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
-import { SYMBOLS, SYMBOL_DISPLAY_NAMES } from "@/lib/config/data-dictionary";
+
 
 // Asset config - maps frontend symbols to Supabase tickers
 // NOTE: ticker field matches Supabase DB column (assets_equity.ticker / assets_fx.pair)
@@ -33,35 +33,36 @@ const ASSET_CONFIG: AssetConfigItem[] = [
   // VIX/RUT currently not in Supabase truth table; will fallback indicative
   { symbol: "VIX", ticker: "^VIX", name: "VIX恐慌指数", region: "US", category: "EQUITY" },
   { symbol: "RUT", ticker: "^RUT", name: "罗素2000", region: "US", category: "EQUITY" },
-  
-  // CN Equities
-  { symbol: SYMBOLS.CN_HS300, ticker: "000300.SH", name: SYMBOL_DISPLAY_NAMES["000300.SH"], region: "CN", category: "EQUITY" },
-  { symbol: SYMBOLS.CN_500, ticker: "000905.SH", name: SYMBOL_DISPLAY_NAMES["000905.SH"], region: "CN", category: "EQUITY" },
+
+  // CN Equities (Supabase truth keys where available)
+  { symbol: "HS300", ticker: "HS300", name: "沪深300", region: "CN", category: "EQUITY" },
+  { symbol: "ZZ500", ticker: "ZZ500", name: "中证500", region: "CN", category: "EQUITY" },
   { symbol: "000016.SH", ticker: "000016.SH", name: "上证50", region: "CN", category: "EQUITY" },
-  { symbol: SYMBOLS.CN_CY500, ticker: "399006.SZ", name: SYMBOL_DISPLAY_NAMES["399006.SZ"], region: "CN", category: "EQUITY" },
-  { symbol: SYMBOLS.CN_KC50, ticker: "000688.SH", name: SYMBOL_DISPLAY_NAMES["000688.SH"], region: "CN", category: "EQUITY" },
-  
-  // HK Equities
-  { symbol: SYMBOLS.HK_HSI, ticker: "HSI", name: SYMBOL_DISPLAY_NAMES["HSI"], region: "HK", category: "EQUITY" },
-  
+  { symbol: "399006.SZ", ticker: "399006.SZ", name: "创业板指", region: "CN", category: "EQUITY" },
+  { symbol: "000688.SH", ticker: "000688.SH", name: "科创50", region: "CN", category: "EQUITY" },
+
+  // HK Equities (Supabase truth keys where available)
+  { symbol: "HSI", ticker: "HSI", name: "恒生指数", region: "HK", category: "EQUITY" },
+  { symbol: "^HSTECH", ticker: "HSTECH", name: "恒生科技指数", region: "HK", category: "EQUITY" },
+
   // Commodities
-  { symbol: SYMBOLS.COM_GOLD, ticker: "GC=F", name: SYMBOL_DISPLAY_NAMES["GC=F"], region: "GLOBAL", category: "COMMODITY" },
-  { symbol: SYMBOLS.COM_OIL, ticker: "CL=F", name: SYMBOL_DISPLAY_NAMES["CL=F"], region: "GLOBAL", category: "COMMODITY" },
-  { symbol: SYMBOLS.COM_DJP, ticker: "DJP", name: SYMBOL_DISPLAY_NAMES["DJP"], region: "GLOBAL", category: "COMMODITY" },
+  { symbol: "GC=F", ticker: "GC=F", name: "黄金期货", region: "GLOBAL", category: "COMMODITY" },
+  { symbol: "CL=F", ticker: "CL=F", name: "WTI原油", region: "GLOBAL", category: "COMMODITY" },
+  { symbol: "DJP", ticker: "DJP", name: "商品指数", region: "GLOBAL", category: "COMMODITY" },
   { symbol: "GLD", ticker: "GLD", name: "黄金ETF", region: "GLOBAL", category: "COMMODITY" },
-  
-  // Bonds (from FRED - yields in %, not futures prices)
+
+  // Bonds (yields from FRED)
   // NOTE: US2Y/US5Y/US10Y/US30Y are yields from FRED, NOT futures prices
-  { symbol: SYMBOLS.US_10Y, ticker: "US10Y", name: SYMBOL_DISPLAY_NAMES["US10Y"], region: "US", category: "BOND" },
-  { symbol: SYMBOLS.US_2Y, ticker: "US2Y", name: SYMBOL_DISPLAY_NAMES["US2Y"], region: "US", category: "BOND" },
-  { symbol: SYMBOLS.US_5Y, ticker: "US5Y", name: SYMBOL_DISPLAY_NAMES["US5Y"], region: "US", category: "BOND" },
-  { symbol: SYMBOLS.US_30Y, ticker: "US30Y", name: SYMBOL_DISPLAY_NAMES["US30Y"], region: "US", category: "BOND" },
-  
-  // FX - CRITICAL: DXY uses DX=F as canonical symbol, FX table uses "pair" column
-  // Supabase assets_fx.pair column stores "USDX.FX" format (not "DX=F")
-  { symbol: SYMBOLS.FX_DXY, ticker: "DX=F", name: SYMBOL_DISPLAY_NAMES["DX=F"], region: "GLOBAL", category: "FX", pair: "USDX.FX" },
-  { symbol: "EURUSD", ticker: "EURUSD", name: "欧元/美元", region: "GLOBAL", category: "FX", pair: "EURUSD.FX" },
-  { symbol: "USDJPY", ticker: "USDJPY", name: "美元/日元", region: "GLOBAL", category: "FX", pair: "USDJPY.FX" },
+  { symbol: "US10Y", ticker: "US10Y", name: "美债10Y收益率", region: "US", category: "BOND" },
+  { symbol: "US2Y", ticker: "US2Y", name: "美债2Y收益率", region: "US", category: "BOND" },
+  { symbol: "US5Y", ticker: "US5Y", name: "美债5Y收益率", region: "US", category: "BOND" },
+  { symbol: "US30Y", ticker: "US30Y", name: "美债30Y收益率", region: "US", category: "BOND" },
+
+  // FX
+  // Supabase assets_fx.pair uses "*.FX"; vendor symbols use Yahoo "...=X" where applicable.
+  { symbol: "DXY", ticker: "DX=F", name: "美元指数DXY", region: "GLOBAL", category: "FX", pair: "USDX.FX" },
+  { symbol: "EURUSD", ticker: "EURUSD=X", name: "欧元/美元", region: "GLOBAL", category: "FX", pair: "EURUSD.FX" },
+  { symbol: "USDJPY", ticker: "JPY=X", name: "美元/日元", region: "GLOBAL", category: "FX", pair: "USDJPY.FX" },
 ];
 
 export async function GET(request: Request) {
