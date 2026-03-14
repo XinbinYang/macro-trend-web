@@ -31,8 +31,8 @@
       "emoji": "🔥",
       "indicators": {
         "us": {
-          "main": "us_core_pce_yoy",
-          "aux": ["us_cpi_yoy", "us_core_cpi_yoy"],
+          "main": "us_core_cpi_yoy",
+          "aux": ["us_cpi_yoy"],
           "thresholds": {
             "strong": 2.5,
             "weak": 4.0,
@@ -55,8 +55,8 @@
       "emoji": "🏛️",
       "indicators": {
         "us": {
-          "main": "us_sofr",
-          "aux": ["us_fed_funds_rate"],
+          "main": "us_fed_funds_rate",
+          "aux": [],
           "thresholds": {
             "strong": 3.0,
             "weak": 5.0,
@@ -80,7 +80,7 @@
       "indicators": {
         "us": {
           "main": "us_10y_yield",
-          "aux": ["us_2y_yield", "us_m2_yoy", "us_fci"],
+          "aux": ["us_2y_yield"],
           "thresholds": {
             "strong": 4.0,
             "weak": 4.7,
@@ -155,10 +155,10 @@
       "name": "US Core PCE YoY",
       "name_cn": "美国核心PCE同比",
       "unit": "%",
-      "source": "BEA",
+      "source": "PENDING_SCHEMA",
       "cadence": "monthly",
-      "quality_tag": "Truth",
-      "notes": "Fed's preferred inflation metric"
+      "quality_tag": "Indicative",
+      "notes": "(P0止血) macro_us 暂无 core_pce_yoy 列；待补齐入库链路后启用"
     },
     "us_cpi_yoy": {
       "id": "us_cpi_yoy",
@@ -205,10 +205,10 @@
       "name": "US SOFR",
       "name_cn": "美国担保隔夜融资利率",
       "unit": "%",
-      "source": "NYFED",
+      "source": "PENDING_SCHEMA",
       "cadence": "daily",
-      "quality_tag": "Truth",
-      "notes": "Secured Overnight Financing Rate - Fed's preferred benchmark"
+      "quality_tag": "Indicative",
+      "notes": "(P0止血) macro_us 暂无 sofr 列；待补齐入库链路后启用"
     },
     "us_fed_funds_rate": {
       "id": "us_fed_funds_rate",
@@ -275,20 +275,20 @@
       "name": "US M2 YoY",
       "name_cn": "美国M2同比",
       "unit": "%",
-      "source": "FED",
+      "source": "PENDING_SCHEMA",
       "cadence": "weekly",
-      "quality_tag": "Truth",
-      "notes": "M2 money supply year-over-year"
+      "quality_tag": "Indicative",
+      "notes": "(P0止血) macro_us 暂无 m2_yoy 列；待补齐入库链路后启用"
     },
     "us_fci": {
       "id": "us_fci",
       "name": "US Financial Conditions Index",
       "name_cn": "美国金融条件指数",
       "unit": "idx",
-      "source": "FED",
+      "source": "PENDING_SCHEMA",
       "cadence": "weekly",
-      "quality_tag": "Truth",
-      "notes": "Fed Financial Conditions Index - broader than just rates"
+      "quality_tag": "Indicative",
+      "notes": "(P0止血) macro_us 暂无 fci 列；待补齐入库链路后启用"
     },
     "cn_m2_yoy": {
       "id": "cn_m2_yoy",
