@@ -26,6 +26,10 @@
     {
       "path": "/api/cron/daily-us-policy",
       "schedule": "0 10 * * 1-5"
+    },
+    {
+      "path": "/api/cron/daily-regime-snapshot",
+      "schedule": "0 16 * * 1-5"
     }
   ]
 }

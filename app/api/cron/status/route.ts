@@ -59,6 +59,29 @@ export async function GET() {
       cronHealth("daily-cn-rates (CN Curve+Spread)", cn?.date ?? null, cn?.rates_updated_at ?? null),
     ];
 
+    // 4) Regime Snapshot (daily-regime-snapshot cron)
+    let regimeSnap = cronHealth("Regime Snapshot", null, null);
+    try {
+      const { data: regimeRow } = await sb
+        .from("macro_regime_snapshots")
+        .select("snapshot_date,regime,confidence,created_at")
+        .order("snapshot_date", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (regimeRow) {
+        regimeSnap = cronHealth(
+          "Regime Snapshot",
+          regimeRow.snapshot_date,
+          regimeRow.created_at
+        );
+      }
+    } catch (err) {
+      // 表不存在时优雅降级
+      console.warn("[cron-status] Regime Snapshot check failed:", (err as Error).message);
+    }
+
+    crons.push(regimeSnap);
+
     const allOk = crons.every(c => c.status === "OK");
 
     return NextResponse.json(
