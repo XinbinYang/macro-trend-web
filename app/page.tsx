@@ -144,13 +144,21 @@ export default function DashboardPage() {
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      // Parallel fetch for dashboard and market data
-      const [dashboardRes, realtimeRes] = await Promise.all([
+      // Parallel fetch for dashboard, market data, and macro-state (with summary/trendLabel)
+      const [dashboardRes, realtimeRes, macroStateRes] = await Promise.all([
         fetch("/api/dashboard", { cache: "no-store" }),
         fetch("/api/market-data-realtime", { cache: "no-store" }),
+        fetch("/api/macro-state", { cache: "no-store" }),
       ]);
 
       const data: DashboardData = await dashboardRes.json();
+      // Merge macro-state (with summary/trendLabel) into dashboardData.macroState
+      try {
+        const msData = await macroStateRes.json();
+        if (msData?.success && data.success) {
+          data.macroState = msData;
+        }
+      } catch { /* ignore, fallback to dashboard macroState */ }
       if (data.success) setDashboardData(data);
 
       const mktData = await realtimeRes.json();
