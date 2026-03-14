@@ -6,11 +6,19 @@
 把网站做成“内部决策操作系统（War Room/Decision OS）”，要求：稳定、可回溯、可审计；失败优雅降级；线上 Vercel 为唯一验收标准。
 
 ## 立即执行的启动步骤（必须按顺序）
-1) 先阅读并遵循：
+1) 先加载“身份/灵魂/长期记忆”（保证口径一致）：
+   - `../IDENTITY.md`（我是谁）
+   - `../USER.md`（杨总偏好）
+   - `../SOUL.md`（交互原则 + 铁律）
+   - `../MEMORY.md`（系统常驻记忆锚点）
+   - `../memory/2026-03-14.md`（当日持久记忆）
+
+2) 再阅读并遵循项目作战文件（避免漂移/返工）：
    - `docs/PLAYBOOK.md`
    - `docs/CURRENT_FOCUS.md`
    - `docs/EXECUTION_STATUS.md`
    - `docs/WORKLOG.md`
+   - `docs/checkpoints/2026-03-14_1806_strategy_plan_locked.md`
 2) 任何改动：先本地 `npm run build` 过关，再提交。
 3) 所有 symbol/indicator 映射只能来自 `lib/config/data-dictionary.ts`；禁止在代码里新增硬编码漂移。
 4) 对外数据源：真值层只允许 Master/AkShare；其它仅可作为 Indicative，并在 API 返回里标注。
