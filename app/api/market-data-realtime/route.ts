@@ -316,10 +316,14 @@ export async function GET() {
         dataTypes,
         timestamp: new Date().toISOString(),
         data: {
+          // new canonical keys (align with homepage expectations)
           us: usAssets,
+          cn: cnAssets,
+          hk: hkAssets,
+          global: globalAssets,
+          // backward-compatible aliases
           china: cnAssets,
           hongkong: hkAssets,
-          global: globalAssets,
         },
         bond: {
           china: {
