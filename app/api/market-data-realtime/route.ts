@@ -3,10 +3,10 @@ import { getCnBondData } from "@/lib/api/bond-cn";
 import { getUsTreasuryCurveLatest } from "@/lib/api/fred-api";
 import { fetchAIndex, fetchHKIndex } from "@/lib/api/eastmoney-api";
 import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
-import { 
-  getWatchlistByRegion, 
+import {
+  getWatchlistByRegion,
   type AssetConfig,
-  type MarketQuote
+  type MarketQuote,
 } from "@/lib/config";
 
 export const dynamic = "force-dynamic";
@@ -95,15 +95,42 @@ export async function GET() {
     // Build asset config from watchlist config
     const ASSET_CONFIG = buildAssetConfigFromWatchlist();
 
-    // Use fallback chain to fetch data
-    const enrichedQuotes = await Promise.all(
-      ASSET_CONFIG.map(async (config) => {
-        const fallbackResult = await fetchMarketQuoteWithFallback(
-          config.symbol,
-          config.region,
-          config.category
+    // Speed knobs (safe defaults): cap concurrency + hard-timeout each quote fetch.
+    const MAX_CONCURRENCY = Number(process.env.MARKET_QUOTE_CONCURRENCY || 6);
+    const PER_QUOTE_TIMEOUT_MS = Number(process.env.MARKET_QUOTE_TIMEOUT_MS || 4500);
+
+    const withTimeout = async <T,>(p: Promise<T>, ms: number): Promise<T> => {
+      return await Promise.race([
+        p,
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error(`timeout after ${ms}ms`)), ms)
+        ),
+      ]);
+    };
+
+    const mapLimit = async <T, R>(items: T[], limit: number, fn: (x: T, i: number) => Promise<R>): Promise<R[]> => {
+      const out: R[] = new Array(items.length);
+      let idx = 0;
+
+      const workers = Array.from({ length: Math.max(1, Math.min(limit, items.length)) }, async () => {
+        while (true) {
+          const i = idx++;
+          if (i >= items.length) break;
+          out[i] = await fn(items[i], i);
+        }
+      });
+
+      await Promise.all(workers);
+      return out;
+    };
+
+    const enrichedQuotes = await mapLimit(ASSET_CONFIG, MAX_CONCURRENCY, async (config) => {
+      try {
+        const fallbackResult = await withTimeout(
+          fetchMarketQuoteWithFallback(config.symbol, config.region, config.category),
+          PER_QUOTE_TIMEOUT_MS
         );
-        
+
         return {
           symbol: config.symbol,
           name: config.name,
@@ -116,11 +143,33 @@ export async function GET() {
           region: config.region,
           category: config.category,
           dataType: config.dataType,
-          dataSource: fallbackResult.price !== null ? (fallbackResult.isIndicative ? "indicative" : "LIVE") : "OFF",
+          dataSource:
+            fallbackResult.price !== null
+              ? fallbackResult.isIndicative
+                ? "indicative"
+                : "LIVE"
+              : "OFF",
           isIndicative: fallbackResult.isIndicative,
         };
-      })
-    );
+      } catch (e) {
+        return {
+          symbol: config.symbol,
+          name: config.name,
+          price: 0,
+          change: 0,
+          changePercent: 0,
+          volume: 0,
+          timestamp: new Date().toISOString(),
+          source: `OFF (${(e as Error).message})`,
+          region: config.region,
+          category: config.category,
+          dataType: config.dataType,
+          dataSource: "OFF",
+          isIndicative: true,
+          note: `quote fetch failed: ${(e as Error).message}`,
+        };
+      }
+    });
 
     // CN/HK 宽基指数：优先 Supabase -> Eastmoney fallback
     const akshareQuotes: MarketQuote[] = await Promise.all(
