@@ -12,6 +12,13 @@ import { fetchAShareWithFallback } from "@/lib/api/eastmoney-api";
 import { fetchFredWithFallback, FRED_SERIES, buildFredMacroSummary } from "@/lib/api/fred-api";
 import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
 
+function isStaleDaily(asOf: string | null) {
+  if (!asOf) return true;
+  const t = new Date(asOf).getTime();
+  if (!Number.isFinite(t)) return true;
+  const days = (Date.now() - t) / 86400000;
+  return days > 7;
+}
 
 // Asset config - maps frontend symbols to Supabase tickers
 // NOTE: ticker field matches Supabase DB column (assets_equity.ticker / assets_fx.pair)
@@ -201,15 +208,45 @@ async function fetchAllQuotesWithFallback() {
     ASSET_CONFIG.map(async (config) => {
       try {
         // For FX: use pair field (e.g., "USDX.FX") for Supabase query, not the Yahoo symbol
-        // For other assets: use ticker field (which may be Yahoo symbol like ^GSPC)
+        // For other assets: use ticker field
         const supabaseKey = config.pair || config.ticker;
-        
+
+        // BOND (yields): do NOT query assets_equity; use FRED directly to avoid persistent OFF.
+        if (config.category === "BOND") {
+          const map: Record<string, string> = {
+            US2Y: FRED_SERIES.TREASURY_2Y,
+            US5Y: FRED_SERIES.TREASURY_5Y,
+            US10Y: FRED_SERIES.TREASURY_10Y,
+            US30Y: FRED_SERIES.TREASURY_30Y,
+          };
+          const series = map[config.ticker];
+          if (series) {
+            const d = await fetchFredWithFallback(series, 2);
+            if (d && d.length) {
+              const latest = d[d.length - 1];
+              return {
+                symbol: config.ticker,
+                name: config.name,
+                price: latest.value,
+                change: null,
+                changePercent: null,
+                timestamp: latest.date,
+                source: "FRED",
+                isIndicative: true,
+                isStale: isStaleDaily(latest.date),
+                region: config.region,
+                category: config.category,
+              };
+            }
+          }
+        }
+
         const fallbackResult = await fetchMarketQuoteWithFallback(
           supabaseKey,
           config.region,
           config.category
         );
-        
+
         return {
           ...fallbackResult,
           name: config.name,
