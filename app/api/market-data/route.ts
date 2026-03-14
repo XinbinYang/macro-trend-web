@@ -3,8 +3,8 @@
 // Fallback: Yahoo, Eastmoney, FRED with "indicative" flag
 //
 // IMPORTANT: Symbol canonicalization now references lib/config/data-dictionary.ts
-// - SP500: Use ^GSPC (canonical Yahoo ticker) for Supabase ticker lookup
-// - DXY: Use DX=F (canonical) - FX table uses "pair" field with USDX.FX mapping
+// - SP500 (API symbol): Supabase truth key uses SPX (assets_equity.ticker="SPX"). Do NOT query "^GSPC".
+// - DXY: Yahoo symbol DX=F; Supabase FX uses pair "USDX.FX".
 // - US10Y: Yield in %, not price - sourced from FRED (not Yahoo futures)
 
 import { NextResponse } from "next/server";
@@ -25,11 +25,14 @@ interface AssetConfigItem {
 }
 
 const ASSET_CONFIG: AssetConfigItem[] = [
-  // US Equities - use ^GSPC (canonical Yahoo ticker) as ticker for Supabase lookup
-  { symbol: SYMBOLS.US_SPX, ticker: "^GSPC", name: SYMBOL_DISPLAY_NAMES["^GSPC"], region: "US", category: "EQUITY" },
-  { symbol: SYMBOLS.US_NDX, ticker: "^NDX", name: SYMBOL_DISPLAY_NAMES["^NDX"], region: "US", category: "EQUITY" },
-  { symbol: SYMBOLS.US_RUT, ticker: "^RUT", name: SYMBOL_DISPLAY_NAMES["^RUT"], region: "US", category: "EQUITY" },
-  { symbol: SYMBOLS.US_VIX, ticker: "^VIX", name: SYMBOL_DISPLAY_NAMES["^VIX"], region: "US", category: "EQUITY" },
+  // US Equities (Supabase truth keys)
+  // NOTE: assets_equity.ticker uses canonical keys like SPX/NDX/DJI/HS300 (not Yahoo caret symbols).
+  { symbol: "SP500", ticker: "SPX", name: "S&P 500", region: "US", category: "EQUITY" },
+  { symbol: "NDX", ticker: "NDX", name: "纳斯达克100", region: "US", category: "EQUITY" },
+  { symbol: "DJI", ticker: "DJI", name: "道指30", region: "US", category: "EQUITY" },
+  // VIX/RUT currently not in Supabase truth table; will fallback indicative
+  { symbol: "VIX", ticker: "^VIX", name: "VIX恐慌指数", region: "US", category: "EQUITY" },
+  { symbol: "RUT", ticker: "^RUT", name: "罗素2000", region: "US", category: "EQUITY" },
   
   // CN Equities
   { symbol: SYMBOLS.CN_HS300, ticker: "000300.SH", name: SYMBOL_DISPLAY_NAMES["000300.SH"], region: "CN", category: "EQUITY" },
