@@ -10,6 +10,14 @@ import {
   type MarketQuote,
 } from "@/lib/config";
 
+// FX pair mapping: Yahoo symbol -> Supabase FX pair column
+// DXY (美元指数): Yahoo = "DX=F", Supabase pair = "USDX.FX"
+const FX_PAIRS: Record<string, string> = {
+  "DX=F": "USDX.FX",
+  "EURUSD": "EURUSD.FX",
+  "USDJPY": "USDJPY.FX",
+};
+
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
@@ -127,8 +135,14 @@ export async function GET() {
 
     const enrichedQuotes = await mapLimit(ASSET_CONFIG, MAX_CONCURRENCY, async (config) => {
       try {
+        // For FX symbols, map Yahoo symbol to Supabase pair field
+        // e.g., "DX=F" -> "USDX.FX" for querying assets_fx table
+        const querySymbol = config.category === "FX" && FX_PAIRS[config.symbol]
+          ? FX_PAIRS[config.symbol]
+          : config.symbol;
+        
         const fallbackResult = await withTimeout(
-          fetchMarketQuoteWithFallback(config.symbol, config.region, config.category),
+          fetchMarketQuoteWithFallback(querySymbol, config.region, config.category),
           PER_QUOTE_TIMEOUT_MS
         );
 

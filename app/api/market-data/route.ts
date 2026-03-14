@@ -1,51 +1,62 @@
 // Unified Market Data API
 // Primary: Supabase (assets_equity, assets_bond, assets_commodity, assets_fx)
 // Fallback: Yahoo, Eastmoney, FRED with "indicative" flag
+//
+// IMPORTANT: Symbol canonicalization now references lib/config/data-dictionary.ts
+// - SP500: Use ^GSPC (canonical Yahoo ticker) for Supabase ticker lookup
+// - DXY: Use DX=F (canonical) - FX table uses "pair" field with USDX.FX mapping
+// - US10Y: Yield in %, not price - sourced from FRED (not Yahoo futures)
 
 import { NextResponse } from "next/server";
 import { fetchAShareWithFallback } from "@/lib/api/eastmoney-api";
 import { fetchFredWithFallback, FRED_SERIES, buildFredMacroSummary } from "@/lib/api/fred-api";
 import { fetchMarketQuoteWithFallback } from "@/lib/api/fallback-utils";
+import { SYMBOLS, SYMBOL_DISPLAY_NAMES } from "@/lib/config/data-dictionary";
 
 // Asset config - maps frontend symbols to Supabase tickers
+// NOTE: ticker field matches Supabase DB column (assets_equity.ticker / assets_fx.pair)
 interface AssetConfigItem {
   symbol: string;
   ticker: string;
   name: string;
   region: "US" | "CN" | "HK" | "GLOBAL";
   category: "EQUITY" | "COMMODITY" | "BOND" | "FX";
-  pair?: string;
+  pair?: string; // For FX table: maps to assets_fx.pair column
 }
 
 const ASSET_CONFIG: AssetConfigItem[] = [
-  // US Equities
-  { symbol: "^GSPC", ticker: "SP500", name: "S&P 500", region: "US", category: "EQUITY" },
-  { symbol: "^NDX", ticker: "NDX", name: "纳斯达克100", region: "US", category: "EQUITY" },
-  { symbol: "^DJI", ticker: "DJI", name: "道指30", region: "US", category: "EQUITY" },
+  // US Equities - use ^GSPC (canonical Yahoo ticker) as ticker for Supabase lookup
+  { symbol: SYMBOLS.US_SPX, ticker: "^GSPC", name: SYMBOL_DISPLAY_NAMES["^GSPC"], region: "US", category: "EQUITY" },
+  { symbol: SYMBOLS.US_NDX, ticker: "^NDX", name: SYMBOL_DISPLAY_NAMES["^NDX"], region: "US", category: "EQUITY" },
+  { symbol: SYMBOLS.US_RUT, ticker: "^RUT", name: SYMBOL_DISPLAY_NAMES["^RUT"], region: "US", category: "EQUITY" },
+  { symbol: SYMBOLS.US_VIX, ticker: "^VIX", name: SYMBOL_DISPLAY_NAMES["^VIX"], region: "US", category: "EQUITY" },
   
   // CN Equities
-  { symbol: "000300.SH", ticker: "HS300", name: "沪深300", region: "CN", category: "EQUITY" },
-  { symbol: "000905.SH", ticker: "000905.SH", name: "中证500", region: "CN", category: "EQUITY" },
+  { symbol: SYMBOLS.CN_HS300, ticker: "000300.SH", name: SYMBOL_DISPLAY_NAMES["000300.SH"], region: "CN", category: "EQUITY" },
+  { symbol: SYMBOLS.CN_500, ticker: "000905.SH", name: SYMBOL_DISPLAY_NAMES["000905.SH"], region: "CN", category: "EQUITY" },
   { symbol: "000016.SH", ticker: "000016.SH", name: "上证50", region: "CN", category: "EQUITY" },
-  { symbol: "399006.SZ", ticker: "399006.SZ", name: "创业板指", region: "CN", category: "EQUITY" },
-  { symbol: "000688.SH", ticker: "000688.SH", name: "科创50", region: "CN", category: "EQUITY" },
+  { symbol: SYMBOLS.CN_CY500, ticker: "399006.SZ", name: SYMBOL_DISPLAY_NAMES["399006.SZ"], region: "CN", category: "EQUITY" },
+  { symbol: SYMBOLS.CN_KC50, ticker: "000688.SH", name: SYMBOL_DISPLAY_NAMES["000688.SH"], region: "CN", category: "EQUITY" },
   
   // HK Equities
-  { symbol: "HSI", ticker: "HSI", name: "恒生指数", region: "HK", category: "EQUITY" },
+  { symbol: SYMBOLS.HK_HSI, ticker: "HSI", name: SYMBOL_DISPLAY_NAMES["HSI"], region: "HK", category: "EQUITY" },
   
   // Commodities
-  { symbol: "GC=F", ticker: "GC", name: "COMEX黄金期货", region: "GLOBAL", category: "COMMODITY" },
-  { symbol: "CL=F", ticker: "CL", name: "WTI原油期货", region: "GLOBAL", category: "COMMODITY" },
-  { symbol: "DJP", ticker: "DJP", name: "道琼斯商品指数总回报", region: "GLOBAL", category: "COMMODITY" },
+  { symbol: SYMBOLS.COM_GOLD, ticker: "GC=F", name: SYMBOL_DISPLAY_NAMES["GC=F"], region: "GLOBAL", category: "COMMODITY" },
+  { symbol: SYMBOLS.COM_OIL, ticker: "CL=F", name: SYMBOL_DISPLAY_NAMES["CL=F"], region: "GLOBAL", category: "COMMODITY" },
+  { symbol: SYMBOLS.COM_DJP, ticker: "DJP", name: SYMBOL_DISPLAY_NAMES["DJP"], region: "GLOBAL", category: "COMMODITY" },
   { symbol: "GLD", ticker: "GLD", name: "黄金ETF", region: "GLOBAL", category: "COMMODITY" },
   
-  // Bonds (from assets_equity table with US_XXY tickers)
-  { symbol: "US_10Y", ticker: "US_10Y", name: "美国10年期国债", region: "US", category: "BOND" },
-  { symbol: "US_2Y", ticker: "US_2Y", name: "美国2年期国债", region: "US", category: "BOND" },
-  { symbol: "US_5Y", ticker: "US_5Y", name: "美国5年期国债", region: "US", category: "BOND" },
+  // Bonds (from FRED - yields in %, not futures prices)
+  // NOTE: US2Y/US5Y/US10Y/US30Y are yields from FRED, NOT futures prices
+  { symbol: SYMBOLS.US_10Y, ticker: "US10Y", name: SYMBOL_DISPLAY_NAMES["US10Y"], region: "US", category: "BOND" },
+  { symbol: SYMBOLS.US_2Y, ticker: "US2Y", name: SYMBOL_DISPLAY_NAMES["US2Y"], region: "US", category: "BOND" },
+  { symbol: SYMBOLS.US_5Y, ticker: "US5Y", name: SYMBOL_DISPLAY_NAMES["US5Y"], region: "US", category: "BOND" },
+  { symbol: SYMBOLS.US_30Y, ticker: "US30Y", name: SYMBOL_DISPLAY_NAMES["US30Y"], region: "US", category: "BOND" },
   
-  // FX
-  { symbol: "DXY", ticker: "DXY", name: "美元指数", region: "GLOBAL", category: "FX", pair: "USDX.FX" },
+  // FX - CRITICAL: DXY uses DX=F as canonical symbol, FX table uses "pair" column
+  // Supabase assets_fx.pair column stores "USDX.FX" format (not "DX=F")
+  { symbol: SYMBOLS.FX_DXY, ticker: "DX=F", name: SYMBOL_DISPLAY_NAMES["DX=F"], region: "GLOBAL", category: "FX", pair: "USDX.FX" },
   { symbol: "EURUSD", ticker: "EURUSD", name: "欧元/美元", region: "GLOBAL", category: "FX", pair: "EURUSD.FX" },
   { symbol: "USDJPY", ticker: "USDJPY", name: "美元/日元", region: "GLOBAL", category: "FX", pair: "USDJPY.FX" },
 ];
@@ -185,8 +196,12 @@ async function fetchAllQuotesWithFallback() {
   const results = await Promise.all(
     ASSET_CONFIG.map(async (config) => {
       try {
+        // For FX: use pair field (e.g., "USDX.FX") for Supabase query, not the Yahoo symbol
+        // For other assets: use ticker field (which may be Yahoo symbol like ^GSPC)
+        const supabaseKey = config.pair || config.ticker;
+        
         const fallbackResult = await fetchMarketQuoteWithFallback(
-          config.ticker || config.symbol,
+          supabaseKey,
           config.region,
           config.category
         );

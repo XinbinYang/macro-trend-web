@@ -243,6 +243,16 @@ export async function fetchMacroWithFallback(
 }
 
 // === Market Data Fallback ===
+// NOTE: For Supabase queries:
+// - EQUITY: uses assets_equity.ticker (Yahoo symbols like "^GSPC", "000300.SH")
+// - COMMODITY: uses assets_commodity.ticker (Yahoo symbols like "GC=F", "CL=F")
+// - FX: uses assets_fx.pair (FX pair codes like "USDX.FX", not Yahoo symbols like "DX=F")
+// 
+// IMPORTANT: For DXY/美元指数:
+//   - Yahoo symbol = "DX=F"
+//   - Supabase FX pair = "USDX.FX"
+//   - Pass "USDX.FX" when calling this function for FX category
+
 interface MarketQuoteResult {
   symbol: string;
   name: string;
