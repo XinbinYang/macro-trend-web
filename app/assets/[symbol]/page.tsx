@@ -35,29 +35,17 @@ function analyzeSignal(changePercent: number): { direction: "bullish" | "bearish
   return { direction: "neutral", strength: "weak" };
 }
 
-// 资产名称映射
-const ASSET_NAMES: Record<string, string> = {
-  // US
-  "^GSPC": "标普500指数",
-  "^NDX": "纳斯达克100指数",
-  "^DJI": "道琼斯工业指数",
+// 资产名称映射 — 从 data-dictionary 补充，硬编码仅覆盖字典未收录的品种
+import { SYMBOL_DISPLAY_NAMES } from "@/lib/config/data-dictionary";
 
-  // China indices
-  "000300.SH": "沪深300指数",
-  "000905.SH": "中证500指数",
-  "000016.SH": "上证50指数",
-  "399006.SZ": "创业板指",
-  "000688.SH": "科创50指数",
-
-  // HK
-  "^HSI": "恒生指数",
-
-  // Proxies / Futures
+const ASSET_NAMES_EXTRA: Record<string, string> = {
   "TLT": "20年+美国国债(ETF proxy)",
-  "GLD": "SPDR黄金ETF(ETF proxy)",
   "EEM": "新兴市场 ETF",
-  "GC=F": "黄金期货",
-  "CL=F": "WTI原油期货",
+};
+
+const ASSET_NAMES: Record<string, string> = {
+  ...SYMBOL_DISPLAY_NAMES,
+  ...ASSET_NAMES_EXTRA,
 };
 
 // 资产描述
