@@ -46,9 +46,19 @@ interface MissionPayload {
   blockers: string[];
 }
 
+type CronEntry = {
+  label: string;
+  status: "OK" | "STALE" | "NO_DATA";
+  date: string | null;
+  updatedAt: string | null;
+  ageDays: number | null;
+};
+
 type CronStatusPayload = {
   ok: boolean;
-  latest: null | {
+  healthy?: boolean;
+  crons?: CronEntry[];
+  latest?: null | {
     date: string;
     yield_2y: string | number | null;
     yield_10y: string | number | null;
@@ -524,10 +534,25 @@ export default function MissionPage() {
           <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
             <span>⚠️</span><span>STALE</span><span className={`font-bold ${staleAgentsCount > 0 ? "text-red-400" : "text-slate-400"}`}>{staleAgentsCount}</span>
           </div>
-          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex items-center gap-2">
-            <span>⏰</span>
-            <span>Cron</span>
-            <span className={`font-bold ${cronStatus?.ok ? "text-emerald-400" : "text-slate-400"}`}>{cronStatus?.ok ? "OK" : "—"}</span>
+          <div className="rounded-lg bg-slate-950/50 px-3 py-2 text-slate-300 flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span>⏰</span>
+              <span>Cron</span>
+              <span className={`font-bold ${cronStatus?.healthy ? "text-emerald-400" : cronStatus?.ok ? "text-amber-400" : "text-slate-400"}`}>
+                {cronStatus?.healthy ? "ALL OK" : cronStatus?.ok ? "PARTIAL" : "—"}
+              </span>
+            </div>
+            {cronStatus?.crons && (
+              <div className="text-[10px] text-slate-500 space-y-0.5 ml-6">
+                {cronStatus.crons.map((c, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <span>{c.status === "OK" ? "🟢" : c.status === "STALE" ? "🟡" : "🔴"}</span>
+                    <span className="truncate max-w-[120px]">{c.label}</span>
+                    <span className="text-slate-600">{c.date || "—"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
