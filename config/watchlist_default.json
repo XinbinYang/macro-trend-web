@@ -1,6 +1,6 @@
 {
-  "version": "1.0",
-  "description": "24-Item Watchlist Configuration - 6 Risk Units × 4 Representatives",
+  "version": "1.1",
+  "description": "24-Item Watchlist Configuration - 6 Risk Units × 4 Representatives (Audited)",
   "riskUnits": {
     "cn_equity": {
       "name": "中股集群",
@@ -9,7 +9,7 @@
       "representatives": [
         { "symbol": "000300.SH", "name": "沪深300", "source": "indicative" },
         { "symbol": "000905.SH", "name": "中证500", "source": "indicative" },
-        { "symbol": "000852.SH", "name": "中债1000", "source": "indicative" },
+        { "symbol": "000688.SH", "name": "科创50", "source": "indicative" },
         { "symbol": "399006.SZ", "name": "创业板指", "source": "indicative" }
       ]
     },
@@ -18,10 +18,10 @@
       "name_en": "China Rates",
       "category": "RATES",
       "representatives": [
-        { "symbol": "TS.CN", "name": "中债10年", "source": "indicative" },
-        { "symbol": "TF.CN", "name": "中债5年", "source": "indicative" },
-        { "symbol": "T.CN", "name": "中债2年", "source": "indicative" },
-        { "symbol": "TN.CN", "name": "中债1年", "source": "indicative" }
+        { "symbol": "cn_yield_2y", "name": "中债2年收益率", "source": "indicative" },
+        { "symbol": "cn_yield_5y", "name": "中债5年收益率", "source": "indicative" },
+        { "symbol": "cn_yield_10y", "name": "中债10年收益率", "source": "indicative" },
+        { "symbol": "cn_yield_1y", "name": "中债1年收益率", "source": "indicative" }
       ]
     },
     "us_equity": {
@@ -54,7 +54,7 @@
         { "symbol": "CL=F", "name": "WTI原油", "source": "realtime" },
         { "symbol": "HG=F", "name": "铜", "source": "realtime" },
         { "symbol": "DJP", "name": "商品指数", "source": "realtime" },
-        { "symbol": "EEM", "name": "新兴市场ETF", "source": "realtime" }
+        { "symbol": "ZC=F", "name": "玉米", "source": "realtime" }
       ]
     },
     "gold": {
@@ -78,7 +78,7 @@
     "cn": {
       "name": "中国",
       "name_en": "China",
-      "symbols": ["000300.SH", "000905.SH", "000852.SH", "399006.SZ", "TS.CN", "TF.CN", "T.CN", "TN.CN"],
+      "symbols": ["000300.SH", "000905.SH", "000688.SH", "399006.SZ", "cn_yield_2y", "cn_yield_5y", "cn_yield_10y", "cn_yield_1y"],
       "aliases": ["china"]
     },
     "hk": {
@@ -90,7 +90,7 @@
     "global": {
       "name": "全球",
       "name_en": "Global",
-      "symbols": ["EEM", "DX=F"]
+      "symbols": ["DX=F", "ZC=F"]
     }
   }
 }

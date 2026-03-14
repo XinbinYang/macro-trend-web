@@ -12,6 +12,9 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+// CN rates symbols that represent yield curve points
+const CN_RATES_SYMBOLS = ["CN2Y", "CN5Y", "CN10Y", "CN_CREDIT_SPREAD_5Y"];
+
 // Build asset config from watchlist_default.json
 function buildAssetConfigFromWatchlist(): AssetConfig[] {
   const assets: AssetConfig[] = [];
@@ -30,14 +33,15 @@ function buildAssetConfigFromWatchlist(): AssetConfig[] {
     });
   }
   
-  // CN assets (indices)
+  // CN assets (indices + rates)
   const cnList = getWatchlistByRegion("cn");
   for (const item of cnList) {
+    const isCnRate = CN_RATES_SYMBOLS.includes(item.symbol);
     assets.push({
       symbol: item.symbol,
       name: item.name,
       region: "CN",
-      category: "EQUITY",
+      category: isCnRate ? "BOND" : "EQUITY",
       dataType: "EOD",
       dataSource: item.source,
     });
@@ -313,7 +317,113 @@ export async function GET() {
       isIndicative: !p.source?.includes("FRED"),
     }));
 
-    const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes, ...usTreasuryCurveQuotes];
+    // CN Yield Curve Points (from getCnBondData L2 yieldCurve.maturities)
+    const cnYieldCurveQuotes: MarketQuote[] = [];
+    if (cnBondData.yieldCurve?.maturities) {
+      const maturities = cnBondData.yieldCurve.maturities as Record<string, number>;
+      
+      // cn_yield_1y, cn_yield_2y, cn_yield_5y, cn_yield_10y - 中债收益率曲线点位
+      if (maturities["1Y"] !== undefined) {
+        cnYieldCurveQuotes.push({
+          symbol: "cn_yield_1y",
+          name: "中债1年收益率",
+          price: maturities["1Y"],
+          change: 0,
+          changePercent: 0,
+          volume: 0,
+          timestamp: cnBondData.yieldCurve.date || new Date().toISOString(),
+          source: cnBondData.source || "Chinabond/AkShare",
+          region: "CN",
+          category: "BOND",
+          dataType: "EOD" as const,
+          dataSource: cnBondData.status === "LIVE" ? "LIVE" : cnBondData.status === "DELAYED" ? "DELAYED" : "OFF",
+          isIndicative: cnBondData.status !== "LIVE",
+        });
+      }
+      
+      if (maturities["2Y"] !== undefined) {
+        cnYieldCurveQuotes.push({
+          symbol: "cn_yield_2y",
+          name: "中债2年收益率",
+          price: maturities["2Y"],
+          change: 0,
+          changePercent: 0,
+          volume: 0,
+          timestamp: cnBondData.yieldCurve.date || new Date().toISOString(),
+          source: cnBondData.source || "Chinabond/AkShare",
+          region: "CN",
+          category: "BOND",
+          dataType: "EOD" as const,
+          dataSource: cnBondData.status === "LIVE" ? "LIVE" : cnBondData.status === "DELAYED" ? "DELAYED" : "OFF",
+          isIndicative: cnBondData.status !== "LIVE",
+        });
+      }
+      
+      if (maturities["5Y"] !== undefined) {
+        cnYieldCurveQuotes.push({
+          symbol: "cn_yield_5y",
+          name: "中债5年收益率",
+          price: maturities["5Y"],
+          change: 0,
+          changePercent: 0,
+          volume: 0,
+          timestamp: cnBondData.yieldCurve.date || new Date().toISOString(),
+          source: cnBondData.source || "Chinabond/AkShare",
+          region: "CN",
+          category: "BOND",
+          dataType: "EOD" as const,
+          dataSource: cnBondData.status === "LIVE" ? "LIVE" : cnBondData.status === "DELAYED" ? "DELAYED" : "OFF",
+          isIndicative: cnBondData.status !== "LIVE",
+        });
+      }
+      
+      if (maturities["10Y"] !== undefined) {
+        cnYieldCurveQuotes.push({
+          symbol: "cn_yield_10y",
+          name: "中债10年收益率",
+          price: maturities["10Y"],
+          change: 0,
+          changePercent: 0,
+          volume: 0,
+          timestamp: cnBondData.yieldCurve.date || new Date().toISOString(),
+          source: cnBondData.source || "Chinabond/AkShare",
+          region: "CN",
+          category: "BOND",
+          dataType: "EOD" as const,
+          dataSource: cnBondData.status === "LIVE" ? "LIVE" : cnBondData.status === "DELAYED" ? "DELAYED" : "OFF",
+          isIndicative: cnBondData.status !== "LIVE",
+        });
+      }
+    } else {
+      // Yield curve unavailable - add indicative quotes for watchlist symbols
+      const watchlistRates = ["cn_yield_1y", "cn_yield_2y", "cn_yield_5y", "cn_yield_10y"];
+      const rateNames: Record<string, string> = {
+        "cn_yield_1y": "中债1年收益率",
+        "cn_yield_2y": "中债2年收益率",
+        "cn_yield_5y": "中债5年收益率",
+        "cn_yield_10y": "中债10年收益率",
+      };
+      
+      for (const symbol of watchlistRates) {
+        cnYieldCurveQuotes.push({
+          symbol,
+          name: rateNames[symbol],
+          price: 0,
+          change: 0,
+          changePercent: 0,
+          volume: 0,
+          timestamp: new Date().toISOString(),
+          source: "OFF",
+          region: "CN",
+          category: "BOND",
+          dataType: "EOD" as const,
+          dataSource: "OFF",
+          isIndicative: true,
+        });
+      }
+    }
+
+    const allQuotes = [...enrichedQuotes, ...akshareQuotes, ...bondFutureQuotes, ...usTreasuryCurveQuotes, ...cnYieldCurveQuotes];
 
     // Filter duplicates by symbol
     const uniqueQuotesMap = new Map<string, MarketQuote>();

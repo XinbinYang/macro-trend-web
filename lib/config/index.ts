@@ -115,6 +115,7 @@ export interface MarketQuote {
   dataType: "REALTIME" | "DELAYED" | "EOD";
   dataSource: string;
   isIndicative: boolean;
+  note?: string;
 }
 
 // === Exports ===
