@@ -59,6 +59,37 @@ async function syncMacro(db) {
   const macroUs = await all(db, 'select * from macro_us order by date');
   const macroCn = await all(db, 'select * from macro_cn order by date');
 
+  // IMPORTANT:
+  // Avoid overwriting existing Supabase values with NULLs from SQLite (common for partially-updated latest rows).
+  // Strategy: for the most recent window, pull existing rows from Supabase and merge (coalesce) non-null existing
+  // values into the outgoing upsert payload.
+  const MERGE_RECENT_N = 36; // ~3 years of monthly rows; bounded to avoid heavy queries
+  const recentUs = macroUs.slice(-MERGE_RECENT_N);
+  const recentDates = recentUs.map(r => String(r.date).slice(0, 10));
+
+  if (recentDates.length > 0) {
+    const { data: existing, error } = await supabase
+      .from('macro_us')
+      .select('*')
+      .in('date', recentDates);
+
+    if (!error && Array.isArray(existing) && existing.length > 0) {
+      const byDate = new Map(existing.map(r => [String(r.date).slice(0, 10), r]));
+
+      for (const row of recentUs) {
+        const d = String(row.date).slice(0, 10);
+        const ex = byDate.get(d);
+        if (!ex) continue;
+        // For any key where SQLite row is null/undefined, keep existing Supabase value.
+        for (const k of Object.keys(ex)) {
+          if (row[k] === null || row[k] === undefined) {
+            row[k] = ex[k];
+          }
+        }
+      }
+    }
+  }
+
   // Normalize: sqlite returns date as string/number depending; keep as ISO date string
   await upsertBatched(supabase, 'macro_us', macroUs, 'date');
   await upsertBatched(supabase, 'macro_cn', macroCn, 'date');
