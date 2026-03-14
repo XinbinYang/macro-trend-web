@@ -11,27 +11,62 @@ function supabaseReadClient() {
   return createClient(url, key);
 }
 
+function cronHealth(label: string, date: string | null, updatedAt: string | null) {
+  if (!date) return { label, status: "NO_DATA" as const, date: null, updatedAt: null, ageDays: null };
+  const d = new Date(date).getTime();
+  const ageDays = Number.isFinite(d) ? Math.round((Date.now() - d) / 86400000) : null;
+  const status = ageDays !== null && ageDays <= 7 ? "OK" : "STALE";
+  return { label, status: status as "OK" | "STALE", date: String(date).slice(0, 10), updatedAt, ageDays };
+}
+
 export async function GET() {
   try {
     const sb = supabaseReadClient();
 
-    // Latest row that has at least one of the yield fields.
-    const { data, error } = await sb
+    // 1) US Yields (daily-yields cron)
+    const { data: yieldRow, error: yieldErr } = await sb
       .from("macro_us")
       .select("date,yield_2y,yield_10y,source,updated_at")
       .or("yield_2y.not.is.null,yield_10y.not.is.null")
       .order("date", { ascending: false })
       .limit(1);
+    if (yieldErr) throw new Error(yieldErr.message);
+    const yld = yieldRow?.[0] as { date?: string; updated_at?: string } | undefined;
 
-    if (error) throw new Error(error.message);
+    // 2) US Policy (daily-us-policy cron)
+    const { data: policyRow, error: policyErr } = await sb
+      .from("macro_us")
+      .select("date,sofr,core_pce_yoy,policy_source,policy_updated_at")
+      .or("sofr.not.is.null,core_pce_yoy.not.is.null")
+      .order("date", { ascending: false })
+      .limit(1);
+    if (policyErr) throw new Error(policyErr.message);
+    const pol = policyRow?.[0] as { date?: string; policy_updated_at?: string } | undefined;
 
-    const latest = data && data.length > 0 ? data[0] : null;
+    // 3) CN Rates (daily-cn-rates cron)
+    const { data: cnRow, error: cnErr } = await sb
+      .from("macro_cn")
+      .select("date,yield_2y,yield_10y,credit_spread_5y,rates_source,rates_updated_at")
+      .or("yield_2y.not.is.null,yield_10y.not.is.null")
+      .order("date", { ascending: false })
+      .limit(1);
+    if (cnErr) throw new Error(cnErr.message);
+    const cn = cnRow?.[0] as { date?: string; rates_updated_at?: string } | undefined;
+
+    const crons = [
+      cronHealth("daily-yields (US)", yld?.date ?? null, yld?.updated_at ?? null),
+      cronHealth("daily-us-policy (US SOFR+PCE)", pol?.date ?? null, pol?.policy_updated_at ?? null),
+      cronHealth("daily-cn-rates (CN Curve+Spread)", cn?.date ?? null, cn?.rates_updated_at ?? null),
+    ];
+
+    const allOk = crons.every(c => c.status === "OK");
 
     return NextResponse.json(
       {
         ok: true,
-        latest,
-        note: "Cron health is inferred from freshest macro_us yields row (date + updated_at).",
+        healthy: allOk,
+        crons,
+        note: "Cron health inferred from freshest rows in macro_us / macro_cn.",
       },
       { status: 200, headers: { "Cache-Control": "no-store" } }
     );
