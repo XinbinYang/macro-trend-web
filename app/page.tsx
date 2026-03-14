@@ -67,6 +67,7 @@ interface MarketQuote {
   change: number;
   changePercent: number;
   source: string;
+  region?: "US" | "CN" | "HK" | "GLOBAL" | string;
   dataType: "REALTIME" | "DELAYED" | "EOD";
   dataSource: string;
 }
@@ -111,7 +112,7 @@ function AssetCard({ quote, compact = false }: { quote: MarketQuote; compact?: b
         <CardContent className={compact ? "p-2" : "p-3"}>
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1">
-              <RegionIcon region={quote.dataSource === "OFF" ? "GLOBAL" : "US"} />
+              <RegionIcon region={quote.region || (quote.dataSource === "OFF" ? "GLOBAL" : "US")} />
               <span className="text-[10px] text-slate-400 truncate max-w-[50px]">{quote.name}</span>
             </div>
             <DataTypeBadge type={quote.dataType} />
