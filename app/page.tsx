@@ -29,8 +29,8 @@ type Unit = "%" | "idx" | "level";
 interface DimOutput {
   dim: "growth" | "inflation" | "policy" | "liquidity";
   name: string;
-  us: { value: number | null; unit: Unit; asOf: string | null; state: State; trend: Trend; note: string; stale: boolean; source: string };
-  cn: { value: number | null; unit: Unit; asOf: string | null; state: State; trend: Trend; note: string; stale: boolean; source: string };
+  us: { value: number | null; unit: Unit; asOf: string | null; state: State; trend: Trend; note: string; stale: boolean; source: string; summary?: string; trendLabel?: string; confidence?: number };
+  cn: { value: number | null; unit: Unit; asOf: string | null; state: State; trend: Trend; note: string; stale: boolean; source: string; summary?: string; trendLabel?: string; confidence?: number };
 }
 
 interface MacroState {
@@ -335,6 +335,238 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* ============================================ */}
+      {/* 今日决策摘要 (Decision Brief) */}
+      {/* ============================================ */}
+
+      {/* 区块 1: Regime 状态栏 */}
+      <div className="bg-slate-900/70 border border-slate-800 rounded-lg px-4 py-2 flex items-center justify-between gap-4">
+        {loading ? (
+          <Skeleton className="h-10 w-full" />
+        ) : regime ? (
+          <>
+            {/* Regime Badge */}
+            <div className="flex items-center gap-2">
+              <span className={`px-3 py-1 rounded-md text-sm font-bold ${
+                regime.name === "Risk-ON" ? "bg-green-500/20 text-green-400 border border-green-500/30" :
+                regime.name === "Risk-OFF" ? "bg-red-500/20 text-red-400 border border-red-500/30" :
+                "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+              }`}>
+                {regime.name}
+              </span>
+            </div>
+            {/* 置信度 & 得分 */}
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-slate-400">置信度: <span className="text-slate-200 font-medium">{regime.confidence}%</span></span>
+              <span className="text-slate-400">得分: <span className={`font-medium ${regime.score >= 0 ? 'text-green-400' : 'text-red-400'}`}>{regime.score >= 0 ? '+' : ''}{regime.score.toFixed(2)}</span></span>
+            </div>
+            {/* 最后更新时间 */}
+            <div className="text-xs text-slate-500">
+              更新: {macroState?.updatedAt ? new Date(macroState.updatedAt).toLocaleString() : '—'}
+            </div>
+          </>
+        ) : null}
+      </div>
+
+      {/* 区块 2: 六大风险单元信号 (2行3列) */}
+      <div className="grid grid-cols-3 gap-2">
+        {loading ? (
+          [1,2,3,4,5,6].map(i => <Skeleton key={i} className="h-20 bg-slate-800" />)
+        ) : (
+          <>
+            {/* 1. 🇺🇸 美股 (US Equity) → growth.us */}
+            {(() => {
+              const dim = dims.find(d => d.dim === 'growth');
+              const data = dim?.us;
+              const state = data?.state;
+              return (
+                <div key="us-equity" className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span>🇺🇸</span>
+                    <span className="text-sm text-slate-200">美股</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      state === 'strong' ? 'bg-green-500/20 text-green-400' :
+                      state === 'weak' ? 'bg-red-500/20 text-red-400' :
+                      'bg-slate-700 text-slate-400'
+                    }`}>
+                      {state === 'strong' ? '多' : state === 'weak' ? '空' : '中性'}
+                    </span>
+                    <span className="text-xs text-slate-400">{data?.trendLabel || '—'}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {data?.summary ? data.summary.slice(0, 30) : data?.note?.slice(0, 30) || '—'}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 2. 🇨🇳 中股 (CN Equity) → growth.cn */}
+            {(() => {
+              const dim = dims.find(d => d.dim === 'growth');
+              const data = dim?.cn;
+              const state = data?.state;
+              return (
+                <div key="cn-equity" className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span>🇨🇳</span>
+                    <span className="text-sm text-slate-200">中股</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      state === 'strong' ? 'bg-green-500/20 text-green-400' :
+                      state === 'weak' ? 'bg-red-500/20 text-red-400' :
+                      'bg-slate-700 text-slate-400'
+                    }`}>
+                      {state === 'strong' ? '多' : state === 'weak' ? '空' : '中性'}
+                    </span>
+                    <span className="text-xs text-slate-400">{data?.trendLabel || '—'}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {data?.summary ? data.summary.slice(0, 30) : data?.note?.slice(0, 30) || '—'}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 3. 🇺🇸 美债 (US Bond) → liquidity.us */}
+            {(() => {
+              const dim = dims.find(d => d.dim === 'liquidity');
+              const data = dim?.us;
+              const state = data?.state;
+              return (
+                <div key="us-bond" className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span>🇺🇸</span>
+                    <span className="text-sm text-slate-200">美债</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      state === 'strong' ? 'bg-green-500/20 text-green-400' :
+                      state === 'weak' ? 'bg-red-500/20 text-red-400' :
+                      'bg-slate-700 text-slate-400'
+                    }`}>
+                      {state === 'strong' ? '多' : state === 'weak' ? '空' : '中性'}
+                    </span>
+                    <span className="text-xs text-slate-400">{data?.trendLabel || '—'}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {data?.summary ? data.summary.slice(0, 30) : data?.note?.slice(0, 30) || '—'}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 4. 🇨🇳 中债 (CN Bond) → liquidity.cn */}
+            {(() => {
+              const dim = dims.find(d => d.dim === 'liquidity');
+              const data = dim?.cn;
+              const state = data?.state;
+              return (
+                <div key="cn-bond" className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span>🇨🇳</span>
+                    <span className="text-sm text-slate-200">中债</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      state === 'strong' ? 'bg-green-500/20 text-green-400' :
+                      state === 'weak' ? 'bg-red-500/20 text-red-400' :
+                      'bg-slate-700 text-slate-400'
+                    }`}>
+                      {state === 'strong' ? '多' : state === 'weak' ? '空' : '中性'}
+                    </span>
+                    <span className="text-xs text-slate-400">{data?.trendLabel || '—'}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {data?.summary ? data.summary.slice(0, 30) : data?.note?.slice(0, 30) || '—'}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 5. 🛢️ 商品 (Commodity) → inflation.us */}
+            {(() => {
+              const dim = dims.find(d => d.dim === 'inflation');
+              const data = dim?.us;
+              const state = data?.state;
+              return (
+                <div key="commodity" className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span>🛢️</span>
+                    <span className="text-sm text-slate-200">商品</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      state === 'strong' ? 'bg-green-500/20 text-green-400' :
+                      state === 'weak' ? 'bg-red-500/20 text-red-400' :
+                      'bg-slate-700 text-slate-400'
+                    }`}>
+                      {state === 'strong' ? '多' : state === 'weak' ? '空' : '中性'}
+                    </span>
+                    <span className="text-xs text-slate-400">{data?.trendLabel || '—'}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {data?.summary ? data.summary.slice(0, 30) : data?.note?.slice(0, 30) || '—'}
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 6. 🥇 黄金 (Gold) → policy.us */}
+            {(() => {
+              const dim = dims.find(d => d.dim === 'policy');
+              const data = dim?.us;
+              const state = data?.state;
+              return (
+                <div key="gold" className="bg-slate-900/50 border border-slate-800 rounded-lg p-3">
+                  <div className="flex items-center gap-1 mb-1">
+                    <span>🥇</span>
+                    <span className="text-sm text-slate-200">黄金</span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                      state === 'strong' ? 'bg-green-500/20 text-green-400' :
+                      state === 'weak' ? 'bg-red-500/20 text-red-400' :
+                      'bg-slate-700 text-slate-400'
+                    }`}>
+                      {state === 'strong' ? '多' : state === 'weak' ? '空' : '中性'}
+                    </span>
+                    <span className="text-xs text-slate-400">{data?.trendLabel || '—'}</span>
+                  </div>
+                  <div className="text-xs text-slate-500 truncate">
+                    {data?.summary ? data.summary.slice(0, 30) : data?.note?.slice(0, 30) || '—'}
+                  </div>
+                </div>
+              );
+            })()}
+          </>
+        )}
+      </div>
+
+      {/* 区块 3: 今日异常提醒 (条件显示) */}
+      {(() => {
+        const hasStale = dims.some(d => d.us?.stale || d.cn?.stale);
+        const lowConfidence = regime && regime.confidence < 50;
+        const extremeRegime = regime && regime.name !== "Neutral";
+
+        if (!hasStale && !lowConfidence && !extremeRegime) return null;
+
+        return (
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg px-4 py-2 text-amber-400 text-sm">
+            {hasStale && <div className="mb-1">⚠️ 部分指标数据超过7天未更新，判断仅供参考</div>}
+            {lowConfidence && <div className="mb-1">⚠️ 当前宏观信号置信度偏低（{regime?.confidence}%），建议审慎</div>}
+            {extremeRegime && (
+              regime.name === "Risk-OFF" 
+                ? <div>🔴 当前宏观状态偏向 Risk-OFF，建议检查风险敞口</div>
+                : <div>🟢 当前宏观状态偏向 Risk-ON</div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* ============================================ */}
       {/* Data Layer Declaration */}
       <Card className="bg-slate-900/50 border-slate-800">
         <CardContent className="p-3 md:p-4 text-xs text-slate-400 space-y-2">
