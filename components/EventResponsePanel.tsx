@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ALL_EVENT_TEMPLATES, type EventScenario, type RiskUnitImpact } from "@/lib/config/event-templates";
 import { Card, CardContent } from "@/components/ui/card";
 import {
@@ -11,7 +11,224 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ChevronDown, ChevronUp, AlertCircle, CheckSquare, Target } from "lucide-react";
+import { ChevronDown, ChevronUp, AlertCircle, CheckSquare, Target, PenLine } from "lucide-react";
+
+// 行动选项
+const ACTION_OPTIONS = ["加仓", "减仓", "观望", "对冲", "调仓"] as const;
+type ActionType = typeof ACTION_OPTIONS[number];
+
+// 根据场景索引预填行动
+function getDefaultAction(scenarioIndex: number): ActionType {
+  if (scenarioIndex === 0) return "观望";
+  if (scenarioIndex === 1) return "观望";
+  return "加仓";
+}
+
+// 从场景标签提取关键词
+function extractKeywords(label: string): string[] {
+  const keywords: string[] = [];
+  if (label.includes("高于预期") || label.includes("超预期")) keywords.push("高于预期");
+  if (label.includes("低于预期")) keywords.push("低于预期");
+  if (label.includes("鹰派")) keywords.push("鹰派");
+  if (label.includes("鸽派")) keywords.push("鸽派");
+  if (label.includes("中性")) keywords.push("中性");
+  if (label.includes("强劲") || label.includes("超强")) keywords.push("强劲");
+  if (label.includes("恶化")) keywords.push("恶化");
+  return keywords;
+}
+
+// Decision Log Modal
+function DecisionLogModal({
+  isOpen,
+  onClose,
+  eventInfo,
+  scenario,
+  scenarioIndex,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  eventInfo: {
+    displayName: string;
+    eventType: string;
+    triggerDimension: string;
+  };
+  scenario: EventScenario;
+  scenarioIndex: number;
+}) {
+  const { displayName, eventType, triggerDimension } = eventInfo;
+  const [isLoading, setIsLoading] = useState(false);
+  const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  // 表单状态
+  const [title, setTitle] = useState("");
+  const [action, setAction] = useState<ActionType>("观望");
+  const [asset, setAsset] = useState("");
+  const [rationale, setRationale] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+
+  // 初始化预填值
+  useEffect(() => {
+    if (isOpen) {
+      const defaultAction = getDefaultAction(scenarioIndex);
+      setTitle(`${displayName} — ${scenario.label}`);
+      setAction(defaultAction);
+      setAsset("");
+      setRationale(`${scenario.macroRegimeShift}\n\n传导路径：\n${scenario.transmission.join("\n")}`);
+      const keywords = extractKeywords(scenario.label);
+      setTags([eventType, triggerDimension, ...keywords]);
+      setStatus("idle");
+      setErrorMsg("");
+    }
+  }, [isOpen, displayName, eventType, triggerDimension, scenario, scenarioIndex]);
+
+  // 处理提交
+  const handleSubmit = async () => {
+    setIsLoading(true);
+    setStatus("idle");
+    setErrorMsg("");
+
+    try {
+      const response = await fetch("/api/mission/decision-log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          action,
+          asset,
+          rationale,
+          tags,
+        }),
+      });
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || "提交失败");
+      }
+
+      setStatus("success");
+      setTimeout(() => {
+        onClose();
+        setStatus("idle");
+      }, 2000);
+    } catch (err) {
+      setStatus("error");
+      setErrorMsg(err instanceof Error ? err.message : "未知错误");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // 关闭时重置（useEffect 会在 isOpen 变化时自动重置）
+  const handleClose = () => {
+    onClose();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+      <div className="bg-zinc-900 border border-zinc-700 rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        {/* 头部 */}
+        <div className="px-5 py-4 border-b border-zinc-800">
+          <h3 className="text-lg font-semibold text-slate-100">写入决策日志</h3>
+        </div>
+
+        {/* 表单内容 */}
+        <div className="p-5 space-y-4">
+          {/* 标题 */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">标题</label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-zinc-600"
+            />
+          </div>
+
+          {/* 行动 */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">行动</label>
+            <Select value={action} onValueChange={(v) => setAction(v as ActionType)}>
+              <SelectTrigger className="w-full bg-zinc-800 border-zinc-700 text-slate-200">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-zinc-800 border-zinc-700">
+                {ACTION_OPTIONS.map((opt) => (
+                  <SelectItem key={opt} value={opt} className="text-slate-200 focus:bg-zinc-700">
+                    {opt}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* 资产 */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">资产</label>
+            <input
+              type="text"
+              value={asset}
+              onChange={(e) => setAsset(e.target.value)}
+              placeholder="例如：沪深300ETF、10年期国债..."
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-slate-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
+            />
+          </div>
+
+          {/* 决策逻辑 */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">决策逻辑</label>
+            <textarea
+              value={rationale}
+              onChange={(e) => setRationale(e.target.value)}
+              rows={4}
+              className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-zinc-600 resize-none"
+            />
+          </div>
+
+          {/* 标签 */}
+          <div>
+            <label className="block text-xs text-slate-400 mb-1.5">标签</label>
+            <div className="flex flex-wrap gap-2">
+              {tags.map((tag) => (
+                <Badge key={tag} variant="outline" className="border-zinc-600 text-zinc-300">
+                  {tag}
+                </Badge>
+              ))}
+            </div>
+          </div>
+
+          {/* 状态提示 */}
+          {status === "success" && (
+            <div className="text-center text-green-400 text-sm py-2">✅ 已写入 Decision Log</div>
+          )}
+          {status === "error" && (
+            <div className="text-center text-red-400 text-sm py-2">❌ {errorMsg}</div>
+          )}
+        </div>
+
+        {/* 底部按钮 */}
+        <div className="px-5 py-4 border-t border-zinc-800 flex gap-3 justify-end">
+          <button
+            onClick={handleClose}
+            disabled={isLoading}
+            className="px-4 py-2 text-sm text-slate-300 hover:text-white transition-colors"
+          >
+            取消
+          </button>
+          <button
+            onClick={handleSubmit}
+            disabled={isLoading}
+            className="px-4 py-2 text-sm bg-zinc-700 text-white rounded hover:bg-zinc-600 disabled:opacity-50 transition-colors"
+          >
+            {isLoading ? "提交中..." : "确认写入"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // 风险单元映射
 const RISK_UNIT_CONFIG = [
@@ -122,7 +339,15 @@ function CollapsibleSection({
 }
 
 // 单个场景卡片
-function ScenarioCard({ scenario }: { scenario: EventScenario }) {
+function ScenarioCard({
+  scenario,
+  scenarioIndex,
+  onWriteDecision,
+}: {
+  scenario: EventScenario;
+  scenarioIndex: number;
+  onWriteDecision: (scenario: EventScenario, index: number) => void;
+}) {
   const styles = getScenarioStyles(scenario.label);
 
   return (
@@ -200,6 +425,15 @@ function ScenarioCard({ scenario }: { scenario: EventScenario }) {
           icon={Target}
           items={scenario.keyLevels}
         />
+
+        {/* 写入决策按钮 */}
+        <button
+          onClick={() => onWriteDecision(scenario, scenarioIndex)}
+          className="w-full mt-4 py-2 text-xs border border-zinc-600 text-zinc-300 rounded hover:bg-zinc-700 transition-colors flex items-center justify-center gap-2"
+        >
+          <PenLine className="w-3.5 h-3.5" />
+          写入决策
+        </button>
       </CardContent>
     </Card>
   );
@@ -209,8 +443,36 @@ function ScenarioCard({ scenario }: { scenario: EventScenario }) {
 export function EventResponsePanel() {
   const [selectedEvent, setSelectedEvent] = useState<string>("US_CPI");
   
+  // Modal 状态
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalScenario, setModalScenario] = useState<EventScenario | null>(null);
+  const [modalScenarioIndex, setModalScenarioIndex] = useState(0);
+  const [modalEventInfo, setModalEventInfo] = useState<{
+    displayName: string;
+    eventType: string;
+    triggerDimension: string;
+  } | null>(null);
+  
   const eventTypes = Object.keys(ALL_EVENT_TEMPLATES) as Array<keyof typeof ALL_EVENT_TEMPLATES>;
   const currentTemplate = ALL_EVENT_TEMPLATES[selectedEvent];
+
+  // 打开决策日志 Modal
+  const handleWriteDecision = (scenario: EventScenario, index: number) => {
+    setModalScenario(scenario);
+    setModalScenarioIndex(index);
+    setModalEventInfo({
+      displayName: currentTemplate.displayName,
+      eventType: selectedEvent,
+      triggerDimension: currentTemplate.triggerDimension,
+    });
+    setIsModalOpen(true);
+  };
+
+  // 关闭 Modal
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setModalScenario(null);
+  };
 
   if (!currentTemplate) {
     return (
@@ -276,9 +538,25 @@ export function EventResponsePanel() {
       {/* 下方 3 列场景卡片 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {currentTemplate.scenarios.map((scenario, idx) => (
-          <ScenarioCard key={idx} scenario={scenario} />
+          <ScenarioCard
+            key={idx}
+            scenario={scenario}
+            scenarioIndex={idx}
+            onWriteDecision={handleWriteDecision}
+          />
         ))}
       </div>
+
+      {/* Decision Log Modal */}
+      {modalScenario && modalEventInfo && (
+        <DecisionLogModal
+          isOpen={isModalOpen}
+          onClose={handleCloseModal}
+          eventInfo={modalEventInfo}
+          scenario={modalScenario}
+          scenarioIndex={modalScenarioIndex}
+        />
+      )}
     </div>
   );
 }
