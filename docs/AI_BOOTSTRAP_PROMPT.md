@@ -8,6 +8,7 @@
 ## 立即执行的启动步骤（必须按顺序）
 1) 先阅读并遵循：
    - `docs/PLAYBOOK.md`
+   - `docs/CURRENT_FOCUS.md`
    - `docs/EXECUTION_STATUS.md`
    - `docs/WORKLOG.md`
 2) 任何改动：先本地 `npm run build` 过关，再提交。
