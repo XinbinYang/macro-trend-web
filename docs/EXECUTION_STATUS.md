@@ -43,9 +43,9 @@
 ### DONE
 - [x] **文档：WORKLOG + EXECUTION_STATUS 落地**
   - Owner: Data-Nexus subagent（scribe）
-  - Commit: TBD
+  - Commit: e79d6d2
   - Acceptance: PASS（文档结构/字段齐备）
-  - Rollback: revert commit
+  - Rollback: revert e79d6d2
 
 ---
 

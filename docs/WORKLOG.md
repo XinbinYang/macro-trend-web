@@ -41,7 +41,7 @@
   - 若团队不按频率更新，文档会退化为摆设；需在每次上线 checklist 中硬性要求填写。
 - **Rollback**：
   - 文档变更可直接回滚对应 commit（不影响代码逻辑）。
-- **Commit**：TBD
+- **Commit**：e79d6d2
 - **Checkpoint**：v2026-03-14-a
 - **Online Acceptance**：
   - 环境：N/A（文档变更）
