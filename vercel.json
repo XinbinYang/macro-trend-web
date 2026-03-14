@@ -9,5 +9,11 @@
         }
       ]
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/cron/daily-yields",
+      "schedule": "0 22 * * 1-5"
+    }
   ]
 }
