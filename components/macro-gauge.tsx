@@ -173,12 +173,21 @@ export function MacroDashboard() {
       icon: Activity,
     },
     {
-      title: "社融规模(代理)",
-      value: "—",
+      title: "社融增量(当月)",
+      // /api/macro-cn exposes social_financing.value in 亿元; display in 万亿 for readability
+      value: (() => {
+        const v = cn?.series?.social_financing?.value;
+        if (v === null || v === undefined || Number.isNaN(Number(v))) return "—";
+        const t = Number(v) / 10000; // 亿元 -> 万亿
+        return t.toFixed(2);
+      })(),
       unit: "万亿",
       trend: "neutral",
-      level: "medium",
-      description: "待接入：建议来源为 人行/央行口径（AkShare）或您上传 Master；接入前保持 OFF，避免误导。",
+      level: cnStatus === "LIVE" ? "medium" : "medium",
+      description:
+        cnStatus === "LIVE"
+          ? `asOf ${cn?.series.social_financing?.asOf || "-"} · ${cn?.series.social_financing?.source || "-"}`
+          : "数据源未连接或处理中",
       icon: Droplets,
     },
     {
