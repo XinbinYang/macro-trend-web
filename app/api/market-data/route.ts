@@ -211,8 +211,75 @@ async function fetchAllQuotesWithFallback() {
         // For other assets: use ticker field
         const supabaseKey = config.pair || config.ticker;
 
-        // BOND (yields): do NOT query assets_equity; use FRED directly to avoid persistent OFF.
+        // BOND (yields): do NOT query assets_equity; prefer Supabase macro_us daily yields (written by /api/cron/daily-yields).
         if (config.category === "BOND") {
+          // Query Supabase macro_us first
+          try {
+            const supabaseUrl =
+              process.env.SUPABASE_URL ||
+              process.env.NEXT_PUBLIC_SUPABASE_URL ||
+              "https://xmdvozykqwolmfaycgyz.supabase.co";
+            const supabaseKey =
+              process.env.SUPABASE_SERVICE_ROLE_KEY ||
+              process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+              "";
+            if (supabaseKey) {
+              const { createClient } = await import("@supabase/supabase-js");
+              const sb2 = createClient(supabaseUrl, supabaseKey);
+              const fieldMap: Record<string, string> = {
+                US2Y: "yield_2y",
+                US10Y: "yield_10y",
+              };
+              const field = fieldMap[config.ticker];
+              if (field) {
+                // Use concrete selects to keep typing + avoid template-string select errors
+                const { data, error } =
+                  field === "yield_2y"
+                    ? await sb2
+                        .from("macro_us")
+                        .select("date,yield_2y,source,updated_at")
+                        .order("date", { ascending: false })
+                        .limit(1)
+                    : await sb2
+                        .from("macro_us")
+                        .select("date,yield_10y,source,updated_at")
+                        .order("date", { ascending: false })
+                        .limit(1);
+
+                if (!error && data && data[0]) {
+                  const row = data[0] as {
+                    date: string;
+                    yield_2y?: number | string | null;
+                    yield_10y?: number | string | null;
+                    source?: string | null;
+                    updated_at?: string | null;
+                  };
+                  const raw = field === "yield_2y" ? row.yield_2y : row.yield_10y;
+                  const val = typeof raw === "number" ? raw : raw ? Number(raw) : null;
+                  if (Number.isFinite(val)) {
+                    const asOf = String(row.date).slice(0, 10);
+                    return {
+                      symbol: config.ticker,
+                      name: config.name,
+                      price: val,
+                      change: null,
+                      changePercent: null,
+                      timestamp: String(row.updated_at || row.date),
+                      source: String(row.source || "Supabase"),
+                      isIndicative: false,
+                      isStale: isStaleDaily(asOf),
+                      region: config.region,
+                      category: config.category,
+                    };
+                  }
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
+
+          // Fallback to FRED (may be unavailable if api key not configured)
           const map: Record<string, string> = {
             US2Y: FRED_SERIES.TREASURY_2Y,
             US5Y: FRED_SERIES.TREASURY_5Y,
