@@ -1,7 +1,10 @@
 # CURRENT_FOCUS (Do not let agents drift)
 
-## 🎯 本周唯一目标
+## 🎯 本周唯一目标（杨总已确认）
 - **US B1 闭环**：执行 Supabase 迁移 `002_add_us_sofr_core_pce.sql` → `/api/cron/daily-us-policy` 写入 → 宏观页 policy/inflation 主指标恢复显示（并保持可回溯/可审计）。
+
+## 🕶️ 外层页面策略（杨总已确认）
+- **至少 Phase 2 完成后再开外层 Investor Layer**（避免分散资源与烧 token）。
 
 ## 🧱 当前阻塞
 - Browser Relay/Chrome attach 不稳定，无法接管 Supabase SQL Editor 执行 002 迁移。
