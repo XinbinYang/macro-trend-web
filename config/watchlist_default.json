@@ -9,8 +9,8 @@
       "representatives": [
         { "symbol": "000300.SH", "name": "沪深300", "source": "indicative" },
         { "symbol": "000905.SH", "name": "中证500", "source": "indicative" },
-        { "symbol": "^HSTECH", "name": "科创50", "source": "indicative" },
-        { "symbol": "HSI", "name": "恒生指数", "source": "indicative" }
+        { "symbol": "000852.SH", "name": "中证1000", "source": "indicative" },
+        { "symbol": "399006.SZ", "name": "创业板指", "source": "indicative" }
       ]
     },
     "cn_rates": {
@@ -18,10 +18,10 @@
       "name_en": "China Rates",
       "category": "RATES",
       "representatives": [
-        { "symbol": "cn_yield_2y", "name": "中债2年收益率", "source": "indicative" },
-        { "symbol": "cn_yield_5y", "name": "中债5年收益率", "source": "indicative" },
-        { "symbol": "cn_yield_10y", "name": "中债10年收益率", "source": "indicative" },
-        { "symbol": "cn_yield_1y", "name": "中债1年收益率", "source": "indicative" }
+        { "symbol": "CN10Y", "name": "中债10年收益率", "source": "eod" },
+        { "symbol": "CN5Y", "name": "中债5年收益率", "source": "eod" },
+        { "symbol": "CN2Y", "name": "中债2年收益率", "source": "eod" },
+        { "symbol": "CN_CREDIT_SPREAD_5Y", "name": "AAA中短票-国债5Y利差", "source": "eod" }
       ]
     },
     "us_equity": {
@@ -78,7 +78,7 @@
     "cn": {
       "name": "中国",
       "name_en": "China",
-      "symbols": ["000300.SH", "000905.SH", "^HSTECH", "HSI", "cn_yield_2y", "cn_yield_5y", "cn_yield_10y", "cn_yield_1y"],
+      "symbols": ["000300.SH", "000905.SH", "000852.SH", "399006.SZ", "CN10Y", "CN5Y", "CN2Y", "CN_CREDIT_SPREAD_5Y"],
       "aliases": ["china"]
     },
     "hk": {

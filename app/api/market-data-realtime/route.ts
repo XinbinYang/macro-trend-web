@@ -317,33 +317,16 @@ export async function GET() {
       isIndicative: !p.source?.includes("FRED"),
     }));
 
+
     // CN Yield Curve Points (from getCnBondData L2 yieldCurve.maturities)
     const cnYieldCurveQuotes: MarketQuote[] = [];
     if (cnBondData.yieldCurve?.maturities) {
       const maturities = cnBondData.yieldCurve.maturities as Record<string, number>;
       
-      // cn_yield_1y, cn_yield_2y, cn_yield_5y, cn_yield_10y - 中债收益率曲线点位
-      if (maturities["1Y"] !== undefined) {
-        cnYieldCurveQuotes.push({
-          symbol: "cn_yield_1y",
-          name: "中债1年收益率",
-          price: maturities["1Y"],
-          change: 0,
-          changePercent: 0,
-          volume: 0,
-          timestamp: cnBondData.yieldCurve.date || new Date().toISOString(),
-          source: cnBondData.source || "Chinabond/AkShare",
-          region: "CN",
-          category: "BOND",
-          dataType: "EOD" as const,
-          dataSource: cnBondData.status === "LIVE" ? "LIVE" : cnBondData.status === "DELAYED" ? "DELAYED" : "OFF",
-          isIndicative: cnBondData.status !== "LIVE",
-        });
-      }
-      
+      // CN2Y, CN5Y, CN10Y - 中债收益率曲线点位
       if (maturities["2Y"] !== undefined) {
         cnYieldCurveQuotes.push({
-          symbol: "cn_yield_2y",
+          symbol: "CN2Y",
           name: "中债2年收益率",
           price: maturities["2Y"],
           change: 0,
@@ -361,7 +344,7 @@ export async function GET() {
       
       if (maturities["5Y"] !== undefined) {
         cnYieldCurveQuotes.push({
-          symbol: "cn_yield_5y",
+          symbol: "CN5Y",
           name: "中债5年收益率",
           price: maturities["5Y"],
           change: 0,
@@ -379,7 +362,7 @@ export async function GET() {
       
       if (maturities["10Y"] !== undefined) {
         cnYieldCurveQuotes.push({
-          symbol: "cn_yield_10y",
+          symbol: "CN10Y",
           name: "中债10年收益率",
           price: maturities["10Y"],
           change: 0,
@@ -394,14 +377,32 @@ export async function GET() {
           isIndicative: cnBondData.status !== "LIVE",
         });
       }
+      
+      // CN_CREDIT_SPREAD_5Y - AAA中短票5Y-国债5Y利差 (当前无数据源，返回OFF)
+      cnYieldCurveQuotes.push({
+        symbol: "CN_CREDIT_SPREAD_5Y",
+        name: "AAA中短票-国债5Y利差",
+        price: 0,
+        change: 0,
+        changePercent: 0,
+        volume: 0,
+        timestamp: new Date().toISOString(),
+        source: "OFF (AAA曲线数据源暂不可用)",
+        region: "CN",
+        category: "BOND",
+        dataType: "EOD" as const,
+        dataSource: "OFF",
+        isIndicative: true,
+        note: "AAA中短票5Y收益率数据暂不可获取，无法计算利差",
+      });
     } else {
-      // Yield curve unavailable - add indicative quotes for watchlist symbols
-      const watchlistRates = ["cn_yield_1y", "cn_yield_2y", "cn_yield_5y", "cn_yield_10y"];
+      // Yield curve unavailable - add OFF quotes for watchlist symbols
+      const watchlistRates = ["CN2Y", "CN5Y", "CN10Y", "CN_CREDIT_SPREAD_5Y"];
       const rateNames: Record<string, string> = {
-        "cn_yield_1y": "中债1年收益率",
-        "cn_yield_2y": "中债2年收益率",
-        "cn_yield_5y": "中债5年收益率",
-        "cn_yield_10y": "中债10年收益率",
+        "CN2Y": "中债2年收益率",
+        "CN5Y": "中债5年收益率",
+        "CN10Y": "中债10年收益率",
+        "CN_CREDIT_SPREAD_5Y": "AAA中短票-国债5Y利差",
       };
       
       for (const symbol of watchlistRates) {
@@ -413,12 +414,13 @@ export async function GET() {
           changePercent: 0,
           volume: 0,
           timestamp: new Date().toISOString(),
-          source: "OFF",
+          source: symbol === "CN_CREDIT_SPREAD_5Y" ? "OFF (AAA曲线数据源暂不可用)" : "OFF",
           region: "CN",
           category: "BOND",
           dataType: "EOD" as const,
           dataSource: "OFF",
           isIndicative: true,
+          note: symbol === "CN_CREDIT_SPREAD_5Y" ? "AAA中短票5Y收益率数据暂不可获取，无法计算利差" : undefined,
         });
       }
     }
