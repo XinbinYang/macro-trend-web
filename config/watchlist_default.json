@@ -1,6 +1,6 @@
 {
-  "version": "1.1",
-  "description": "24-Item Watchlist Configuration - 6 Risk Units × 4 Representatives (Audited)",
+  "version": "1.2",
+  "description": "24-Item Watchlist Configuration - 6 Risk Units × 4 Representatives (拍板定稿)",
   "riskUnits": {
     "cn_equity": {
       "name": "中股集群",
@@ -9,8 +9,8 @@
       "representatives": [
         { "symbol": "000300.SH", "name": "沪深300", "source": "indicative" },
         { "symbol": "000905.SH", "name": "中证500", "source": "indicative" },
-        { "symbol": "000688.SH", "name": "科创50", "source": "indicative" },
-        { "symbol": "399006.SZ", "name": "创业板指", "source": "indicative" }
+        { "symbol": "^HSTECH", "name": "科创50", "source": "indicative" },
+        { "symbol": "HSI", "name": "恒生指数", "source": "indicative" }
       ]
     },
     "cn_rates": {
@@ -31,7 +31,7 @@
       "representatives": [
         { "symbol": "^NDX", "name": "纳斯达克100", "source": "realtime" },
         { "symbol": "^GSPC", "name": "标普500", "source": "realtime" },
-        { "symbol": "^DJI", "name": "道琼斯", "source": "realtime" },
+        { "symbol": "^RUT", "name": "罗素2000", "source": "realtime" },
         { "symbol": "^VIX", "name": "VIX恐慌指数", "source": "realtime" }
       ]
     },
@@ -40,20 +40,20 @@
       "name_en": "US Rates",
       "category": "RATES",
       "representatives": [
-        { "symbol": "US10Y", "name": "10年期国债", "source": "eod" },
-        { "symbol": "US5Y", "name": "5年期国债", "source": "eod" },
         { "symbol": "US2Y", "name": "2年期国债", "source": "eod" },
+        { "symbol": "US5Y", "name": "5年期国债", "source": "eod" },
+        { "symbol": "US10Y", "name": "10年期国债", "source": "eod" },
         { "symbol": "US30Y", "name": "30年期国债", "source": "eod" }
       ]
     },
     "commodity": {
-      "name": "商品",
-      "name_en": "Commodity",
+      "name": "商品宽基",
+      "name_en": "Commodity Broad",
       "category": "COMMODITY",
       "representatives": [
+        { "symbol": "DJP", "name": "商品指数", "source": "realtime" },
         { "symbol": "CL=F", "name": "WTI原油", "source": "realtime" },
         { "symbol": "HG=F", "name": "铜", "source": "realtime" },
-        { "symbol": "DJP", "name": "商品指数", "source": "realtime" },
         { "symbol": "ZC=F", "name": "玉米", "source": "realtime" }
       ]
     },
@@ -63,7 +63,7 @@
       "category": "COMMODITY",
       "representatives": [
         { "symbol": "GC=F", "name": "黄金期货", "source": "realtime" },
-        { "symbol": "GLD", "name": "黄金ETF", "source": "realtime" },
+        { "symbol": "XAUUSD=X", "name": "现货黄金", "source": "realtime" },
         { "symbol": "SI=F", "name": "白银期货", "source": "realtime" },
         { "symbol": "DX=F", "name": "美元指数DXY", "source": "realtime" }
       ]
@@ -73,24 +73,24 @@
     "us": {
       "name": "美国",
       "name_en": "United States",
-      "symbols": ["^NDX", "^GSPC", "^DJI", "^VIX", "US10Y", "US5Y", "US2Y", "US30Y", "GC=F", "CL=F", "HG=F", "DJP", "GLD", "SI=F", "DX=F"]
+      "symbols": ["^NDX", "^GSPC", "^RUT", "^VIX", "US2Y", "US5Y", "US10Y", "US30Y", "GC=F", "XAUUSD=X", "CL=F", "HG=F", "DJP", "SI=F", "DX=F"]
     },
     "cn": {
       "name": "中国",
       "name_en": "China",
-      "symbols": ["000300.SH", "000905.SH", "000688.SH", "399006.SZ", "cn_yield_2y", "cn_yield_5y", "cn_yield_10y", "cn_yield_1y"],
+      "symbols": ["000300.SH", "000905.SH", "^HSTECH", "HSI", "cn_yield_2y", "cn_yield_5y", "cn_yield_10y", "cn_yield_1y"],
       "aliases": ["china"]
     },
     "hk": {
       "name": "香港",
       "name_en": "Hong Kong",
-      "symbols": ["HSI", "HSCEI", "HSTECH"],
+      "symbols": ["HSI", "HSCEI", "^HSTECH"],
       "aliases": ["hongkong"]
     },
     "global": {
       "name": "全球",
       "name_en": "Global",
-      "symbols": ["DX=F", "ZC=F"]
+      "symbols": ["DX=F", "DJP", "XAUUSD=X"]
     }
   }
 }
