@@ -67,6 +67,7 @@ function mapIndicatorToFetchParams(indicatorId: string): { table: "macro_us" | "
     "us_10y_yield": { table: "macro_us", field: "yield_10y", region: "US" },
     "us_2y_yield": { table: "macro_us", field: "yield_2y", region: "US" },
     "us_m2_yoy": { table: "macro_us", field: "m2_yoy", region: "US" },
+    "us_fci": { table: "macro_us", field: "fci", region: "US" },
     "cn_m2_yoy": { table: "macro_cn", field: "m2_yoy", region: "CN" },
     "cn_shibor_overnight": { table: "macro_cn", field: "shibor_overnight", region: "CN" },
   };

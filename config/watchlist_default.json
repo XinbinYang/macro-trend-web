@@ -9,19 +9,19 @@
       "representatives": [
         { "symbol": "000300.SH", "name": "沪深300", "source": "indicative" },
         { "symbol": "000905.SH", "name": "中证500", "source": "indicative" },
-        { "symbol": "000852.SH", "name": "中证1000", "source": "indicative" },
+        { "symbol": "000852.SH", "name": "中债1000", "source": "indicative" },
         { "symbol": "399006.SZ", "name": "创业板指", "source": "indicative" }
       ]
     },
-    "cn_bond": {
+    "cn_rates": {
       "name": "中债",
-      "name_en": "China Bond",
-      "category": "BOND",
+      "name_en": "China Rates",
+      "category": "RATES",
       "representatives": [
         { "symbol": "TS.CN", "name": "中债10年", "source": "indicative" },
         { "symbol": "TF.CN", "name": "中债5年", "source": "indicative" },
         { "symbol": "T.CN", "name": "中债2年", "source": "indicative" },
-        { "symbol": "TS.CN", "name": "中债10年(农发行)", "source": "indicative" }
+        { "symbol": "TN.CN", "name": "中债1年", "source": "indicative" }
       ]
     },
     "us_equity": {
@@ -32,13 +32,13 @@
         { "symbol": "^NDX", "name": "纳斯达克100", "source": "realtime" },
         { "symbol": "^GSPC", "name": "标普500", "source": "realtime" },
         { "symbol": "^DJI", "name": "道琼斯", "source": "realtime" },
-        { "symbol": "^RUT", "name": "罗素2000", "source": "realtime" }
+        { "symbol": "^VIX", "name": "VIX恐慌指数", "source": "realtime" }
       ]
     },
-    "us_bond": {
+    "us_rates": {
       "name": "美债",
-      "name_en": "US Bond",
-      "category": "BOND",
+      "name_en": "US Rates",
+      "category": "RATES",
       "representatives": [
         { "symbol": "US10Y", "name": "10年期国债", "source": "eod" },
         { "symbol": "US5Y", "name": "5年期国债", "source": "eod" },
@@ -65,7 +65,7 @@
         { "symbol": "GC=F", "name": "黄金期货", "source": "realtime" },
         { "symbol": "GLD", "name": "黄金ETF", "source": "realtime" },
         { "symbol": "SI=F", "name": "白银期货", "source": "realtime" },
-        { "symbol": "PPLT", "name": "铂金ETF", "source": "realtime" }
+        { "symbol": "DX=F", "name": "美元指数DXY", "source": "realtime" }
       ]
     }
   },
@@ -73,12 +73,12 @@
     "us": {
       "name": "美国",
       "name_en": "United States",
-      "symbols": ["^NDX", "^GSPC", "^DJI", "^RUT", "US10Y", "US5Y", "US2Y", "US30Y", "GC=F", "CL=F", "HG=F", "DJP"]
+      "symbols": ["^NDX", "^GSPC", "^DJI", "^VIX", "US10Y", "US5Y", "US2Y", "US30Y", "GC=F", "CL=F", "HG=F", "DJP", "GLD", "SI=F", "DX=F"]
     },
     "cn": {
       "name": "中国",
       "name_en": "China",
-      "symbols": ["000300.SH", "000905.SH", "000852.SH", "399006.SZ", "TS.CN", "TF.CN", "T.CN"],
+      "symbols": ["000300.SH", "000905.SH", "000852.SH", "399006.SZ", "TS.CN", "TF.CN", "T.CN", "TN.CN"],
       "aliases": ["china"]
     },
     "hk": {
@@ -90,7 +90,7 @@
     "global": {
       "name": "全球",
       "name_en": "Global",
-      "symbols": ["DX=F", "EURUSD", "BTC-USD", "GLD", "PPLT"]
+      "symbols": ["EEM", "DX=F"]
     }
   }
 }

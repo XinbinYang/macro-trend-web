@@ -80,7 +80,7 @@
       "indicators": {
         "us": {
           "main": "us_10y_yield",
-          "aux": ["us_2y_yield", "us_m2_yoy"],
+          "aux": ["us_2y_yield", "us_m2_yoy", "us_fci"],
           "thresholds": {
             "strong": 4.0,
             "weak": 4.7,
@@ -269,6 +269,16 @@
       "cadence": "weekly",
       "quality_tag": "Truth",
       "notes": "M2 money supply year-over-year"
+    },
+    "us_fci": {
+      "id": "us_fci",
+      "name": "US Financial Conditions Index",
+      "name_cn": "美国金融条件指数",
+      "unit": "idx",
+      "source": "FED",
+      "cadence": "weekly",
+      "quality_tag": "Truth",
+      "notes": "Fed Financial Conditions Index - broader than just rates"
     },
     "cn_m2_yoy": {
       "id": "cn_m2_yoy",
