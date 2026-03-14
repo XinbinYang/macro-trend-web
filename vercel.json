@@ -16,6 +16,10 @@
       "schedule": "0 22 * * 1-5"
     },
     {
+      "path": "/api/cron/daily-cn-rates",
+      "schedule": "0 10 * * 1-5"
+    },
+    {
       "path": "/api/cron/monthly-cn-policy",
       "schedule": "0 3 20-22 * *"
     }
