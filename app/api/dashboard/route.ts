@@ -23,7 +23,6 @@ import {
 import { fetchIndicator } from "@/lib/api/indicator-fetch-map";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 // Types
 type Regime = "Risk-ON" | "Neutral" | "Risk-OFF";

@@ -3,7 +3,6 @@ import { macroFramework, type MacroFrameworkConfig } from "@/lib/config";
 import { fetchIndicator } from "@/lib/api/indicator-fetch-map";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 
 export type MacroIndicatorStatus = "LIVE" | "STALE" | "OFF";
 type QualityTag = "Truth" | "Indicative";
